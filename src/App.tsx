@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom
 import { Navbar } from "./components/Navbar";
 import { Landing } from "./pages/Landing";
 import { Demo } from "./pages/Demo";
+import { Dashboard } from "./pages/Dashboard";
+import { NewTrip } from "./pages/NewTrip";
+import { Trip } from "./pages/Trip";
 
 // Layout component that includes the Navbar and renders child routes
 function MainLayout() {
@@ -19,30 +22,17 @@ function App() {
       <Routes>
         {/* Main layout wraps all routes that need the navbar */}
         <Route element={<MainLayout />}>
-
-        
           {/* Landing page route */}
           <Route path="/" element={<Landing />} />
           
           {/* Dashboard route */}
-          <Route path="/dashboard" element={
-            <div className="min-h-screen bg-background">
-              <div className="max-w-7xl mx-auto p-6">
-                <h1 className="text-2xl font-bold">Dashboard</h1>
-                {/* Form will go here */}
-              </div>
-            </div>
-            } />
+          <Route path="/dashboard" element={<Dashboard />} />
           
           {/* New trip route */}
-          <Route path="/trip/new" element={
-            <div className="min-h-screen bg-background">
-              <div className="max-w-7xl mx-auto p-6">
-                <h1 className="text-2xl font-bold">Create New Trip</h1>
-                {/* Form will go here */}
-              </div>
-            </div>
-          } />
+          <Route path="/trip/new" element={<NewTrip />} />
+          
+          {/* Individual trip route */}
+          <Route path="/trip/:id" element={<Trip />} />
 
           {/* Demo route */}
           <Route path="/demo" element={<Demo />} />
