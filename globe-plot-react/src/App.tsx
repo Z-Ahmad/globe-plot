@@ -1,18 +1,23 @@
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
+import { Footer } from "./components/Footer";
 import { Landing } from "./pages/Landing";
 import { Demo } from "./pages/Demo";
 import { Dashboard } from "./pages/Dashboard";
 import { NewTrip } from "./pages/NewTrip";
 import { Trip } from "./pages/Trip";
+import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 
 // Layout component that includes the Navbar and renders child routes
 function MainLayout() {
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       <Navbar />
-      <Outlet />
-    </>
+      <div className="flex-grow">
+        <Outlet />
+      </div>
+      <Footer />
+    </div>
   );
 }
 
@@ -36,6 +41,9 @@ function App() {
 
           {/* Demo route */}
           <Route path="/demo" element={<Demo />} />
+          
+          {/* Privacy Policy route */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
           
           {/* Not found route */}
           <Route path="*" element={

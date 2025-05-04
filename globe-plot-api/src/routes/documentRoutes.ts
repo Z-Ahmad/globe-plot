@@ -57,4 +57,29 @@ router.post('/upload', upload.single('document'), documentController.uploadDocum
  */
 router.post('/parse', documentController.parseDocument);
 
+/**
+ * @swagger
+ * /api/documents/parse-mistral:
+ *   post:
+ *     summary: Parse text content with Mistral AI
+ *     tags: [Documents]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Text parsed successfully
+ *       400:
+ *         description: No text provided
+ *       500:
+ *         description: Server error
+ */
+router.post('/parse-mistral', documentController.parseMistral);
+
 export { router as documentRoutes }; 
