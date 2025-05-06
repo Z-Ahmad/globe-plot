@@ -139,7 +139,7 @@ export interface Trip {
 
 // Event styling for UI
 export interface EventStyle {
-  emoji: string;
+  icon: React.ComponentType<any>;
   color: string; // Tailwind color class
   bgColor: string; // Tailwind background color class
   borderColor: string; // Tailwind border color class

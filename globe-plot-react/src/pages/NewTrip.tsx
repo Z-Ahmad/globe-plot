@@ -9,6 +9,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO } from 'date-fns';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
 import { getEventStyle } from '../styles/eventStyles';
+import { EventCard } from "@/components/EventCard";
+import { EventEditor } from "@/components/EventEditor";
+
+// Helper functions for date and time formatting
+const formatDate = (dateStr: string) => {
+  try {
+    return format(parseISO(dateStr), 'MMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
+};
+
+const formatTime = (dateStr: string) => {
+  try {
+    return format(parseISO(dateStr), 'h:mm a');
+  } catch {
+    return dateStr;
+  }
+};
 
 interface DocumentItem {
   file: File;
@@ -162,47 +181,8 @@ export const NewTrip = () => {
     setShowEventEditor(true);
   };
 
-  const handleSaveEventEdit = () => {
-    if (!currentEditingEvent) return;
-    
-    // Create updated event with proper start/end times
-    let updatedEvent = {...currentEditingEvent};
-    
-    // Update the start/end time based on category
-    if (updatedEvent.category === 'accommodation') {
-      // Update start time from check-in time
-      if (updatedEvent.checkIn?.time) {
-        updatedEvent.start = updatedEvent.checkIn.time;
-      }
-      // Update end time from check-out time
-      if (updatedEvent.checkOut?.time) {
-        updatedEvent.end = updatedEvent.checkOut.time;
-      }
-    } else if (updatedEvent.category === 'travel') {
-      // Update start time from departure time
-      if (updatedEvent.departure?.time) {
-        updatedEvent.start = updatedEvent.departure.time;
-      }
-      // Update end time from arrival time
-      if (updatedEvent.arrival?.time) {
-        updatedEvent.end = updatedEvent.arrival.time;
-      }
-    } else if (updatedEvent.category === 'experience') {
-      // Update start time from startTime
-      if (updatedEvent.startTime) {
-        updatedEvent.start = updatedEvent.startTime;
-      }
-      // Update end time from endTime
-      if (updatedEvent.endTime) {
-        updatedEvent.end = updatedEvent.endTime;
-      }
-    } else if (updatedEvent.category === 'meal') {
-      // For meals, use the same time for both start and end
-      if (updatedEvent.time) {
-        updatedEvent.start = updatedEvent.time;
-        updatedEvent.end = updatedEvent.time;
-      }
-    }
+  const handleSaveEventEdit = (updatedEvent: Event) => {
+    if (!updatedEvent) return;
     
     // Update the event in the state
     const updatedEvents = editingEvents.map(event => 
@@ -317,53 +297,53 @@ export const NewTrip = () => {
     <main className='max-w-2xl mx-auto p-6'>
       {currentStep === 'form' ? (
         // Form step
-        <div className="bg-card border border-border rounded-lg p-8">
-          <h1 className='text-2xl font-bold mb-6'>Create New Trip</h1>
-          
+      <div className="bg-card border border-border rounded-lg p-8">
+        <h1 className='text-2xl font-bold mb-6'>Create New Trip</h1>
+        
           <form onSubmit={(e) => { e.preventDefault(); handleReviewEvents(); }}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1" htmlFor="name">
-                Trip Name
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1" htmlFor="name">
+              Trip Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-input rounded-md px-3 py-2 bg-background"
+              placeholder="European Adventure"
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="startDate">
+                Start Date
               </label>
               <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="w-full border border-input rounded-md px-3 py-2 bg-background"
-                placeholder="European Adventure"
                 required
               />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="startDate">
-                  Start Date
-                </label>
-                <input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border border-input rounded-md px-3 py-2 bg-background"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="endDate">
-                  End Date
-                </label>
-                <input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border border-input rounded-md px-3 py-2 bg-background"
-                  required
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="endDate">
+                End Date
+              </label>
+              <input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full border border-input rounded-md px-3 py-2 bg-background"
+                required
+              />
             </div>
+          </div>
             
             <div className="mb-6 border border-dashed border-input rounded-md p-4">
               <div className="mb-3">
@@ -468,19 +448,19 @@ export const NewTrip = () => {
                     </ul>
                   </div>
                 )}
-              </div>
             </div>
-            
-            <div className="flex justify-end">
-              <button 
-                type="button" 
-                className="mr-2 px-4 py-2 border border-border rounded-full text-foreground"
-                onClick={() => navigate('/dashboard')}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
+          </div>
+          
+          <div className="flex justify-end">
+            <button 
+              type="button" 
+              className="mr-2 px-4 py-2 border border-border rounded-full text-foreground"
+              onClick={() => navigate('/dashboard')}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-full"
                 disabled={isProcessing || hasProcessingDocuments || !name || !startDate || !endDate}
               >
@@ -491,161 +471,29 @@ export const NewTrip = () => {
         </div>
       ) : (
         // Review step
-        <div className="bg-card border border-border rounded-lg p-8">
-          <h1 className='text-2xl font-bold mb-6'>Review Trip: {name}</h1>
-          <p className='text-muted-foreground mb-6'>
-            {startDate} to {endDate} • {editingEvents.length} events
-          </p>
+        <div className="bg-card p-6 rounded-lg border border-border">
+          <h2 className="text-2xl font-semibold mb-4">Review Trip: {name}</h2>
           
-          <div className="space-y-4 my-4">
+          {/* Event review section */}
+          <div className="space-y-4">
             {editingEvents.length === 0 ? (
-              <div className="text-center py-6">
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-primary text-2xl">🗓️</span>
+                </div>
+                <h2 className="text-xl font-semibold mb-2">No events found</h2>
                 <p className="text-muted-foreground">No events found. Try processing more documents.</p>
               </div>
             ) : (
-              editingEvents.map(event => {
-                const { emoji, bgColor, borderColor, color } = getEventStyle(event);
-                return (
-                  <div key={event.id} className={`p-5 border rounded-lg shadow-sm ${borderColor} ${bgColor}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl mr-2">{emoji}</span>
-                        <span className={`font-semibold text-lg ${color}`}>{event.title}</span>
-                        <span className="text-xs bg-white/70 text-muted-foreground px-2 py-0.5 rounded-full">
-                          {event.category} / {event.type}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEditEvent(event)} className="text-xs hover:bg-secondary text-secondary-foreground px-2 py-1 rounded">
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDeleteEvent(event.id)} className="text-xs hover:bg-destructive/10 text-destructive px-2 py-1 rounded">
-                          <Trash2Icon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground mb-1">
-                      {event.city}, {event.country}
-                    </div>
-
-                    {/* Travel Events */}
-                    {event.category === "travel" && (
-                      <div className="mt-2 text-xs">
-                        {event.type === "flight" && (
-                          <>
-                            <div>
-                              Flight: {event.flightNumber} {event.airline && `(${event.airline})`}
-                            </div>
-                            {event.departure && (
-                              <div>
-                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.arrival && (
-                              <div>
-                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.seat && <div>Seat: {event.seat}</div>}
-                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                          </>
-                        )}
-                        {/* Other travel types */}
-                        {event.type === "train" && (
-                          <>
-                            <div>
-                              Train: {event.trainNumber} {event.company && `(${event.company})`}
-                            </div>
-                            {event.departure && (
-                              <div>
-                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.arrival && (
-                              <div>
-                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.seat && <div>Seat: {event.seat}</div>}
-                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                          </>
-                        )}
-                        {event.type === "bus" && (
-                          <>
-                            <div>Bus: {event.company}</div>
-                            {event.departure && (
-                              <div>
-                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.arrival && (
-                              <div>
-                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                          </>
-                        )}
-                        {event.type === "car" && (
-                          <>
-                            <div>Car Rental: {event.company}</div>
-                            {event.departure && (
-                              <div>
-                                Pick-up: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.arrival && (
-                              <div>
-                                Drop-off: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
-                              </div>
-                            )}
-                            {event.carType && <div>Car Type: {event.carType}</div>}
-                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Accommodation Events */}
-                    {event.category === "accommodation" && (
-                      <div className="mt-2 text-xs">
-                        <div>Place: {event.placeName}</div>
-                        {event.checkIn && (
-                          <div>
-                            Check-in: {event.checkIn.location?.name} @ {format(parseISO(event.checkIn.time), "MMM d, yyyy h:mm a")}
-                          </div>
-                        )}
-                        {event.checkOut && (
-                          <div>
-                            Check-out: {event.checkOut.location?.name} @ {format(parseISO(event.checkOut.time), "MMM d, yyyy h:mm a")}
-                          </div>
-                        )}
-                        {event.roomNumber && <div>Room: {event.roomNumber}</div>}
-                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                      </div>
-                    )}
-
-                    {/* Experience Events */}
-                    {event.category === "experience" && (
-                      <div className="mt-2 text-xs">
-                        {event.location && <div>Location: {event.location.name}</div>}
-                        {event.startTime && <div>Start: {format(parseISO(event.startTime), "MMM d, yyyy h:mm a")}</div>}
-                        {event.endTime && <div>End: {format(parseISO(event.endTime), "MMM d, yyyy h:mm a")}</div>}
-                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                      </div>
-                    )}
-
-                    {/* Meal Events */}
-                    {event.category === "meal" && (
-                      <div className="mt-2 text-xs">
-                        {event.location && <div>Location: {event.location.name}</div>}
-                        {event.time && <div>Time: {format(parseISO(event.time), "MMM d, yyyy h:mm a")}</div>}
-                        {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+              editingEvents.map(event => (
+                <EventCard 
+                  key={event.id} 
+                  event={event} 
+                  showEditControls={true}
+                  onEdit={handleEditEvent}
+                  onDelete={handleDeleteEvent}
+                />
+              ))
             )}
           </div>
           
@@ -670,193 +518,12 @@ export const NewTrip = () => {
       )}
 
       {/* Event Editor Dialog */}
-      {showEventEditor && currentEditingEvent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">Edit Event</h2>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Title</label>
-                <Input 
-                  value={currentEditingEvent.title} 
-                  onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, title: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">City</label>
-                  <Input 
-                    value={currentEditingEvent.city} 
-                    onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, city: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Country</label>
-                  <Input 
-                    value={currentEditingEvent.country} 
-                    onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, country: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              {/* Category-specific fields */}
-              {currentEditingEvent.category === 'travel' && (
-                <>
-                  {/* Flight-specific fields */}
-                  {currentEditingEvent.type === 'flight' && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Airline</label>
-                          <Input 
-                            value={currentEditingEvent.airline || ''} 
-                            onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, airline: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Flight Number</label>
-                          <Input 
-                            value={currentEditingEvent.flightNumber || ''} 
-                            onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, flightNumber: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Departure */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Departure</label>
-                        <Input 
-                          type="datetime-local"
-                          value={currentEditingEvent.departure?.time ? currentEditingEvent.departure.time.slice(0, 16) : ''} 
-                          onChange={(e) => {
-                            const updatedEvent = {
-                              ...currentEditingEvent, 
-                              departure: {
-                                ...currentEditingEvent.departure,
-                                time: e.target.value
-                              },
-                              // Also update start time
-                              start: e.target.value
-                            };
-                            setCurrentEditingEvent(updatedEvent);
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Arrival */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Arrival</label>
-                        <Input 
-                          type="datetime-local"
-                          value={currentEditingEvent.arrival?.time ? currentEditingEvent.arrival.time.slice(0, 16) : ''} 
-                          onChange={(e) => {
-                            const updatedEvent = {
-                              ...currentEditingEvent, 
-                              arrival: {
-                                ...currentEditingEvent.arrival,
-                                time: e.target.value
-                              },
-                              // Also update end time
-                              end: e.target.value
-                            };
-                            setCurrentEditingEvent(updatedEvent);
-                          }}
-                        />
-                      </div>
-
-                      {/* Rest of travel type fields */}
-                    </>
-                  )}
-                </>
-              )}
-              
-              {currentEditingEvent.category === 'accommodation' && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Place Name</label>
-                    <Input 
-                      value={currentEditingEvent.placeName || ''} 
-                      onChange={(e) => setCurrentEditingEvent({...currentEditingEvent, placeName: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Check-in</label>
-                      <Input 
-                        type="datetime-local"
-                        value={currentEditingEvent.checkIn?.time ? currentEditingEvent.checkIn.time.slice(0, 16) : ''} 
-                        onChange={(e) => {
-                          const updatedEvent = {
-                            ...currentEditingEvent, 
-                            checkIn: {
-                              ...currentEditingEvent.checkIn,
-                              time: e.target.value
-                            },
-                            // Also update start time automatically
-                            start: e.target.value
-                          };
-                          setCurrentEditingEvent(updatedEvent);
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Check-out</label>
-                      <Input 
-                        type="datetime-local"
-                        value={currentEditingEvent.checkOut?.time ? currentEditingEvent.checkOut.time.slice(0, 16) : ''} 
-                        onChange={(e) => {
-                          const updatedEvent = {
-                            ...currentEditingEvent, 
-                            checkOut: {
-                              ...currentEditingEvent.checkOut,
-                              time: e.target.value
-                            },
-                            // Also update end time automatically
-                            end: e.target.value
-                          };
-                          setCurrentEditingEvent(updatedEvent);
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Rest of accommodation fields */}
-                </>
-              )}
-              
-              {/* Other event types similar to above */}
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes</label>
-                <Textarea 
-                  value={currentEditingEvent.notes || ''} 
-                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setCurrentEditingEvent({...currentEditingEvent, notes: e.target.value})}
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                type="button"
-                onClick={() => setShowEventEditor(false)}
-                className="mr-2 px-4 py-2 border border-border rounded-full text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveEventEdit}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-full"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EventEditor
+        event={currentEditingEvent}
+        isOpen={showEventEditor}
+        onClose={() => setShowEventEditor(false)}
+        onSave={handleSaveEventEdit}
+      />
     </main>
   );
 };
