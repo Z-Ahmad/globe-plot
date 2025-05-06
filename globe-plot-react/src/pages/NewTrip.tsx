@@ -1,30 +1,184 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTripStore } from '../stores/tripStore';
+import { useTripStore, Trip } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
+
+interface DocumentItem {
+  file: File;
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  error?: string;
+  events: any[];
+}
 
 export const NewTrip = () => {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL;
+  
   const navigate = useNavigate();
   const { addTrip } = useTripStore();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newDocuments = Array.from(files).map(file => ({
+        file,
+        id: uuidv4(),
+        status: 'pending' as const,
+        events: []
+      }));
+      
+      setDocuments(prev => [...prev, ...newDocuments]);
+    }
+  };
+
+  const handleRemoveDocument = (id: string) => {
+    setDocuments(prev => prev.filter(doc => doc.id !== id));
+  };
+
+  const handleProcessDocument = async (docId: string) => {
+    const documentToProcess = documents.find(doc => doc.id === docId);
+    if (!documentToProcess) return;
+
+    // Update status to processing
+    setDocuments(prev => prev.map(doc => 
+      doc.id === docId ? { ...doc, status: 'processing' as const } : doc
+    ));
+
+    try {
+      // First, upload the document
+      const formData = new FormData();
+      formData.append('document', documentToProcess.file);
+
+      const uploadResponse = await fetch(`${API_URL}/api/documents/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload document');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      
+      // Then, parse the text with Mistral
+      const parseResponse = await fetch(`${API_URL}/api/documents/parse-mistral`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: uploadResult.text }),
+      });
+
+      if (!parseResponse.ok) {
+        throw new Error('Failed to parse document');
+      }
+
+      const parsedData = await parseResponse.json();
+      
+      // Update document with parsed events and completed status
+      setDocuments(prev => prev.map(doc => 
+        doc.id === docId 
+          ? { 
+              ...doc, 
+              status: 'completed' as const, 
+              events: parsedData.events || [] 
+            } 
+          : doc
+      ));
+    } catch (error) {
+      console.error('Error processing document:', error);
+      // Update document with error status
+      setDocuments(prev => prev.map(doc => 
+        doc.id === docId 
+          ? { 
+              ...doc, 
+              status: 'error' as const, 
+              error: error instanceof Error ? error.message : 'Failed to process document'
+            } 
+          : doc
+      ));
+    }
+  };
+
+  const handleProcessAllDocuments = async () => {
+    setIsProcessing(true);
+    
+    const pendingDocs = documents.filter(doc => doc.status === 'pending');
+    
+    for (const doc of pendingDocs) {
+      await handleProcessDocument(doc.id);
+    }
+    
+    setIsProcessing(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name || !startDate || !endDate) return;
     
-    const newTrip = {
-      id: uuidv4(),
+    // Generate a unique ID for the trip
+    const tripId = uuidv4();
+    
+    // Process all uploaded documents
+    const tripDocuments = documents.map(doc => ({
+      id: doc.id,
+      name: doc.file.name,
+      type: determineDocumentType(doc.file),
+      url: URL.createObjectURL(doc.file),
+      associatedEvents: [] as string[]
+    }));
+    
+    // Get all events from all processed documents (flat array)
+    const allEvents = documents.flatMap(doc => 
+      doc.events.map(event => ({
+        ...event,
+        id: uuidv4()
+      }))
+    );
+    
+    // Create new trip with all required properties (no stops)
+    const newTrip: Trip = {
+      id: tripId,
       name,
       dateRange: `${startDate} - ${endDate}`,
-      stops: []
+      events: allEvents,
+      documents: tripDocuments
     };
     
     addTrip(newTrip);
     navigate('/dashboard');
   };
+  
+  // Helper function to determine document type
+  const determineDocumentType = (file: File): "pdf" | "email" | "image" => {
+    const mimeType = file.type.toLowerCase();
+    
+    if (mimeType.includes('pdf')) {
+      return 'pdf';
+    } else if (mimeType.includes('message') || mimeType.includes('eml') || mimeType.includes('email')) {
+      return 'email';
+    } else {
+      return 'image';
+    }
+  };
+
+  // Count total events across all documents
+  const totalEvents = documents.reduce((sum, doc) => sum + doc.events.length, 0);
+  
+  // Check if any documents are still processing
+  const hasProcessingDocuments = documents.some(doc => doc.status === 'processing');
+  
+  // Count documents by status
+  const pendingCount = documents.filter(doc => doc.status === 'pending').length;
+  const completedCount = documents.filter(doc => doc.status === 'completed').length;
+  const errorCount = documents.filter(doc => doc.status === 'error').length;
   
   return (
     <main className='max-w-2xl mx-auto p-6'>
@@ -76,6 +230,112 @@ export const NewTrip = () => {
             </div>
           </div>
           
+          <div className="mb-6 border border-dashed border-input rounded-md p-4">
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-1">
+                Add Travel Documents (Optional)
+              </label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Upload trip confirmations to automatically extract flight, hotel, and activity details.
+              </p>
+            </div>
+            
+            <div className="flex flex-col space-y-3">
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="text-sm"
+                accept=".pdf,.eml,.txt,image/*"
+                multiple
+              />
+              
+              {documents.length > 0 && (
+                <div className="flex flex-col space-y-4 mt-2">
+                  <div className="text-sm font-medium">
+                    Documents ({documents.length})
+                    {pendingCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleProcessAllDocuments}
+                        disabled={isProcessing || hasProcessingDocuments}
+                        className="ml-4 px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-xs hover:bg-secondary/90 transition-colors"
+                      >
+                        {isProcessing ? 'Processing...' : 'Process All'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Status summary */}
+                  {documents.length > 0 && (
+                    <div className="flex text-xs space-x-3 text-muted-foreground">
+                      {pendingCount > 0 && <span>⏳ {pendingCount} pending</span>}
+                      {completedCount > 0 && <span className="text-green-600">✓ {completedCount} completed</span>}
+                      {errorCount > 0 && <span className="text-red-500">✗ {errorCount} failed</span>}
+                      {totalEvents > 0 && <span className="text-primary">🗓 {totalEvents} events found</span>}
+                    </div>
+                  )}
+                  
+                  <ul className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {documents.map(doc => (
+                      <li key={doc.id} className="text-sm border border-border rounded-md p-2 bg-background">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center space-x-2">
+                            {doc.status === 'pending' && <span className="text-muted-foreground">⏳</span>}
+                            {doc.status === 'processing' && <span className="text-blue-500">⟳</span>}
+                            {doc.status === 'completed' && <span className="text-green-600">✓</span>}
+                            {doc.status === 'error' && <span className="text-red-500">✗</span>}
+                            <span>{doc.file.name}</span>
+                          </div>
+                          <div className="flex space-x-1">
+                            {doc.status === 'pending' && (
+                              <button
+                                type="button"
+                                onClick={() => handleProcessDocument(doc.id)}
+                                disabled={isProcessing || hasProcessingDocuments}
+                                className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded hover:bg-secondary/90"
+                              >
+                                Process
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(doc.id)}
+                              className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded hover:bg-destructive/20"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Error message */}
+                        {doc.status === 'error' && doc.error && (
+                          <div className="mt-1 text-xs text-red-500">{doc.error}</div>
+                        )}
+                        
+                        {/* Found events */}
+                        {doc.status === 'completed' && doc.events.length > 0 && (
+                          <div className="mt-1 ml-6">
+                            <span className="text-xs font-medium text-green-600">
+                              Found {doc.events.length} events
+                            </span>
+                            <ul className="text-xs text-muted-foreground mt-1 ml-2">
+                              {doc.events.slice(0, 2).map((event, i) => (
+                                <li key={i}>• {event.type}: {event.title}</li>
+                              ))}
+                              {doc.events.length > 2 && (
+                                <li>• ...and {doc.events.length - 2} more</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+          
           <div className="flex justify-end">
             <button 
               type="button" 
@@ -87,6 +347,7 @@ export const NewTrip = () => {
             <button 
               type="submit" 
               className="px-4 py-2 bg-primary text-primary-foreground rounded-full"
+              disabled={isProcessing || hasProcessingDocuments}
             >
               Create Trip
             </button>

@@ -55,7 +55,7 @@ router.post('/upload', upload.single('document'), documentController.uploadDocum
  *       500:
  *         description: Server error
  */
-router.post('/parse', documentController.parseDocument);
+// router.post('/parse', documentController.parseDocument);
 
 /**
  * @swagger

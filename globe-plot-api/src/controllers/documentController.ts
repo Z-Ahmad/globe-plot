@@ -7,12 +7,12 @@ import { Mistral } from '@mistralai/mistralai';
 // Load environment variables
 dotenv.config();
 
-console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '***' : 'undefined');
+// console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '***' : 'undefined');
 console.log('Mistral API Key:', process.env.MISTRAL_API_KEY ? '***' : 'undefined');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY
+// });
 
 const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY || ''
@@ -33,73 +33,79 @@ export const documentController = {
     }
   },
 
-  parseDocument: async (req: Request, res: Response) => {
-    try {
-      const { text } = req.body;
-      if (!text) {
-        return res.status(400).json({ error: 'No text provided' });
-      }
+//   parseDocument: async (req: Request, res: Response) => {
+//     try {
+//       const { text } = req.body;
+//       if (!text) {
+//         return res.status(400).json({ error: 'No text provided' });
+//       }
 
-      const prompt = `Extract travel information from the following text. Look for flights, hotels, activities, and other travel-related events. For each event, extract:
-- Type (flight, hotel, activity, etc.)
-- Dates and times
-- Locations
-- Booking references
-- Additional details specific to the event type
+//       const prompt = `Extract travel information from the following text. Look for flights, hotels, activities, and other travel-related events. For each event, extract:
+// - Type (flight, hotel, activity, etc.)
+// - Dates and times
+// - City and country (ALWAYS include both, even if you have to infer or guess from the location name or context)
+// - Location name/address
+// - Booking references
+// - Additional details specific to the event type
 
-Text: ${text}
+// For every event, always include:
+// - "city": "string" (e.g., "Paris")
+// - "country": "string" (e.g., "France")
 
-Return the data in JSON format matching this structure:
-{
-  "events": [
-    {
-      "type": "flight|hotel|activity|transit|meal",
-      "title": "string",
-      "departure": {
-        "time": "string",
-        "location": {
-          "name": "string",
-          "coordinates": { "lat": number, "lng": number } // optional
-        }
-      },
-      "arrival": {
-        "time": "string",
-        "location": {
-          "name": "string",
-          "coordinates": { "lat": number, "lng": number } // optional
-        }
-      },
-      "bookingReference": "string",
-      "additionalDetails": {
-        // type-specific details
-      }
-    }
-  ]
-}
-IMPORTANT: RETURN ONLY THE JSON OBJECT, NOTHING ELSE. IF NO INFORMATION IS ABLE TO BE EXTRACTED, RETURN AN EMPTY ARRAY.
-`;
+// Text: ${text}
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: "You are a travel document parser. Extract travel information and return it in structured JSON format." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.1,
-      });
+// Return the data in JSON format matching this structure:
+// {
+//   "events": [
+//     {
+//       "type": "flight|hotel|activity|transit|meal",
+//       "title": "string",
+//       "city": "string",
+//       "country": "string",
+//       "departure": {
+//         "time": "string",
+//         "location": {
+//           "name": "string",
+//           "coordinates": { "lat": number, "lng": number } // optional
+//         }
+//       },
+//       "arrival": {
+//         "time": "string",
+//         "location": {
+//           "name": "string",
+//           "coordinates": { "lat": number, "lng": number } // optional
+//         }
+//       },
+//       "bookingReference": "string",
+//       "additionalDetails": {
+//         // type-specific details
+//       }
+//     }
+//   ]
+// }
+// IMPORTANT: RETURN ONLY THE JSON OBJECT, NOTHING ELSE. IF NO INFORMATION IS ABLE TO BE EXTRACTED, RETURN AN EMPTY ARRAY.`;
 
-      const response = completion.choices[0].message.content;
-      if (!response) {
-        throw new Error('No response from OpenAI');
-      }
+//       const completion = await openai.chat.completions.create({
+//         model: "gpt-4",
+//         messages: [
+//           { role: "system", content: "You are a travel document parser. Extract travel information and return it in structured JSON format." },
+//           { role: "user", content: prompt }
+//         ],
+//         temperature: 0.1,
+//       });
 
-      const parsedData = JSON.parse(response);
-      res.json(parsedData);
-    } catch (error) {
-      console.error('Error parsing document:', error);
-      res.status(500).json({ error: 'Failed to parse document' });
-    }
-  },
+//       const response = completion.choices[0].message.content;
+//       if (!response) {
+//         throw new Error('No response from OpenAI');
+//       }
+
+//       const parsedData = JSON.parse(response);
+//       res.json(parsedData);
+//     } catch (error) {
+//       console.error('Error parsing document:', error);
+//       res.status(500).json({ error: 'Failed to parse document' });
+//     }
+//   },
   
   parseMistral: async (req: Request, res: Response) => {
     try {
@@ -110,6 +116,18 @@ IMPORTANT: RETURN ONLY THE JSON OBJECT, NOTHING ELSE. IF NO INFORMATION IS ABLE 
 
       const prompt = `Extract travel information from the following text. Look for flights (including layovers), hotels, activities, meals, and transit options. Each event should be correctly categorized based on its type.
 
+For each event, ALWAYS extract:
+- Type (flight, hotel, activity, meal, transit, etc.)
+- Dates and times
+- City and country (ALWAYS include both, even if you have to infer or guess from the location name or context)
+- Location name/address
+- Booking references
+- Additional details specific to the event type
+
+For every event, always include:
+- "city": "string" (e.g., "Paris")
+- "country": "string" (e.g., "France")
+
 Text: ${text}
 
 Return the data in JSON format matching this structure:
@@ -118,7 +136,8 @@ Return the data in JSON format matching this structure:
     {
       "type": "flight", // Must be one of: flight, hotel, activity, meal, transit
       "title": "Short descriptive title",
-      
+      "city": "string",
+      "country": "string",
       // Flight event
       "airline": "Airline name", // Required for flight
       "flightNumber": "Flight number", // Required for flight
@@ -126,7 +145,7 @@ Return the data in JSON format matching this structure:
         "time": "ISO date string", // e.g., "2025-06-15T07:45:00"
         "location": {
           "name": "Airport or city name", // Include airport code if available
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         },
         "terminal": "Terminal info" // Optional
       },
@@ -134,7 +153,7 @@ Return the data in JSON format matching this structure:
         "time": "ISO date string", // e.g., "2025-06-15T13:00:00"
         "location": {
           "name": "Airport or city name", // Include airport code if available
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         },
         "terminal": "Terminal info" // Optional
       },
@@ -143,23 +162,24 @@ Return the data in JSON format matching this structure:
       "notes": "Additional notes" // Optional
     },
     {
-      "type": "hotel", // Must be one of: flight, hotel, activity, meal, transit
+      "type": "hotel",
       "title": "Short descriptive title",
-      
+      "city": "string",
+      "country": "string",
       // Hotel event
       "hotelName": "Name of hotel", // Required for hotel
       "checkIn": {
-        "time": "ISO date string", // e.g., "2025-06-19T15:00:00"
+        "time": "ISO date string",
         "location": {
           "name": "Hotel address or location name",
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         }
       },
       "checkOut": {
-        "time": "ISO date string", // e.g., "2025-06-23T12:00:00"
+        "time": "ISO date string",
         "location": {
           "name": "Hotel address or location name",
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         }
       },
       "bookingReference": "Reference code", // Optional
@@ -167,23 +187,24 @@ Return the data in JSON format matching this structure:
       "notes": "Additional notes" // Optional
     },
     {
-      "type": "transit", // Must be one of: flight, hotel, activity, meal, transit
+      "type": "transit",
       "title": "Short descriptive title",
-      
+      "city": "string",
+      "country": "string",
       // Transit event
       "mode": "train", // Required for transit: one of train, bus, ferry, car
       "departure": {
-        "time": "ISO date string", // e.g., "2025-06-15T14:30:00"
+        "time": "ISO date string",
         "location": {
           "name": "Departure station/location",
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         }
       },
       "arrival": {
-        "time": "ISO date string", // e.g., "2025-06-15T16:45:00"
+        "time": "ISO date string",
         "location": {
           "name": "Arrival station/location",
-          "coordinates": { "lat": number, "lng": number } // Optional
+          "country": "Country name" // Optional
         }
       },
       "bookingReference": "Reference code", // Optional
@@ -191,28 +212,30 @@ Return the data in JSON format matching this structure:
       "notes": "Additional notes" // Optional
     },
     {
-      "type": "activity", // Must be one of: flight, hotel, activity, meal, transit
+      "type": "activity",
       "title": "Short descriptive title",
-      
+      "city": "string",
+      "country": "string",
       // Activity event
-      "startTime": "ISO date string", // e.g., "2025-06-20T09:00:00"
-      "endTime": "ISO date string", // e.g., "2025-06-20T12:00:00"
+      "startTime": "ISO date string",
+      "endTime": "ISO date string",
       "location": {
         "name": "Activity location",
-        "coordinates": { "lat": number, "lng": number } // Optional
+        "country": "Country name" // Optional
       },
       "bookingReference": "Reference code", // Optional
       "notes": "Additional notes" // Optional
     },
     {
-      "type": "meal", // Must be one of: flight, hotel, activity, meal, transit
+      "type": "meal",
       "title": "Short descriptive title",
-      
+      "city": "string",
+      "country": "string",
       // Meal event
-      "time": "ISO date string", // e.g., "2025-06-20T19:30:00"
+      "time": "ISO date string",
       "location": {
         "name": "Restaurant or location name",
-        "coordinates": { "lat": number, "lng": number } // Optional
+        "country": "Country name" // Optional
       },
       "reservationReference": "Reference code", // Optional
       "notes": "Additional notes" // Optional
@@ -222,12 +245,18 @@ Return the data in JSON format matching this structure:
 
 IMPORTANT INSTRUCTIONS:
 1. Include ALL required fields for the specific event type
-2. For flight events, always include airline and flight number if available
-3. For hotel events, always include hotelName
-4. For transit events, always specify the mode of transportation
-5. Where dates/times are mentioned, use ISO format (YYYY-MM-DDTHH:MM:SS)
-6. RETURN ONLY THE JSON OBJECT, NOTHING ELSE
-7. IF NO INFORMATION IS ABLE TO BE EXTRACTED, RETURN {"events": []}`;
+2. For every event, always include:
+- "category": "travel|accommodation|experience|meal"
+- "type": "flight|train|car|boat|bus|hotel|hostel|airbnb|activity|tour|museum|concert|restaurant|other"
+- "city": "string"
+- "country": "string"
+3. For flight events, always include airline and flight number if available
+4. For hotel events, always include hotelName
+5. For transit events, always specify the mode of transportation
+6. Where dates/times are mentioned, use ISO format (YYYY-MM-DDTHH:MM:SS)
+7. ALWAYS include both city and country for every event, even if you have to infer or guess
+8. RETURN ONLY THE JSON OBJECT, NOTHING ELSE
+9. IF NO INFORMATION IS ABLE TO BE EXTRACTED, RETURN {"events": []}`;
 
       // @ts-ignore - Temporarily ignore type checking for Mistral SDK
       const chatResponse = await mistral.chat.complete({
@@ -261,6 +290,9 @@ IMPORTANT INSTRUCTIONS:
         contentStr = Array.isArray(content) ? content.join('') : String(content);
       }
 
+      // Remove code block formatting if present (```json ... ```)
+      contentStr = contentStr.replace(/```(json|javascript)?\s*/, '').replace(/\s*```\s*$/, '');
+
       // Try to parse the response as JSON
       try {
         const parsedData = JSON.parse(contentStr);
@@ -272,8 +304,13 @@ IMPORTANT INSTRUCTIONS:
         const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const extractedJson = jsonMatch[0];
-          const parsedData = JSON.parse(extractedJson);
-          res.json(parsedData);
+          try {
+            const parsedData = JSON.parse(extractedJson);
+            res.json(parsedData);
+          } catch (innerError) {
+            console.error('Failed to parse extracted JSON:', innerError);
+            throw new Error('Could not parse JSON from response');
+          }
         } else {
           throw new Error('Could not extract valid JSON from response');
         }
