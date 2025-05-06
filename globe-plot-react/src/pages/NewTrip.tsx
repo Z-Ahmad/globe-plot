@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO } from 'date-fns';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
+import { getEventStyle } from '../styles/eventStyles';
 
 interface DocumentItem {
   file: File;
@@ -502,133 +503,149 @@ export const NewTrip = () => {
                 <p className="text-muted-foreground">No events found. Try processing more documents.</p>
               </div>
             ) : (
-              editingEvents.map(event => (
-                <div key={event.id} className="p-5 border border-border rounded-lg bg-white shadow-sm">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-lg">{event.title}</span>
-                      <span className="text-xs bg-muted/40 text-muted-foreground px-2 py-0.5 rounded-full">
-                        {event.category} / {event.type}
-                      </span>
+              editingEvents.map(event => {
+                const { emoji, bgColor, borderColor, color } = getEventStyle(event);
+                return (
+                  <div key={event.id} className={`p-5 border rounded-lg shadow-sm ${borderColor} ${bgColor}`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl mr-2">{emoji}</span>
+                        <span className={`font-semibold text-lg ${color}`}>{event.title}</span>
+                        <span className="text-xs bg-white/70 text-muted-foreground px-2 py-0.5 rounded-full">
+                          {event.category} / {event.type}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditEvent(event)} className="text-xs hover:bg-secondary text-secondary-foreground px-2 py-1 rounded">
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteEvent(event.id)} className="text-xs hover:bg-destructive/10 text-destructive px-2 py-1 rounded">
+                          <Trash2Icon className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleEditEvent(event)}
-                        className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded hover:bg-secondary/90"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteEvent(event.id)}
-                        className="text-xs text-destructive px-2 py-1 rounded"
-                      >
-                        <Trash2Icon className="w-4 h-4" />
-                      </button>
+                    <div className="text-sm text-muted-foreground mb-1">
+                      {event.city}, {event.country}
                     </div>
+
+                    {/* Travel Events */}
+                    {event.category === "travel" && (
+                      <div className="mt-2 text-xs">
+                        {event.type === "flight" && (
+                          <>
+                            <div>
+                              Flight: {event.flightNumber} {event.airline && `(${event.airline})`}
+                            </div>
+                            {event.departure && (
+                              <div>
+                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.arrival && (
+                              <div>
+                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.seat && <div>Seat: {event.seat}</div>}
+                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                          </>
+                        )}
+                        {/* Other travel types */}
+                        {event.type === "train" && (
+                          <>
+                            <div>
+                              Train: {event.trainNumber} {event.company && `(${event.company})`}
+                            </div>
+                            {event.departure && (
+                              <div>
+                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.arrival && (
+                              <div>
+                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.seat && <div>Seat: {event.seat}</div>}
+                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                          </>
+                        )}
+                        {event.type === "bus" && (
+                          <>
+                            <div>Bus: {event.company}</div>
+                            {event.departure && (
+                              <div>
+                                Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.arrival && (
+                              <div>
+                                Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                          </>
+                        )}
+                        {event.type === "car" && (
+                          <>
+                            <div>Car Rental: {event.company}</div>
+                            {event.departure && (
+                              <div>
+                                Pick-up: {event.departure.location?.name} @ {format(parseISO(event.departure.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.arrival && (
+                              <div>
+                                Drop-off: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                            {event.carType && <div>Car Type: {event.carType}</div>}
+                            {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Accommodation Events */}
+                    {event.category === "accommodation" && (
+                      <div className="mt-2 text-xs">
+                        <div>Place: {event.placeName}</div>
+                        {event.checkIn && (
+                          <div>
+                            Check-in: {event.checkIn.location?.name} @ {format(parseISO(event.checkIn.time), "MMM d, yyyy h:mm a")}
+                          </div>
+                        )}
+                        {event.checkOut && (
+                          <div>
+                            Check-out: {event.checkOut.location?.name} @ {format(parseISO(event.checkOut.time), "MMM d, yyyy h:mm a")}
+                          </div>
+                        )}
+                        {event.roomNumber && <div>Room: {event.roomNumber}</div>}
+                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                      </div>
+                    )}
+
+                    {/* Experience Events */}
+                    {event.category === "experience" && (
+                      <div className="mt-2 text-xs">
+                        {event.location && <div>Location: {event.location.name}</div>}
+                        {event.startTime && <div>Start: {format(parseISO(event.startTime), "MMM d, yyyy h:mm a")}</div>}
+                        {event.endTime && <div>End: {format(parseISO(event.endTime), "MMM d, yyyy h:mm a")}</div>}
+                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                      </div>
+                    )}
+
+                    {/* Meal Events */}
+                    {event.category === "meal" && (
+                      <div className="mt-2 text-xs">
+                        {event.location && <div>Location: {event.location.name}</div>}
+                        {event.time && <div>Time: {format(parseISO(event.time), "MMM d, yyyy h:mm a")}</div>}
+                        {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm text-muted-foreground mb-1">
-                    {event.city}, {event.country}
-                  </div>
-                  
-                  {/* Travel Events */}
-                  {event.category === 'travel' && (
-                    <div className="mt-2 text-xs">
-                      {event.type === 'flight' && (
-                        <>
-                          <div>Flight: {event.flightNumber} {event.airline && `(${event.airline})`}</div>
-                          {event.departure && (
-                            <div>Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.arrival && (
-                            <div>Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.seat && <div>Seat: {event.seat}</div>}
-                          {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                        </>
-                      )}
-                      {/* Other travel types */}
-                      {event.type === 'train' && (
-                        <>
-                          <div>Train: {event.trainNumber} {event.company && `(${event.company})`}</div>
-                          {event.departure && (
-                            <div>Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.arrival && (
-                            <div>Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.seat && <div>Seat: {event.seat}</div>}
-                          {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                        </>
-                      )}
-                      {event.type === 'bus' && (
-                        <>
-                          <div>Bus: {event.company}</div>
-                          {event.departure && (
-                            <div>Departure: {event.departure.location?.name} @ {format(parseISO(event.departure.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.arrival && (
-                            <div>Arrival: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                        </>
-                      )}
-                      {event.type === 'car' && (
-                        <>
-                          <div>Car Rental: {event.company}</div>
-                          {event.departure && (
-                            <div>Pick-up: {event.departure.location?.name} @ {format(parseISO(event.departure.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.arrival && (
-                            <div>Drop-off: {event.arrival.location?.name} @ {format(parseISO(event.arrival.time), 'MMM d, yyyy h:mm a')}</div>
-                          )}
-                          {event.carType && <div>Car Type: {event.carType}</div>}
-                          {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                        </>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Accommodation Events */}
-                  {event.category === 'accommodation' && (
-                    <div className="mt-2 text-xs">
-                      <div>Place: {event.placeName}</div>
-                      {event.checkIn && (
-                        <div>Check-in: {event.checkIn.location?.name} @ {format(parseISO(event.checkIn.time), 'MMM d, yyyy h:mm a')}</div>
-                      )}
-                      {event.checkOut && (
-                        <div>Check-out: {event.checkOut.location?.name} @ {format(parseISO(event.checkOut.time), 'MMM d, yyyy h:mm a')}</div>
-                      )}
-                      {event.roomNumber && <div>Room: {event.roomNumber}</div>}
-                      {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                    </div>
-                  )}
-                  
-                  {/* Experience Events */}
-                  {event.category === 'experience' && (
-                    <div className="mt-2 text-xs">
-                      {event.location && <div>Location: {event.location.name}</div>}
-                      {event.startTime && (
-                        <div>Start: {format(parseISO(event.startTime), 'MMM d, yyyy h:mm a')}</div>
-                      )}
-                      {event.endTime && (
-                        <div>End: {format(parseISO(event.endTime), 'MMM d, yyyy h:mm a')}</div>
-                      )}
-                      {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
-                    </div>
-                  )}
-                  
-                  {/* Meal Events */}
-                  {event.category === 'meal' && (
-                    <div className="mt-2 text-xs">
-                      {event.location && <div>Location: {event.location.name}</div>}
-                      {event.time && (
-                        <div>Time: {format(parseISO(event.time), 'MMM d, yyyy h:mm a')}</div>
-                      )}
-                      {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           
@@ -655,7 +672,7 @@ export const NewTrip = () => {
       {/* Event Editor Dialog */}
       {showEventEditor && currentEditingEvent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-background rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">Edit Event</h2>
             
             <div className="space-y-4">
