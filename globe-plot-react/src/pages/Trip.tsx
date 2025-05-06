@@ -137,7 +137,7 @@ export const Trip = () => {
   return (
     <div className="max-w-7xl mx-auto p-6 grid grid-cols-12 gap-6">
       {/* Sidebar: Countries > Cities > Events */}
-      <aside className="col-span-3">
+      <aside className="col-span-3 hidden md:block">
         <div className="sticky top-6 bg-sidebar border border-sidebar-border rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 bg-sidebar-primary text-sidebar-primary-foreground flex justify-between items-center">
             <h3 className="font-semibold">Itinerary</h3>
@@ -185,7 +185,7 @@ export const Trip = () => {
       </aside>
 
       {/* Main Content: Chronological event list */}
-      <section className="col-span-9 bg-gradient-to-b from-card to-card/98 border border-border rounded-lg shadow-sm p-6">
+      <section className="col-span-12 md:col-span-9 bg-gradient-to-b from-card to-card/98 border border-border rounded-lg shadow-sm p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">{trip.name}</h1>
           <p className="text-muted-foreground flex items-center">
