@@ -4,18 +4,6 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { documentRoutes } from './routes/documentRoutes';
 import { swaggerSpec } from './config/swagger';
-import path from 'path';
-import fs from 'fs';
-
-// Debug environment loading
-const envPath = path.resolve(process.cwd(), '.env');
-console.log('Current working directory:', process.cwd());
-console.log('Environment file path:', envPath);
-console.log('Environment file exists:', fs.existsSync(envPath));
-
-if (fs.existsSync(envPath)) {
-  console.log('Environment file contents:', fs.readFileSync(envPath, 'utf8'));
-}
 
 // Load environment variables
 const result = dotenv.config();
@@ -28,7 +16,7 @@ if (result.error) {
 console.log('Environment variables after loading:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '***' : 'undefined'
+  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY ? '***' : 'undefined'
 });
 
 const app = express();

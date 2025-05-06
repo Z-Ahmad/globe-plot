@@ -53,7 +53,6 @@ interface PreviewEvent {
 export const Dashboard = () => {
   const { trips, removeTrip } = useTripStore();
   const navigate = useNavigate();
-  const [tripToDelete, setTripToDelete] = useState<string | null>(null);
 
   const confirmDelete = (tripId: string) => {
     removeTrip(tripId);

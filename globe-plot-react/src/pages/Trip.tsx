@@ -9,15 +9,38 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 
-// Helper: group events by country and city
-function groupEventsByCountryCity(events: Event[]) {
-  const groups: Record<string, Record<string, Event[]>> = {};
+// Helper: group and sort events by country and city by earliest event date
+function groupAndSortEventsByCountryCity(events: Event[]) {
+  // Group events by country/city and track earliest date
+  const groups: Record<string, { earliest: number, cities: Record<string, { earliest: number, events: Event[] }> }> = {};
+
   events.forEach(event => {
-    if (!groups[event.country]) groups[event.country] = {};
-    if (!groups[event.country][event.city]) groups[event.country][event.city] = [];
-    groups[event.country][event.city].push(event);
+    const eventTime = event.start ? new Date(event.start).getTime() : 0;
+    if (!groups[event.country]) {
+      groups[event.country] = { earliest: eventTime, cities: {} };
+    } else {
+      groups[event.country].earliest = Math.min(groups[event.country].earliest, eventTime);
+    }
+    if (!groups[event.country].cities[event.city]) {
+      groups[event.country].cities[event.city] = { earliest: eventTime, events: [] };
+    } else {
+      groups[event.country].cities[event.city].earliest = Math.min(groups[event.country].cities[event.city].earliest, eventTime);
+    }
+    groups[event.country].cities[event.city].events.push(event);
   });
-  return groups;
+
+  // Sort countries by earliest event
+  const sortedCountries = Object.entries(groups).sort((a, b) => a[1].earliest - b[1].earliest);
+
+  // For each country, sort cities by earliest event
+  const result: [string, [string, Event[]][]][] = sortedCountries.map(([country, { cities }]) => {
+    const sortedCities = Object.entries(cities)
+      .sort((a, b) => a[1].earliest - b[1].earliest)
+      .map(([city, { events }]) => [city, events] as [string, Event[]]);
+    return [country, sortedCities];
+  });
+
+  return result; // [ [country, [ [city, events[]], ... ] ], ... ]
 }
 
 // Helper: sort events chronologically by start date
@@ -73,10 +96,11 @@ export const Trip = () => {
   }
 
   // Group and sort events for sidebar
-  const grouped = groupEventsByCountryCity(trip.events);
+  const groupedSorted = groupAndSortEventsByCountryCity(trip.events);
 
   // For main content: show all events chronologically
   const sortedEvents = sortEventsByStart(trip.events);
+  console.log(sortedEvents);
 
   // Sidebar expand/collapse logic
   const handleAccordionChange = (value: string[]) => setExpanded(value);
@@ -94,14 +118,14 @@ export const Trip = () => {
           </div>
           <div className="p-3">
             <Accordion type="multiple" value={expanded} onValueChange={handleAccordionChange} className="w-full">
-              {Object.entries(grouped).map(([country, cities]) => (
+              {groupedSorted.map(([country, cities]) => (
                 <AccordionItem key={country} value={country}>
                   <AccordionTrigger className="font-semibold text-base">
                     {country}
                   </AccordionTrigger>
                   <AccordionContent>
                     <Accordion type="multiple" className="w-full">
-                      {Object.entries(cities).map(([city, events]) => (
+                      {cities.map(([city, events]) => (
                         <AccordionItem key={city} value={city}>
                           <AccordionTrigger className="text-sm font-medium">
                             {city} <span className="ml-2 text-xs text-muted-foreground">({events.length})</span>
@@ -171,23 +195,41 @@ export const Trip = () => {
                 {event.notes && (
                   <div className="text-xs text-muted-foreground mt-1">{event.notes}</div>
                 )}
-                {/* Render type-specific fields if needed */}
-                {event.type === 'flight' && (
+                {/* Travel Events (flight, train, car, boat, bus, other) */}
+                {event.category === 'travel' && (
                   <div className="mt-2 text-xs">
-                    <div>Flight: {event.flightNumber} ({event.airline})</div>
-                    {event.departure && (
-                      <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
+                    {event.type === 'flight' && (
+                      <>
+                        <div>Flight: {event.flightNumber} {event.airline && `(${event.airline})`}</div>
+                        {event.departure && (
+                          <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
+                        )}
+                        {event.arrival && (
+                          <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
+                        )}
+                        {event.seat && <div>Seat: {event.seat}</div>}
+                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                      </>
                     )}
-                    {event.arrival && (
-                      <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
+                    {['train', 'car', 'boat', 'bus', 'other'].includes(event.type) && (
+                      <>
+                        <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)} transit</div>
+                        {event.departure && (
+                          <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
+                        )}
+                        {event.arrival && (
+                          <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
+                        )}
+                        {event.seat && <div>Seat: {event.seat}</div>}
+                        {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                      </>
                     )}
-                    {event.seat && <div>Seat: {event.seat}</div>}
-                    {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
                   </div>
                 )}
-                {event.type === 'hotel' && (
+                {/* Accommodation Events (hotel, hostel, airbnb, other) */}
+                {event.category === 'accommodation' && (
                   <div className="mt-2 text-xs">
-                    <div>Hotel: {event.hotelName}</div>
+                    <div>Place: {event.placeName}</div>
                     {event.checkIn && (
                       <div>Check-in: {event.checkIn.location?.name} {event.checkIn.time && `@ ${formatDate(event.checkIn.time)} ${formatTime(event.checkIn.time)}`}</div>
                     )}
@@ -198,7 +240,27 @@ export const Trip = () => {
                     {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
                   </div>
                 )}
-                {/* Add more type-specific renderings as needed */}
+                {/* Experience Events (activity, tour, museum, concert, other) */}
+                {event.category === 'experience' && (
+                  <div className="mt-2 text-xs">
+                    <div>Type: {event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div>
+                    {event.location && <div>Location: {event.location.name}</div>}
+                    {event.startTime && <div>Start: {formatDate(event.startTime)} {formatTime(event.startTime)}</div>}
+                    {event.endTime && <div>End: {formatDate(event.endTime)} {formatTime(event.endTime)}</div>}
+                    {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
+                    {event.notes && <div>Notes: {event.notes}</div>}
+                  </div>
+                )}
+                {/* Meal Events (restaurant, other) */}
+                {event.category === 'meal' && (
+                  <div className="mt-2 text-xs">
+                    <div>Type: {event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div>
+                    {event.location && <div>Location: {event.location.name}</div>}
+                    {event.time && <div>Time: {formatDate(event.time)} {formatTime(event.time)}</div>}
+                    {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
+                    {event.notes && <div>Notes: {event.notes}</div>}
+                  </div>
+                )}
               </div>
             ))
           )}

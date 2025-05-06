@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTripStore, Trip } from '../stores/tripStore';
+import { useTripStore, Trip, Event } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DocumentItem {
@@ -139,11 +139,11 @@ export const NewTrip = () => {
     const allEvents = documents.flatMap(doc => 
       doc.events.map(event => ({
         ...event,
-        id: uuidv4()
+        id: event.id || uuidv4()
       }))
     );
     
-    // Create new trip with all required properties (no stops)
+    // Create new trip with all required properties 
     const newTrip: Trip = {
       id: tripId,
       name,

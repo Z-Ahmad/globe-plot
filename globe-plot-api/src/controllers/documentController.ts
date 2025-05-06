@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { documentService } from '@/services/documentService';
 import dotenv from 'dotenv';
 import { Mistral } from '@mistralai/mistralai';
+import { v4 as uuidv4 } from 'uuid';
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +18,59 @@ console.log('Mistral API Key:', process.env.MISTRAL_API_KEY ? '***' : 'undefined
 const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY || ''
 });
+
+// Normalize event to set top-level start/end fields based on type
+function normalizeEvent(event: any) {
+  let start = '';
+  let end = '';
+  // Always set placeName for accommodation events
+  if (event.category === 'accommodation') {
+    event.placeName = event.placeName || event.hotelName || event.hostelName || event.airbnbName || '';
+  }
+  switch (event.category) {
+    case 'accommodation':
+      start = event.checkIn?.time || '';
+      end = event.checkOut?.time || '';
+      break;
+    case 'travel':
+      start = event.departure?.time || '';
+      end = event.arrival?.time || '';
+      break;
+    case 'experience':
+      start = event.startTime || '';
+      end = event.endTime || '';
+      break;
+    case 'meal':
+      start = event.time || '';
+      end = event.time || '';
+      break;
+    default:
+      start = event.start || '';
+      end = event.end || '';
+  }
+  return {
+    ...event,
+    start,
+    end,
+    id: uuidv4(),
+  };
+}
+
+// Validate that event has required fields for its category
+function validateEvent(event: any) {
+  switch (event.category) {
+    case 'accommodation':
+      return !!(event.checkIn?.time && event.checkOut?.time);
+    case 'travel':
+      return !!(event.departure?.time && event.arrival?.time);
+    case 'experience':
+      return !!(event.startTime && event.endTime);
+    case 'meal':
+      return !!event.time;
+    default:
+      return false;
+  }
+}
 
 export const documentController = {
   uploadDocument: async (req: Request, res: Response) => {
@@ -114,153 +168,144 @@ export const documentController = {
         return res.status(400).json({ error: 'No text provided' });
       }
 
-      const prompt = `Extract travel information from the following text. Look for flights (including layovers), hotels, activities, meals, and transit options. Each event should be correctly categorized based on its type.
+      const prompt = `You are a travel document parser. Your job is to extract structured travel events from the provided text. 
 
-For each event, ALWAYS extract:
-- Type (flight, hotel, activity, meal, transit, etc.)
-- Dates and times
-- City and country (ALWAYS include both, even if you have to infer or guess from the location name or context)
-- Location name/address
-- Booking references
-- Additional details specific to the event type
+IMPORTANT RULES:
+- ONLY extract information that is explicitly present in the text or can be reliably inferred (e.g., city/country from a location name).
+- NEVER invent, guess, or hallucinate any details (such as booking references, seat numbers, times, or names).
+- If a field is not present in the text, either omit it or set it to an empty string.
+- For every event, always include these top-level fields: category, type, title, city, country, start, end.
+- For accommodation events, always use 'placeName' for the name of the accommodation (not hotelName, hostelName, or airbnbName).
 
-For every event, always include:
-- "city": "string" (e.g., "Paris")
-- "country": "string" (e.g., "France")
+CATEGORY FIELDS:
+- travel: departure.time, arrival.time, airline, flightNumber, seat, bookingReference
+- accommodation: placeName, checkIn.time, checkOut.time, roomNumber, bookingReference
+- experience: startTime, endTime, location, bookingReference
+- meal: time, location, reservationReference
+
+EXAMPLES:
+
+Example 1 (flight, all fields present):
+{
+  "category": "travel",
+  "type": "flight",
+  "title": "Flight from New York to Reykjavik",
+  "city": "New York",
+  "country": "USA",
+  "airline": "Icelandair",
+  "flightNumber": "FI614",
+  "departure": {
+    "time": "2025-06-10T20:30:00",
+    "location": {
+      "name": "JFK – New York",
+      "city": "New York",
+      "country": "USA"
+    }
+  },
+  "arrival": {
+    "time": "2025-06-11T06:10:00",
+    "location": {
+      "name": "KEF – Reykjavik",
+      "city": "Reykjavik",
+      "country": "Iceland"
+    }
+  },
+  "seat": "14A",
+  "bookingReference": "ABC123",
+  "start": "2025-06-10T20:30:00",
+  "end": "2025-06-11T06:10:00"
+}
+
+Example 2 (flight, missing optional fields):
+{
+  "category": "travel",
+  "type": "flight",
+  "title": "Flight from Paris to New York",
+  "city": "Paris",
+  "country": "France",
+  "departure": {
+    "time": "2025-06-24T13:15:00",
+    "location": {
+      "name": "CDG – Paris Charles de Gaulle",
+      "city": "Paris",
+      "country": "France"
+    }
+  },
+  "arrival": {
+    "time": "2025-06-24T15:50:00",
+    "location": {
+      "name": "JFK – New York",
+      "city": "New York",
+      "country": "USA"
+    }
+  },
+  "seat": "",
+  "bookingReference": "",
+  "start": "2025-06-24T13:15:00",
+  "end": "2025-06-24T15:50:00"
+}
+
+Example 3 (accommodation, missing some fields):
+{
+  "category": "accommodation",
+  "type": "hostel",
+  "title": "YellowSquare Hostel Stay",
+  "city": "Rome",
+  "country": "Italy",
+  "placeName": "YellowSquare Hostel",
+  "checkIn": {
+    "time": "2025-06-13T14:00:00",
+    "location": {
+      "name": "Via Palestro 51, 00185 Rome, Italy",
+      "city": "Rome",
+      "country": "Italy"
+    }
+  },
+  "checkOut": {
+    "time": "2025-06-17T11:00:00",
+    "location": {
+      "name": "Via Palestro 51, 00185 Rome, Italy",
+      "city": "Rome",
+      "country": "Italy"
+    }
+  },
+  "roomNumber": "",
+  "bookingReference": "",
+  "start": "2025-06-13T14:00:00",
+  "end": "2025-06-17T11:00:00"
+}
+
+Example 4 (experience, minimal):
+{
+  "category": "experience",
+  "type": "tour",
+  "title": "Vatican Guided Tour",
+  "city": "Vatican City",
+  "country": "Vatican City",
+  "startTime": "2025-06-14T10:00:00",
+  "endTime": "2025-06-14T12:00:00",
+  "location": {
+    "name": "Viale Vaticano 100",
+    "city": "Vatican City",
+    "country": "Vatican City"
+  },
+  "bookingReference": "",
+  "start": "2025-06-14T10:00:00",
+  "end": "2025-06-14T12:00:00"
+}
 
 Text: ${text}
 
-Return the data in JSON format matching this structure:
+Return the data in JSON format:
 {
-  "events": [
-    {
-      "type": "flight", // Must be one of: flight, hotel, activity, meal, transit
-      "title": "Short descriptive title",
-      "city": "string",
-      "country": "string",
-      // Flight event
-      "airline": "Airline name", // Required for flight
-      "flightNumber": "Flight number", // Required for flight
-      "departure": {
-        "time": "ISO date string", // e.g., "2025-06-15T07:45:00"
-        "location": {
-          "name": "Airport or city name", // Include airport code if available
-          "country": "Country name" // Optional
-        },
-        "terminal": "Terminal info" // Optional
-      },
-      "arrival": {
-        "time": "ISO date string", // e.g., "2025-06-15T13:00:00"
-        "location": {
-          "name": "Airport or city name", // Include airport code if available
-          "country": "Country name" // Optional
-        },
-        "terminal": "Terminal info" // Optional
-      },
-      "bookingReference": "Reference code", // Optional
-      "seat": "Seat assignment", // Optional
-      "notes": "Additional notes" // Optional
-    },
-    {
-      "type": "hotel",
-      "title": "Short descriptive title",
-      "city": "string",
-      "country": "string",
-      // Hotel event
-      "hotelName": "Name of hotel", // Required for hotel
-      "checkIn": {
-        "time": "ISO date string",
-        "location": {
-          "name": "Hotel address or location name",
-          "country": "Country name" // Optional
-        }
-      },
-      "checkOut": {
-        "time": "ISO date string",
-        "location": {
-          "name": "Hotel address or location name",
-          "country": "Country name" // Optional
-        }
-      },
-      "bookingReference": "Reference code", // Optional
-      "roomNumber": "Room number", // Optional
-      "notes": "Additional notes" // Optional
-    },
-    {
-      "type": "transit",
-      "title": "Short descriptive title",
-      "city": "string",
-      "country": "string",
-      // Transit event
-      "mode": "train", // Required for transit: one of train, bus, ferry, car
-      "departure": {
-        "time": "ISO date string",
-        "location": {
-          "name": "Departure station/location",
-          "country": "Country name" // Optional
-        }
-      },
-      "arrival": {
-        "time": "ISO date string",
-        "location": {
-          "name": "Arrival station/location",
-          "country": "Country name" // Optional
-        }
-      },
-      "bookingReference": "Reference code", // Optional
-      "seat": "Seat assignment", // Optional
-      "notes": "Additional notes" // Optional
-    },
-    {
-      "type": "activity",
-      "title": "Short descriptive title",
-      "city": "string",
-      "country": "string",
-      // Activity event
-      "startTime": "ISO date string",
-      "endTime": "ISO date string",
-      "location": {
-        "name": "Activity location",
-        "country": "Country name" // Optional
-      },
-      "bookingReference": "Reference code", // Optional
-      "notes": "Additional notes" // Optional
-    },
-    {
-      "type": "meal",
-      "title": "Short descriptive title",
-      "city": "string",
-      "country": "string",
-      // Meal event
-      "time": "ISO date string",
-      "location": {
-        "name": "Restaurant or location name",
-        "country": "Country name" // Optional
-      },
-      "reservationReference": "Reference code", // Optional
-      "notes": "Additional notes" // Optional
-    }
-  ]
+  "events": [ ... ]
 }
 
-IMPORTANT INSTRUCTIONS:
-1. Include ALL required fields for the specific event type
-2. For every event, always include:
-- "category": "travel|accommodation|experience|meal"
-- "type": "flight|train|car|boat|bus|hotel|hostel|airbnb|activity|tour|museum|concert|restaurant|other"
-- "city": "string"
-- "country": "string"
-3. For flight events, always include airline and flight number if available
-4. For hotel events, always include hotelName
-5. For transit events, always specify the mode of transportation
-6. Where dates/times are mentioned, use ISO format (YYYY-MM-DDTHH:MM:SS)
-7. ALWAYS include both city and country for every event, even if you have to infer or guess
-8. RETURN ONLY THE JSON OBJECT, NOTHING ELSE
-9. IF NO INFORMATION IS ABLE TO BE EXTRACTED, RETURN {"events": []}`;
+DO NOT include any fields that are not present in the text. DO NOT invent or guess any information. If no information can be extracted, return {"events": []}`;
 
       // @ts-ignore - Temporarily ignore type checking for Mistral SDK
       const chatResponse = await mistral.chat.complete({
-        model: "mistral-small-latest",
+        model: "ministral-3b-latest",
         messages: [
           { role: "system", content: "You are a travel document parser. Extract travel information and return it in structured JSON format." },
           { role: "user", content: prompt }
@@ -296,6 +341,16 @@ IMPORTANT INSTRUCTIONS:
       // Try to parse the response as JSON
       try {
         const parsedData = JSON.parse(contentStr);
+        // Normalize all events
+        if (parsedData && Array.isArray(parsedData.events)) {
+          parsedData.events = parsedData.events.map(normalizeEvent);
+          // Validate events and log warnings
+          parsedData.events.forEach((event: any) => {
+            if (!validateEvent(event)) {
+              console.warn('Event failed validation:', event);
+            }
+          });
+        }
         res.json(parsedData);
       } catch (parseError) {
         console.error('Error parsing Mistral response as JSON:', parseError);
@@ -306,6 +361,16 @@ IMPORTANT INSTRUCTIONS:
           const extractedJson = jsonMatch[0];
           try {
             const parsedData = JSON.parse(extractedJson);
+            // Normalize all events
+            if (parsedData && Array.isArray(parsedData.events)) {
+              parsedData.events = parsedData.events.map(normalizeEvent);
+              // Validate events and log warnings
+              parsedData.events.forEach((event: any) => {
+                if (!validateEvent(event)) {
+                  console.warn('Event failed validation:', event);
+                }
+              });
+            }
             res.json(parsedData);
           } catch (innerError) {
             console.error('Failed to parse extracted JSON:', innerError);
