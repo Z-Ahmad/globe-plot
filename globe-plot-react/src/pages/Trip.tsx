@@ -11,6 +11,7 @@ import {
 import { getEventStyle } from '../styles/eventStyles';
 import { EventCard } from '@/components/EventCard';
 import { EventEditor } from '@/components/EventEditor';
+import { CalendarDays } from 'lucide-react';
 
 // Helper: group and sort events by country and city by earliest event date
 function groupAndSortEventsByCountryCity(events: Event[]) {
@@ -59,13 +60,6 @@ function sortEventsByStart(events: Event[]) {
 const formatDate = (dateStr: string) => {
   try {
     return format(parseISO(dateStr), 'MMM d, yyyy');
-  } catch {
-    return dateStr;
-  }
-};
-const formatTime = (dateStr: string) => {
-  try {
-    return format(parseISO(dateStr), 'h:mm a');
   } catch {
     return dateStr;
   }
@@ -187,9 +181,14 @@ export const Trip = () => {
       {/* Main Content: Chronological event list */}
       <section className="col-span-12 md:col-span-9 bg-gradient-to-b from-card to-card/98 border border-border rounded-lg shadow-sm p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">{trip.name}</h1>
-          <p className="text-muted-foreground flex items-center">
-            <span className="mr-2">📅</span> {trip.dateRange}
+          <h1 className="text-3xl font-bold mb-2 flex items-center">
+            <span className="">
+            { trip.name}
+            </span>
+          </h1>
+          <p className="text-muted-foreground flex items-center gap-2 ml-2">
+            <CalendarDays className="w-5 h-5" />
+            <span>{trip.dateRange}</span>
             <span className="mx-2 text-border">•</span>
             <span>{trip.events.length} events</span>
           </p>

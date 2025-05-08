@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
+import { LoginButton } from "./LoginButton";
+import { useUserStore } from "../stores/userStore";
 
 interface NavbarProps {
   children?: React.ReactNode;
 }
 
 export function Navbar({ children }: NavbarProps) {
+  
   return (
     <header className="bg-primary text-primary-foreground py-3 px-4 shadow-md">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -23,12 +26,6 @@ export function Navbar({ children }: NavbarProps) {
           <Link to="/dashboard" className="text-primary-foreground/90 hover:text-primary-foreground transition-colors text-sm font-medium">
             My Trips
           </Link>
-          <Link to="/explore" className="text-primary-foreground/90 hover:text-primary-foreground transition-colors text-sm font-medium">
-            Explore
-          </Link>
-          <Link to="/help" className="text-primary-foreground/90 hover:text-primary-foreground transition-colors text-sm font-medium">
-            Help
-          </Link>
           
           <div className="pl-2 flex items-center space-x-3">
             <Link 
@@ -39,9 +36,9 @@ export function Navbar({ children }: NavbarProps) {
               <span>New Trip</span>
             </Link>
             
-            <div className="bg-white text-primary rounded-full w-8 h-8 flex items-center justify-center font-medium shadow-sm">
-              <span className="text-sm">ZK</span>
-            </div>
+
+              <LoginButton />
+
           </div>
         </div>
       </div>

@@ -3,14 +3,17 @@ import { Event } from '../stores/tripStore';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '../styles/eventStyles';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
+
 import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+  AlertDialog,
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
 
 interface EventCardProps {
   event: Event;
@@ -79,26 +82,31 @@ export const EventCard: React.FC<EventCardProps> = ({
           </div>
           
           {/* Date/time shown below title on small screens, next to title on medium/large screens */}
-          <span className="text-sm text-muted-foreground mt-1 md:mt-0">
+          <span className="text-sm font-semibold mt-1 md:mt-0">
             {formatDate(event.start)} {event.start && formatTime(event.start)}
           </span>
         </div>
         
         {/* Delete confirmation dialog */}
-        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Event</DialogTitle>
-            </DialogHeader>
-            <p className="py-4">
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            </AlertDialogHeader>
+            <AlertDialogDescription>
               Are you sure you want to delete "{event.title}"? This action cannot be undone.
-            </p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         
         <div className="text-sm text-muted-foreground mb-1">
           {event.city}, {event.country}
