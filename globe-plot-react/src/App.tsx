@@ -5,7 +5,7 @@ import { Landing } from "./pages/Landing";
 import { Demo } from "./pages/Demo";
 import { Dashboard } from "./pages/Dashboard";
 import { NewTrip } from "./pages/NewTrip";
-import { Trip } from "./pages/Trip";
+import { TripView } from "./pages/TripView";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { AuthProvider } from "./components/AuthProvider";
 
@@ -39,7 +39,7 @@ function App() {
             <Route path="/trip/new" element={<NewTrip />} />
             
             {/* Individual trip route */}
-            <Route path="/trip/:id" element={<Trip />} />
+            <Route path="/trip/:id" element={<TripView />} />
 
             {/* Demo route */}
             <Route path="/demo" element={<Demo />} />

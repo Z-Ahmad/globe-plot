@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event } from '../stores/tripStore';
+import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '../styles/eventStyles';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
@@ -71,7 +71,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             
             {showEditControls && onEdit && onDelete && (
               <div className="flex gap-1 ml-2">
-                <button onClick={() => onEdit(event)} className="text-xs hover:bg-secondary/20 text-secondary-foreground p-1 rounded-full">
+                <button onClick={() => onEdit(event)} className="text-xs hover:bg-blue-400/20 text-secondary-foreground p-1 rounded-full">
                   <PencilIcon className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => setShowDeleteDialog(true)} className="text-xs hover:bg-destructive/10 text-destructive p-1 rounded-full">
@@ -109,16 +109,29 @@ export const EventCard: React.FC<EventCardProps> = ({
         </AlertDialog>
         
         <div className="text-sm text-muted-foreground mb-1">
-          {event.city}, {event.country}
+          {event.category === 'travel' 
+            ? `${event.departure?.location?.city || ''}, ${event.departure?.location?.country || ''}`
+            : event.category === 'accommodation'
+              ? `${event.checkIn?.location?.city || ''}, ${event.checkIn?.location?.country || ''}`
+              : `${event.location?.city || ''}, ${event.location?.country || ''}`
+          }
         </div>
-        {event.locationName && (
+        {(event.category === 'travel' 
+          ? event.departure?.location?.name 
+          : event.category === 'accommodation'
+            ? event.placeName || event.checkIn?.location?.name
+            : event.location?.name) && (
           <div className="text-sm mb-1">
-            <span className="font-medium">Location:</span> {event.locationName}
+            {
+              event.category === 'travel' 
+                ? event.departure?.location?.name 
+                : event.category === 'accommodation'
+                  ? event.placeName || event.checkIn?.location?.name
+                  : event.location?.name
+            }
           </div>
         )}
-        {event.notes && (
-          <div className="text-xs text-muted-foreground mt-1">{event.notes}</div>
-        )}
+        
         {/* Travel Events (flight, train, car, boat, bus, other) */}
         {event.category === 'travel' && (
           <div className="mt-2 text-xs">

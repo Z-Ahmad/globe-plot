@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTripStore, Event } from '../stores/tripStore';
+import { useTripStore } from '../stores/tripStore';
+import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
 import { format, parseISO } from 'date-fns';
 import {
   Accordion,
@@ -12,6 +13,52 @@ import { getEventStyle } from '../styles/eventStyles';
 import { EventCard } from '@/components/EventCard';
 import { EventEditor } from '@/components/EventEditor';
 import { CalendarDays } from 'lucide-react';
+import { formatDateRange } from '@/lib/utils';
+
+// Helper function to ensure all events have the required location property
+const normalizeEvent = (event: Event): Event => {
+  const updatedEvent = {...event};
+  
+  // Ensure location exists for all event types
+  if (!updatedEvent.location) {
+    updatedEvent.location = { name: '' };
+    
+    // For travel events, use departure location
+    if (updatedEvent.category === 'travel' && (updatedEvent as TravelEvent).departure?.location) {
+      updatedEvent.location = {...(updatedEvent as TravelEvent).departure.location};
+    }
+    
+    // For accommodation events, use checkIn location
+    if (updatedEvent.category === 'accommodation' && (updatedEvent as AccommodationEvent).checkIn?.location) {
+      updatedEvent.location = {...(updatedEvent as AccommodationEvent).checkIn.location};
+    }
+  }
+  
+  return updatedEvent;
+};
+
+// Helper function to get city and country from event
+const getLocationInfo = (event: Event): { city?: string; country?: string } => {
+  if (event.category === 'travel') {
+    const travelEvent = event as TravelEvent;
+    return {
+      city: travelEvent.departure?.location?.city,
+      country: travelEvent.departure?.location?.country
+    };
+  } else if (event.category === 'accommodation') {
+    const accomEvent = event as AccommodationEvent;
+    return {
+      city: accomEvent.checkIn?.location?.city,
+      country: accomEvent.checkIn?.location?.country
+    };
+  } else {
+    // For experience and meal events
+    return {
+      city: event.location?.city,
+      country: event.location?.country
+    };
+  }
+};
 
 // Helper: group and sort events by country and city by earliest event date
 function groupAndSortEventsByCountryCity(events: Event[]) {
@@ -20,17 +67,24 @@ function groupAndSortEventsByCountryCity(events: Event[]) {
 
   events.forEach(event => {
     const eventTime = event.start ? new Date(event.start).getTime() : 0;
-    if (!groups[event.country]) {
-      groups[event.country] = { earliest: eventTime, cities: {} };
+    const { city, country } = getLocationInfo(event);
+    
+    if (!country) return; // Skip events without country
+    const cityKey = city || 'Unknown';
+    
+    if (!groups[country]) {
+      groups[country] = { earliest: eventTime, cities: {} };
     } else {
-      groups[event.country].earliest = Math.min(groups[event.country].earliest, eventTime);
+      groups[country].earliest = Math.min(groups[country].earliest, eventTime);
     }
-    if (!groups[event.country].cities[event.city]) {
-      groups[event.country].cities[event.city] = { earliest: eventTime, events: [] };
+    
+    if (!groups[country].cities[cityKey]) {
+      groups[country].cities[cityKey] = { earliest: eventTime, events: [] };
     } else {
-      groups[event.country].cities[event.city].earliest = Math.min(groups[event.country].cities[event.city].earliest, eventTime);
+      groups[country].cities[cityKey].earliest = Math.min(groups[country].cities[cityKey].earliest, eventTime);
     }
-    groups[event.country].cities[event.city].events.push(event);
+    
+    groups[country].cities[cityKey].events.push(event);
   });
 
   // Sort countries by earliest event
@@ -65,15 +119,35 @@ const formatDate = (dateStr: string) => {
   }
 };
 
-export const Trip = () => {
+export const TripView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { trips, removeEvent, updateEvent } = useTripStore();
+  const { trips, removeEvent, updateEvent, updateTrip } = useTripStore();
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
 
   const trip = trips.find(trip => trip.id === id);
   const [expanded, setExpanded] = useState<string[]>([]);
+
+  // Check and normalize events on component mount
+  useEffect(() => {
+    if (trip) {
+      // Check if any events need normalization
+      const needsNormalization = trip.events.some(event => !event.location);
+      
+      if (needsNormalization) {
+        // Normalize all events
+        const normalizedEvents = trip.events.map(normalizeEvent);
+        
+        // Update the trip with normalized events
+        updateTrip(trip.id, { 
+          events: normalizedEvents 
+        });
+
+      }
+      console.log(trip)
+    }
+  }, [trip?.id]);
 
   if (!trip) {
     return (
@@ -188,7 +262,7 @@ export const Trip = () => {
           </h1>
           <p className="text-muted-foreground flex items-center gap-2 ml-2">
             <CalendarDays className="w-5 h-5" />
-            <span>{trip.dateRange}</span>
+            <span>{formatDateRange(trip.dateRange)}</span>
             <span className="mx-2 text-border">•</span>
             <span>{trip.events.length} events</span>
           </p>

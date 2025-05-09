@@ -27,6 +27,8 @@ function normalizeEvent(event: any) {
   if (event.category === 'accommodation') {
     event.placeName = event.placeName || event.hotelName || event.hostelName || event.airbnbName || '';
   }
+  
+  // Determine start/end times based on category
   switch (event.category) {
     case 'accommodation':
       start = event.checkIn?.time || '';
@@ -48,12 +50,60 @@ function normalizeEvent(event: any) {
       start = event.start || '';
       end = event.end || '';
   }
-  return {
+  
+  // Handle non-standard fields by moving them to notes
+  const knownFields: Record<string, boolean> = {
+    // Common fields
+    id: true, category: true, type: true, title: true, start: true, end: true, 
+    location: true, notes: true,
+    
+    // Travel event fields
+    departure: true, arrival: true, airline: true, flightNumber: true, 
+    trainNumber: true, seat: true, car: true, class: true, bookingReference: true,
+    
+    // Accommodation event fields
+    placeName: true, checkIn: true, checkOut: true, roomNumber: true, 
+    // Accommodation events can also have a bookingReference (already defined above)
+    
+    // Experience event fields
+    startTime: true, endTime: true, // bookingReference already defined above
+    
+    // Meal event fields
+    time: true, reservationReference: true
+  };
+  
+  // Collect unknown fields
+  const unknownFields: string[] = [];
+  for (const key in event) {
+    if (!knownFields[key] && event[key] !== undefined && event[key] !== null) {
+      unknownFields.push(`${key}: ${JSON.stringify(event[key])}`);
+    }
+  }
+  
+  // Add unknown fields to notes
+  let notes = event.notes || '';
+  if (unknownFields.length > 0) {
+    if (notes) notes += '\n\n';
+    notes += 'Additional information:\n' + unknownFields.join('\n');
+  }
+  
+  // Create normalized event
+  const normalizedEvent = {
     ...event,
     start,
     end,
-    id: uuidv4(),
+    notes,
+    id: event.id || uuidv4(),
   };
+  
+  // Remove unknown fields
+  for (const key in normalizedEvent) {
+    if (!knownFields[key]) {
+      delete normalizedEvent[key];
+    }
+  }
+  
+  return normalizedEvent;
 }
 
 // Validate that event has required fields for its category
@@ -174,14 +224,49 @@ IMPORTANT RULES:
 - ONLY extract information that is explicitly present in the text or can be reliably inferred (e.g., city/country from a location name).
 - NEVER invent, guess, or hallucinate any details (such as booking references, seat numbers, times, or names).
 - If a field is not present in the text, either omit it or set it to an empty string.
-- For every event, always include these top-level fields: category, type, title, city, country, start, end.
-- For accommodation events, always use 'placeName' for the name of the accommodation (not hotelName, hostelName, or airbnbName).
+- For every event, always include these required fields based on category:
 
-CATEGORY FIELDS:
-- travel: departure.time, arrival.time, airline, flightNumber, seat, bookingReference
-- accommodation: placeName, checkIn.time, checkOut.time, roomNumber, bookingReference
-- experience: startTime, endTime, location, bookingReference
-- meal: time, location, reservationReference
+BASE EVENT FIELDS:
+- id (leave blank, will be set automatically)
+- category: "travel" | "accommodation" | "experience" | "meal"
+- type: specific subtype based on category
+- title: string
+- start: string (ISO date format) - will be set automatically based on category-specific fields
+- end: string (ISO date format) - will be set automatically based on category-specific fields
+- location: { name: string, city: string, country: string } - **ALL events must have this top-level location property**
+- notes: string (optional)
+
+CATEGORY-SPECIFIC FIELDS:
+1. Travel events (category: "travel"):
+   - location: { name: string, city: string, country: string } - **Same as departure location**
+   - departure: { time: string, location: { name: string, city: string, country: string } }
+   - arrival: { time: string, location: { name: string, city: string, country: string } }
+   - airline: string (optional)
+   - flightNumber: string (optional)
+   - trainNumber: string (optional)
+   - seat: string (optional)
+   - car: string (optional) - for train car number
+   - class: string (optional) - for travel class (economy, business, etc.)
+   - bookingReference: string (optional)
+
+2. Accommodation events (category: "accommodation"):
+   - location: { name: string, city: string, country: string } - **Same as checkIn location**
+   - placeName: string 
+   - checkIn: { time: string, location: { name: string, city: string, country: string } }
+   - checkOut: { time: string, location: { name: string, city: string, country: string } }
+   - roomNumber: string (optional)
+   - bookingReference: string (optional)
+
+3. Experience events (category: "experience"):
+   - location: { name: string, city: string, country: string }
+   - startTime: string
+   - endTime: string
+   - bookingReference: string (optional)
+
+4. Meal events (category: "meal"):
+   - location: { name: string, city: string, country: string }
+   - time: string
+   - reservationReference: string (optional)
 
 EXAMPLES:
 
@@ -190,8 +275,6 @@ Example 1 (flight, all fields present):
   "category": "travel",
   "type": "flight",
   "title": "Flight from New York to Reykjavik",
-  "city": "New York",
-  "country": "USA",
   "airline": "Icelandair",
   "flightNumber": "FI614",
   "departure": {
@@ -210,10 +293,14 @@ Example 1 (flight, all fields present):
       "country": "Iceland"
     }
   },
+  "location": {
+    "name": "JFK – New York",
+    "city": "New York",
+    "country": "USA"
+  },
   "seat": "14A",
   "bookingReference": "ABC123",
-  "start": "2025-06-10T20:30:00",
-  "end": "2025-06-11T06:10:00"
+  "notes": "Window seat requested"
 }
 
 Example 2 (flight, missing optional fields):
@@ -221,8 +308,6 @@ Example 2 (flight, missing optional fields):
   "category": "travel",
   "type": "flight",
   "title": "Flight from Paris to New York",
-  "city": "Paris",
-  "country": "France",
   "departure": {
     "time": "2025-06-24T13:15:00",
     "location": {
@@ -239,10 +324,11 @@ Example 2 (flight, missing optional fields):
       "country": "USA"
     }
   },
-  "seat": "",
-  "bookingReference": "",
-  "start": "2025-06-24T13:15:00",
-  "end": "2025-06-24T15:50:00"
+  "location": {
+    "name": "CDG – Paris Charles de Gaulle",
+    "city": "Paris",
+    "country": "France"
+  }
 }
 
 Example 3 (accommodation, missing some fields):
@@ -250,8 +336,6 @@ Example 3 (accommodation, missing some fields):
   "category": "accommodation",
   "type": "hostel",
   "title": "YellowSquare Hostel Stay",
-  "city": "Rome",
-  "country": "Italy",
   "placeName": "YellowSquare Hostel",
   "checkIn": {
     "time": "2025-06-13T14:00:00",
@@ -269,10 +353,11 @@ Example 3 (accommodation, missing some fields):
       "country": "Italy"
     }
   },
-  "roomNumber": "",
-  "bookingReference": "",
-  "start": "2025-06-13T14:00:00",
-  "end": "2025-06-17T11:00:00"
+  "location": {
+    "name": "Via Palestro 51, 00185 Rome, Italy",
+    "city": "Rome",
+    "country": "Italy"
+  }
 }
 
 Example 4 (experience, minimal):
@@ -280,18 +365,13 @@ Example 4 (experience, minimal):
   "category": "experience",
   "type": "tour",
   "title": "Vatican Guided Tour",
-  "city": "Vatican City",
-  "country": "Vatican City",
   "startTime": "2025-06-14T10:00:00",
   "endTime": "2025-06-14T12:00:00",
   "location": {
     "name": "Viale Vaticano 100",
     "city": "Vatican City",
     "country": "Vatican City"
-  },
-  "bookingReference": "",
-  "start": "2025-06-14T10:00:00",
-  "end": "2025-06-14T12:00:00"
+  }
 }
 
 Text: ${text}
@@ -385,4 +465,4 @@ DO NOT include any fields that are not present in the text. DO NOT invent or gue
       res.status(500).json({ error: 'Failed to parse document with Mistral' });
     }
   }
-}; 
+};

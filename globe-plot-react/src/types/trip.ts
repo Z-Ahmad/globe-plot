@@ -29,20 +29,22 @@ export interface Location {
   };
 }
 
-// Accommodation event (hotel, hostel, airbnb, other)
-export interface AccommodationEvent {
+// Base event interface with common properties
+export interface BaseEvent {
   id: string;
-  category: 'accommodation';
-  type: 'hotel' | 'hostel' | 'airbnb' | 'other';
+  category: EventCategory;
+  type: EventType;
   title: string;
   start: string;
   end?: string;
-  city: string;
-  country: string;
-  /**
-   * Name of the accommodation (hotel, hostel, airbnb, friend's house, etc.)
-   * Use for all accommodation types.
-   */
+  location: Location;
+  notes?: string;
+}
+
+// Accommodation event (hotel, hostel, airbnb, other)
+export interface AccommodationEvent extends BaseEvent {
+  category: 'accommodation';
+  type: 'hotel' | 'hostel' | 'airbnb' | 'other';
   placeName?: string;
   checkIn: {
     time: string;
@@ -53,20 +55,13 @@ export interface AccommodationEvent {
     location: Location;
   };
   roomNumber?: string;
-  notes?: string;
-  [key: string]: any;
+  bookingReference?: string;
 }
 
 // Travel event (flight, train, car, boat, bus, etc.)
-export interface TravelEvent {
-  id: string;
+export interface TravelEvent extends BaseEvent {
   category: 'travel';
   type: 'flight' | 'train' | 'car' | 'boat' | 'bus' | 'other';
-  title: string;
-  start: string;
-  end?: string;
-  city: string;
-  country: string;
   departure: {
     time: string;
     location: Location;
@@ -77,45 +72,28 @@ export interface TravelEvent {
   };
   airline?: string;
   flightNumber?: string;
+  trainNumber?: string;
   seat?: string;
   bookingReference?: string;
-  notes?: string;
-  [key: string]: any;
+  car?: string; // For train car number
+  class?: string; // For travel class (economy, business, etc.)
 }
 
 // Experience event (activity, tour, museum, concert, etc.)
-export interface ExperienceEvent {
-  id: string;
+export interface ExperienceEvent extends BaseEvent {
   category: 'experience';
   type: 'activity' | 'tour' | 'museum' | 'concert' | 'other';
-  title: string;
-  start: string;
-  end?: string;
-  city: string;
-  country: string;
   startTime: string;
   endTime: string;
-  location: Location;
   bookingReference?: string;
-  notes?: string;
-  [key: string]: any;
 }
 
 // Meal event (restaurant, etc.)
-export interface MealEvent {
-  id: string;
+export interface MealEvent extends BaseEvent {
   category: 'meal';
   type: 'restaurant' | 'other';
-  title: string;
-  start: string;
-  end?: string;
-  city: string;
-  country: string;
   time: string;
-  location: Location;
   reservationReference?: string;
-  notes?: string;
-  [key: string]: any;
 }
 
 // Union type for all events

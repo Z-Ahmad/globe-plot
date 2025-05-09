@@ -1,14 +1,9 @@
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTripStore, Trip, Event } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { format, parseISO } from 'date-fns';
-import { PencilIcon, Trash2Icon } from 'lucide-react';
-import { getEventStyle } from '../styles/eventStyles';
+
 import { EventCard } from "@/components/EventCard";
 import { EventEditor } from "@/components/EventEditor";
 
@@ -207,6 +202,63 @@ export const NewTrip = () => {
     const normalizedEvents = editingEvents.map(event => {
       // Create a copy of the event
       let updatedEvent = {...event};
+      
+      // Ensure required location objects exist
+      if (!updatedEvent.location) {
+        updatedEvent.location = { name: '', city: '', country: '' };
+      }
+      
+      if (updatedEvent.category === 'travel') {
+        if (!updatedEvent.departure) updatedEvent.departure = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.departure.location) updatedEvent.departure.location = { name: '', city: '', country: '' };
+        
+        if (!updatedEvent.arrival) updatedEvent.arrival = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.arrival.location) updatedEvent.arrival.location = { name: '', city: '', country: '' };
+        
+        // Ensure top-level location is populated from departure.location
+        updatedEvent.location = {...updatedEvent.departure.location};
+      }
+      
+      if (updatedEvent.category === 'accommodation') {
+        if (!updatedEvent.checkIn) updatedEvent.checkIn = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.checkIn.location) updatedEvent.checkIn.location = { name: '', city: '', country: '' };
+        
+        if (!updatedEvent.checkOut) updatedEvent.checkOut = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.checkOut.location) updatedEvent.checkOut.location = { name: '', city: '', country: '' };
+        
+        // Ensure top-level location is populated from checkIn.location
+        updatedEvent.location = {...updatedEvent.checkIn.location};
+      }
+      
+      // Handle legacy data format (migrate city/country to appropriate location)
+      if ('city' in updatedEvent || 'country' in updatedEvent) {
+        const city = (updatedEvent as any).city || '';
+        const country = (updatedEvent as any).country || '';
+        
+        // Move city/country to the appropriate location object based on event category
+        if (updatedEvent.category === 'travel' && updatedEvent.departure) {
+          updatedEvent.departure.location.city = city;
+          updatedEvent.departure.location.country = country;
+          // Also update the top-level location
+          updatedEvent.location.city = city;
+          updatedEvent.location.country = country;
+        } 
+        else if (updatedEvent.category === 'accommodation' && updatedEvent.checkIn) {
+          updatedEvent.checkIn.location.city = city;
+          updatedEvent.checkIn.location.country = country;
+          // Also update the top-level location
+          updatedEvent.location.city = city;
+          updatedEvent.location.country = country;
+        }
+        else if (updatedEvent.location) {
+          updatedEvent.location.city = city;
+          updatedEvent.location.country = country;
+        }
+        
+        // Remove the old top-level properties
+        delete (updatedEvent as any).city;
+        delete (updatedEvent as any).country;
+      }
       
       // Update the start/end time based on category
       if (updatedEvent.category === 'accommodation') {
