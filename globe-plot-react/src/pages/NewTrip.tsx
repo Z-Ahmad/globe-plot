@@ -6,6 +6,9 @@ import { format, parseISO } from 'date-fns';
 
 import { EventCard } from "@/components/EventCard";
 import { EventEditor } from "@/components/EventEditor";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { EventList } from "@/components/EventList";
 
 // Helper functions for date and time formatting
 const formatDate = (dateStr: string) => {
@@ -168,7 +171,7 @@ export const NewTrip = () => {
       const bTime = b.start ? new Date(b.start).getTime() : 0;
       return aTime - bTime;
     });
-    setEditingEvents(sorted);
+    return sorted;
   };
 
   const handleEditEvent = (event: Event) => {
@@ -176,18 +179,32 @@ export const NewTrip = () => {
     setShowEventEditor(true);
   };
 
+  const createNewEvent = (event: Event) => {
+    setCurrentEditingEvent(event);
+    setShowEventEditor(true);
+  };
+
   const handleSaveEventEdit = (updatedEvent: Event) => {
     if (!updatedEvent) return;
     
-    // Update the event in the state
-    const updatedEvents = editingEvents.map(event => 
-      event.id === updatedEvent.id ? updatedEvent : event
-    );
+    let updatedEvents: Event[];
+    
+    // For new events, add to the list
+    if (!editingEvents.some(e => e.id === updatedEvent.id)) {
+      updatedEvents = [...editingEvents, updatedEvent];
+    } else {
+      // Update existing event
+      updatedEvents = editingEvents.map(event => 
+        event.id === updatedEvent.id ? updatedEvent : event
+      );
+    }
     
     // Resort events to maintain chronological order
-    sortEvents(updatedEvents);
+    const sortedEvents = sortEvents(updatedEvents);
+    setEditingEvents(sortedEvents);
     
     setShowEventEditor(false);
+    setCurrentEditingEvent(null);
   };
 
   const handleDeleteEvent = (eventId: string) => {
@@ -345,6 +362,32 @@ export const NewTrip = () => {
   const completedCount = documents.filter(doc => doc.status === 'completed').length;
   const errorCount = documents.filter(doc => doc.status === 'error').length;
   
+  // Empty state to display when there are no events
+  const emptyState = (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-primary text-2xl">🗓️</span>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">No events found</h2>
+      <p className="text-muted-foreground mb-6">No events found. Try processing more documents or add events manually.</p>
+      <Button onClick={() => createNewEvent({
+        id: uuidv4(),
+        category: 'experience',
+        type: 'activity',
+        title: 'New Event',
+        start: '',
+        location: {
+          name: '',
+          city: '',
+          country: ''
+        }
+      } as any)} className="flex items-center gap-2">
+        <Plus size={16} />
+        <span>Add Your First Event</span>
+      </Button>
+    </div>
+  );
+
   return (
     <main className='max-w-2xl mx-auto p-6'>
       {currentStep === 'form' ? (
@@ -524,30 +567,33 @@ export const NewTrip = () => {
       ) : (
         // Review step
         <div className="bg-card p-6 rounded-lg border border-border">
-          <h2 className="text-2xl font-semibold mb-4">Review Trip: {name}</h2>
-          
-          {/* Event review section */}
-          <div className="space-y-4">
-            {editingEvents.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-primary text-2xl">🗓️</span>
-                </div>
-                <h2 className="text-xl font-semibold mb-2">No events found</h2>
-                <p className="text-muted-foreground">No events found. Try processing more documents.</p>
-              </div>
-            ) : (
-              editingEvents.map(event => (
-                <EventCard 
-                  key={event.id} 
-                  event={event} 
-                  showEditControls={true}
-                  onEdit={handleEditEvent}
-                  onDelete={handleDeleteEvent}
-                />
-              ))
-            )}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Review Trip: {name}</h2>
+            <Button onClick={() => createNewEvent({
+              id: uuidv4(),
+              category: 'experience',
+              type: 'activity',
+              title: 'New Event',
+              start: '',
+              location: {
+                name: '',
+                city: '',
+                country: ''
+              }
+            } as any)} className="flex items-center gap-2">
+              <Plus size={16} />
+              <span>Add Event</span>
+            </Button>
           </div>
+          
+          {/* Use the new EventList component */}
+          <EventList 
+            events={editingEvents}
+            onEdit={handleEditEvent}
+            onDelete={handleDeleteEvent}
+            onAddNew={createNewEvent}
+            emptyState={emptyState}
+          />
           
           <div className="flex justify-end mt-6">
             <button 

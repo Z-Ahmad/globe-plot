@@ -12,8 +12,11 @@ import {
 import { getEventStyle } from '../styles/eventStyles';
 import { EventCard } from '@/components/EventCard';
 import { EventEditor } from '@/components/EventEditor';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, MapPinPlusInside, Plus } from 'lucide-react';
 import { formatDateRange } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { v4 as uuidv4 } from 'uuid';
+import { EventList } from '@/components/EventList';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -182,7 +185,18 @@ export const TripView = () => {
 
   const handleSaveEventEdit = (updatedEvent: Event) => {
     if (id) {
-      updateEvent(id, updatedEvent.id, updatedEvent);
+      // Check if this is a new event (doesn't exist in the trip yet)
+      const isNewEvent = !trip.events.some(e => e.id === updatedEvent.id);
+      
+      if (isNewEvent) {
+        // Add new event to the trip
+        const updatedEvents = [...trip.events, updatedEvent];
+        updateTrip(id, { events: updatedEvents });
+      } else {
+        // Update existing event
+        updateEvent(id, updatedEvent.id, updatedEvent);
+      }
+      
       setShowEventEditor(false);
       setCurrentEditingEvent(null);
     }
@@ -199,8 +213,42 @@ export const TripView = () => {
     }
   };
 
+  // Create a new blank event
+  const createNewEvent = (event: Event) => {
+    setCurrentEditingEvent(event);
+    setShowEventEditor(true);
+  };
+
   // Sidebar expand/collapse logic
   const handleAccordionChange = (value: string[]) => setExpanded(value);
+
+  // Empty state to display when there are no events
+  const emptyState = (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-primary text-2xl">🗓️</span>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">No events added yet</h2>
+      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+        Add your first event to start planning your trip itinerary.
+      </p>
+      <Button onClick={() => createNewEvent({
+        id: uuidv4(),
+        category: 'experience',
+        type: 'activity',
+        title: 'New Event',
+        start: '',
+        location: {
+          name: '',
+          city: '',
+          country: ''
+        }
+      } as any)} className="flex items-center gap-2">
+        <Plus size={16} />
+        <span>Add Your First Event</span>
+      </Button>
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto p-6 grid grid-cols-12 gap-6">
@@ -254,42 +302,45 @@ export const TripView = () => {
 
       {/* Main Content: Chronological event list */}
       <section className="col-span-12 md:col-span-9 bg-gradient-to-b from-card to-card/98 border border-border rounded-lg shadow-sm p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center">
-            <span className="">
-            { trip.name}
-            </span>
-          </h1>
-          <p className="text-muted-foreground flex items-center gap-2 ml-2">
-            <CalendarDays className="w-5 h-5" />
-            <span>{formatDateRange(trip.dateRange)}</span>
-            <span className="mx-2 text-border">•</span>
-            <span>{trip.events.length} events</span>
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center">
+              <span className="">
+              { trip.name}
+              </span>
+            </h1>
+            <p className="text-muted-foreground flex items-center gap-2 ml-2">
+              <CalendarDays className="w-5 h-5" />
+              <span>{formatDateRange(trip.dateRange)}</span>
+              <span className="mx-2 text-border">•</span>
+              <span>{trip.events.length} events</span>
+            </p>
+          </div>
+          <Button onClick={() => createNewEvent({
+            id: uuidv4(),
+            category: 'experience',
+            type: 'activity',
+            title: 'New Event',
+            start: '',
+            location: {
+              name: '',
+              city: '',
+              country: ''
+            }
+          } as any)} className="flex items-center gap-2">
+            <MapPinPlusInside size={20} />
+            <span>Add Event</span>
+          </Button>
         </div>
-        <div className="space-y-4">
-          {sortedEvents.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-primary text-2xl">🗓️</span>
-              </div>
-              <h2 className="text-xl font-semibold mb-2">No events added yet</h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Add your first event to start planning your trip itinerary.
-              </p>
-            </div>
-          ) : (
-            sortedEvents.map(event => (
-              <EventCard 
-                key={event.id} 
-                event={event} 
-                showEditControls={true}
-                onEdit={handleEditEvent}
-                onDelete={handleDeleteEvent}
-              />
-            ))
-          )}
-        </div>
+
+        {/* Use the new EventList component */}
+        <EventList 
+          events={sortedEvents}
+          onEdit={handleEditEvent}
+          onDelete={handleDeleteEvent}
+          onAddNew={createNewEvent}
+          emptyState={emptyState}
+        />
       </section>
 
       {/* Event Editor Dialog */}

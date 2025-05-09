@@ -183,29 +183,23 @@ const EventForm: React.FC<EventFormProps> = ({
     <div className="space-y-4">
       <div className="space-y-2">
         <label className="text-sm font-medium">Title</label>
-        <Input 
-          value={editingEvent.title} 
-          onChange={(e) => setEditingEvent({...editingEvent, title: e.target.value})}
-        />
+        <Input value={editingEvent.title} onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })} />
       </div>
-      
+
       {/* Category and Type selectors in a 2-column grid on all screen sizes */}
       <div className="grid grid-cols-2 gap-6">
         {/* Category selector */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Category</label>
-          <Select 
-            value={editingEvent.category} 
-            onValueChange={handleCategoryChange}
-          >
+          <Select value={editingEvent.category} onValueChange={handleCategoryChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => {
-                const style = categoryStyleMap[category] || { icon: null, color: 'text-gray-700' };
+                const style = categoryStyleMap[category] || { icon: null, color: "text-gray-700" };
                 const Icon = style.icon;
-                
+
                 return (
                   <SelectItem key={category} value={category} className="flex items-center">
                     {Icon && <Icon className={`mr-2 h-4 w-4 ${style.color}`} />}
@@ -216,23 +210,20 @@ const EventForm: React.FC<EventFormProps> = ({
             </SelectContent>
           </Select>
         </div>
-        
+
         {/* Type selector */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Type</label>
-          <Select 
-            value={editingEvent.type} 
-            onValueChange={handleTypeChange}
-          >
+          <Select value={editingEvent.type} onValueChange={handleTypeChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
               {availableTypes.map((type) => {
                 const styleKey = `${editingEvent.category}/${type}`;
-                const style = eventStyleMap[styleKey] || { icon: null, color: 'text-gray-700' };
+                const style = eventStyleMap[styleKey] || { icon: null, color: "text-gray-700" };
                 const Icon = style.icon;
-                
+
                 return (
                   <SelectItem key={type} value={type} className="flex items-center">
                     {Icon && <Icon className={`mr-2 h-4 w-4 ${style.color}`} />}
@@ -244,12 +235,12 @@ const EventForm: React.FC<EventFormProps> = ({
           </Select>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Country</label>
-            {editingEvent.category === 'travel' && (
+            {editingEvent.category === "travel" && (
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="text-muted-foreground hover:text-foreground">
@@ -264,14 +255,16 @@ const EventForm: React.FC<EventFormProps> = ({
               </Popover>
             )}
           </div>
-          <Input 
-            value={editingEvent.category === 'travel' 
-              ? (editingEvent.departure?.location?.country || '')
-              : editingEvent.category === 'accommodation'
-                ? (editingEvent.checkIn?.location?.country || '')
-                : (editingEvent.location?.country || '')} 
+          <Input
+            value={
+              editingEvent.category === "travel"
+                ? editingEvent.departure?.location?.country || ""
+                : editingEvent.category === "accommodation"
+                ? editingEvent.checkIn?.location?.country || ""
+                : editingEvent.location?.country || ""
+            }
             onChange={(e) => {
-              if (editingEvent.category === 'travel') {
+              if (editingEvent.category === "travel") {
                 setEditingEvent({
                   ...editingEvent,
                   departure: {
@@ -282,7 +275,7 @@ const EventForm: React.FC<EventFormProps> = ({
                     }
                   }
                 });
-              } else if (editingEvent.category === 'accommodation') {
+              } else if (editingEvent.category === "accommodation") {
                 setEditingEvent({
                   ...editingEvent,
                   checkIn: {
@@ -297,7 +290,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 setEditingEvent({
                   ...editingEvent,
                   location: {
-                    ...editingEvent.location || {},
+                    ...(editingEvent.location || {}),
                     country: e.target.value
                   }
                 });
@@ -308,7 +301,7 @@ const EventForm: React.FC<EventFormProps> = ({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">City</label>
-            {editingEvent.category === 'travel' && (
+            {editingEvent.category === "travel" && (
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="text-muted-foreground hover:text-foreground">
@@ -323,14 +316,16 @@ const EventForm: React.FC<EventFormProps> = ({
               </Popover>
             )}
           </div>
-          <Input 
-            value={editingEvent.category === 'travel' 
-              ? (editingEvent.departure?.location?.city || '')
-              : editingEvent.category === 'accommodation'
-                ? (editingEvent.checkIn?.location?.city || '')
-                : (editingEvent.location?.city || '')} 
+          <Input
+            value={
+              editingEvent.category === "travel"
+                ? editingEvent.departure?.location?.city || ""
+                : editingEvent.category === "accommodation"
+                ? editingEvent.checkIn?.location?.city || ""
+                : editingEvent.location?.city || ""
+            }
             onChange={(e) => {
-              if (editingEvent.category === 'travel') {
+              if (editingEvent.category === "travel") {
                 setEditingEvent({
                   ...editingEvent,
                   departure: {
@@ -341,7 +336,7 @@ const EventForm: React.FC<EventFormProps> = ({
                     }
                   }
                 });
-              } else if (editingEvent.category === 'accommodation') {
+              } else if (editingEvent.category === "accommodation") {
                 setEditingEvent({
                   ...editingEvent,
                   checkIn: {
@@ -356,7 +351,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 setEditingEvent({
                   ...editingEvent,
                   location: {
-                    ...editingEvent.location || {},
+                    ...(editingEvent.location || {}),
                     city: e.target.value
                   }
                 });
@@ -365,281 +360,280 @@ const EventForm: React.FC<EventFormProps> = ({
           />
         </div>
       </div>
-      
+
       {/* Location name field - hide for travel and accommodation events */}
-      {editingEvent.category !== 'travel' && editingEvent.category !== 'accommodation' && (
+      {editingEvent.category !== "travel" && editingEvent.category !== "accommodation" && (
         <div className="space-y-2">
           <label className="text-sm font-medium">Location Name</label>
-          <Input 
+          <Input
             placeholder="e.g., Conference Center, Restaurant Name, etc."
-            value={editingEvent.location?.name || ''} 
-            onChange={(e) => setEditingEvent({
-              ...editingEvent,
-              location: {
-                ...editingEvent.location || {},
-                name: e.target.value
-              }
-            })}
+            value={editingEvent.location?.name || ""}
+            onChange={(e) =>
+              setEditingEvent({
+                ...editingEvent,
+                location: {
+                  ...(editingEvent.location || {}),
+                  name: e.target.value
+                }
+              })
+            }
           />
         </div>
       )}
-      
+
       {/* Category-specific fields */}
-      {editingEvent.category === 'travel' && (
+      {editingEvent.category === "travel" && (
         <>
-          {/* Flight-specific fields */}
-          {editingEvent.type === 'flight' && (
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Airline</label>
-                <Input 
-                  value={editingEvent.airline || ''} 
-                  onChange={(e) => setEditingEvent({...editingEvent, airline: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Flight Number</label>
-                <Input 
-                  value={editingEvent.flightNumber || ''} 
-                  onChange={(e) => setEditingEvent({...editingEvent, flightNumber: e.target.value})}
-                />
-              </div>
-            </div>
-          )}
-          
           {/* Departure and Arrival sections */}
           {/* Departure location and time - stacked on mobile, side by side on desktop */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Departure Location</label>
-              <Input 
+              <Input
                 className="w-full"
                 placeholder="e.g., JFK Airport, New York"
-                value={editingEvent.departure?.location?.name || ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent,
-                  departure: {
-                    ...editingEvent.departure,
-                    location: {
-                      ...(editingEvent.departure?.location || {}),
-                      name: e.target.value
+                value={editingEvent.departure?.location?.name || ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    departure: {
+                      ...editingEvent.departure,
+                      location: {
+                        ...(editingEvent.departure?.location || {}),
+                        name: e.target.value
+                      }
                     }
-                  }
-                })}
+                  })
+                }
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Departure Time</label>
-              <Input 
+              <Input
                 className="w-full"
                 type="datetime-local"
-                value={editingEvent.departure?.time ? editingEvent.departure.time.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent,
-                  departure: {
-                    ...editingEvent.departure,
-                    time: e.target.value
-                  },
-                  start: e.target.value
-                })}
+                value={editingEvent.departure?.time ? editingEvent.departure.time.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    departure: {
+                      ...editingEvent.departure,
+                      time: e.target.value
+                    },
+                    start: e.target.value
+                  })
+                }
               />
             </div>
           </div>
-          
+
           {/* Arrival location and time - stacked on mobile, side by side on desktop */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Arrival Location</label>
-              <Input 
+              <Input
                 className="w-full"
                 placeholder="e.g., Heathrow Airport, London"
-                value={editingEvent.arrival?.location?.name || ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent,
-                  arrival: {
-                    ...editingEvent.arrival,
-                    location: {
-                      ...(editingEvent.arrival?.location || {}),
-                      name: e.target.value
+                value={editingEvent.arrival?.location?.name || ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    arrival: {
+                      ...editingEvent.arrival,
+                      location: {
+                        ...(editingEvent.arrival?.location || {}),
+                        name: e.target.value
+                      }
                     }
-                  }
-                })}
+                  })
+                }
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Arrival Time</label>
-              <Input 
+              <Input
                 className="w-full"
                 type="datetime-local"
-                value={editingEvent.arrival?.time ? editingEvent.arrival.time.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent,
-                  arrival: {
-                    ...editingEvent.arrival,
-                    time: e.target.value
-                  },
-                  end: e.target.value
-                })}
+                value={editingEvent.arrival?.time ? editingEvent.arrival.time.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    arrival: {
+                      ...editingEvent.arrival,
+                      time: e.target.value
+                    },
+                    end: e.target.value
+                  })
+                }
               />
             </div>
           </div>
-          
+
+          {/* Flight-specific fields */}
+          {editingEvent.type === "flight" && (
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Airline</label>
+                <Input value={editingEvent.airline || ""} onChange={(e) => setEditingEvent({ ...editingEvent, airline: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Flight Number</label>
+                <Input value={editingEvent.flightNumber || ""} onChange={(e) => setEditingEvent({ ...editingEvent, flightNumber: e.target.value })} />
+              </div>
+            </div>
+          )}
+
           {/* Additional fields based on travel type */}
-          {editingEvent.type === 'train' && (
+          {editingEvent.type === "train" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Train Number</label>
-                <Input 
-                  value={editingEvent.trainNumber || ''} 
-                  onChange={(e) => setEditingEvent({...editingEvent, trainNumber: e.target.value})}
-                />
+                <Input value={editingEvent.trainNumber || ""} onChange={(e) => setEditingEvent({ ...editingEvent, trainNumber: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Seat</label>
-                <Input 
-                  value={editingEvent.seat || ''} 
-                  onChange={(e) => setEditingEvent({...editingEvent, seat: e.target.value})}
-                />
+                <Input value={editingEvent.seat || ""} onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} />
               </div>
             </div>
           )}
         </>
       )}
-      
-      {editingEvent.category === 'accommodation' && (
+
+      {editingEvent.category === "accommodation" && (
         <>
           <div className="space-y-2">
             <label className="text-sm font-medium">Place Name</label>
-            <Input 
-              value={editingEvent.placeName || ''} 
-              onChange={(e) => setEditingEvent({...editingEvent, placeName: e.target.value})}
-            />
+            <Input value={editingEvent.placeName || ""} onChange={(e) => setEditingEvent({ ...editingEvent, placeName: e.target.value })} />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Check-in</label>
-              <Input 
+              <Input
                 type="datetime-local"
-                value={editingEvent.checkIn?.time ? editingEvent.checkIn.time.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent, 
-                  checkIn: {
-                    ...editingEvent.checkIn,
-                    time: e.target.value
-                  },
-                  start: e.target.value
-                })}
+                value={editingEvent.checkIn?.time ? editingEvent.checkIn.time.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    checkIn: {
+                      ...editingEvent.checkIn,
+                      time: e.target.value
+                    },
+                    start: e.target.value
+                  })
+                }
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Check-out</label>
-              <Input 
+              <Input
                 type="datetime-local"
-                value={editingEvent.checkOut?.time ? editingEvent.checkOut.time.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent, 
-                  checkOut: {
-                    ...editingEvent.checkOut,
-                    time: e.target.value
-                  },
-                  end: e.target.value
-                })}
+                value={editingEvent.checkOut?.time ? editingEvent.checkOut.time.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    checkOut: {
+                      ...editingEvent.checkOut,
+                      time: e.target.value
+                    },
+                    end: e.target.value
+                  })
+                }
               />
             </div>
           </div>
-          
+
           {/* Room number for hotel/hostel */}
-          {(editingEvent.type === 'hotel' || editingEvent.type === 'hostel') && (
+          {(editingEvent.type === "hotel" || editingEvent.type === "hostel") && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Room Number</label>
-              <Input 
-                value={editingEvent.roomNumber || ''} 
-                onChange={(e) => setEditingEvent({...editingEvent, roomNumber: e.target.value})}
-              />
+              <Input value={editingEvent.roomNumber || ""} onChange={(e) => setEditingEvent({ ...editingEvent, roomNumber: e.target.value })} />
             </div>
           )}
         </>
       )}
-      
+
       {/* Experience Events */}
-      {editingEvent.category === 'experience' && (
+      {editingEvent.category === "experience" && (
         <>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Start Time</label>
-              <Input 
+              <label className="text-sm font-medium">Start</label>
+              <Input
                 type="datetime-local"
-                value={editingEvent.startTime ? editingEvent.startTime.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent, 
-                  startTime: e.target.value,
-                  start: e.target.value
-                })}
+                value={editingEvent.startTime ? editingEvent.startTime.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    startTime: e.target.value,
+                    start: e.target.value
+                  })
+                }
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">End Time</label>
-              <Input 
+              <label className="text-sm font-medium">End</label>
+              <Input
                 type="datetime-local"
-                value={editingEvent.endTime ? editingEvent.endTime.slice(0, 16) : ''} 
-                onChange={(e) => setEditingEvent({
-                  ...editingEvent, 
-                  endTime: e.target.value,
-                  end: e.target.value
-                })}
+                value={editingEvent.endTime ? editingEvent.endTime.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setEditingEvent({
+                    ...editingEvent,
+                    endTime: e.target.value,
+                    end: e.target.value
+                  })
+                }
               />
             </div>
           </div>
-          
+
           {/* Booking reference field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Booking Reference</label>
-            <Input 
-              value={editingEvent.bookingReference || ''} 
-              onChange={(e) => setEditingEvent({...editingEvent, bookingReference: e.target.value})}
-            />
+            <Input value={editingEvent.bookingReference || ""} onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })} />
           </div>
         </>
       )}
-      
+
       {/* Meal Events */}
-      {editingEvent.category === 'meal' && (
+      {editingEvent.category === "meal" && (
         <>
           <div className="space-y-2">
             <label className="text-sm font-medium">Time</label>
-            <Input 
+            <Input
               type="datetime-local"
-              value={editingEvent.time ? editingEvent.time.slice(0, 16) : ''} 
-              onChange={(e) => setEditingEvent({
-                ...editingEvent, 
-                time: e.target.value,
-                start: e.target.value,
-                end: e.target.value
-              })}
+              value={editingEvent.time ? editingEvent.time.slice(0, 16) : ""}
+              onChange={(e) =>
+                setEditingEvent({
+                  ...editingEvent,
+                  time: e.target.value,
+                  start: e.target.value,
+                  end: e.target.value
+                })
+              }
             />
           </div>
-          
+
           {/* Reservation reference for restaurants */}
-          {editingEvent.type === 'restaurant' && (
+          {editingEvent.type === "restaurant" && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Reservation Reference</label>
-              <Input 
-                value={editingEvent.reservationReference || ''} 
-                onChange={(e) => setEditingEvent({...editingEvent, reservationReference: e.target.value})}
+              <Input
+                value={editingEvent.reservationReference || ""}
+                onChange={(e) => setEditingEvent({ ...editingEvent, reservationReference: e.target.value })}
               />
             </div>
           )}
         </>
       )}
-      
+
       <div className="space-y-2">
         <label className="text-sm font-medium">Notes</label>
-        <Textarea 
-          value={editingEvent.notes || ''} 
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingEvent({...editingEvent, notes: e.target.value})}
+        <Textarea
+          value={editingEvent.notes || ""}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingEvent({ ...editingEvent, notes: e.target.value })}
         />
       </div>
     </div>
@@ -654,6 +648,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
 }) => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(event);
   const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isNewEvent = event && !event.start; // Check if it's a new event based on missing start time
 
   // Update local state when the event prop changes
   React.useEffect(() => {
@@ -728,9 +723,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className={`max-w-3xl max-h-[90vh] overflow-y-auto ${bgColor}`}>
           <DialogHeader>
-            <DialogTitle>Edit {editingEvent.title}</DialogTitle>
+            <DialogTitle>{isNewEvent ? 'Add New Event' : `Edit ${editingEvent.title}`}</DialogTitle>
             <DialogDescription>
-              Make changes to this event and click Save when you're done.
+              {isNewEvent 
+                ? 'Create a new event for your trip and click Save when you\'re done.' 
+                : 'Make changes to this event and click Save when you\'re done.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -744,7 +741,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button onClick={handleSave}>{isNewEvent ? 'Create Event' : 'Save Changes'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -757,9 +754,11 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       <Drawer open={isOpen} onOpenChange={onClose}>
         <DrawerContent className={`${bgColor}`}>
           <DrawerHeader>
-            <DrawerTitle>Edit {editingEvent.title}</DrawerTitle>
+            <DrawerTitle>{isNewEvent ? 'Add New Event' : `Edit ${editingEvent.title}`}</DrawerTitle>
             <DrawerDescription>
-              Make changes to this event and click Save Changes when you're done.
+              {isNewEvent 
+                ? 'Create a new event for your trip and click Save when you\'re done.' 
+                : 'Make changes to this event and click Save when you\'re done.'}
             </DrawerDescription>
           </DrawerHeader>
           
@@ -777,7 +776,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             <DrawerClose asChild>
               <Button variant="outline">Cancel</Button>
             </DrawerClose>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button onClick={handleSave}>{isNewEvent ? 'Create Event' : 'Save Changes'}</Button>
           </DrawerFooter>
         </DrawerContent>
       </Drawer>

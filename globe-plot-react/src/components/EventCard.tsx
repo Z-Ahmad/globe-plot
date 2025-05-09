@@ -137,27 +137,31 @@ export const EventCard: React.FC<EventCardProps> = ({
           <div className="mt-2 text-xs">
             {event.type === 'flight' && (
               <>
-                <div>Flight: {event.flightNumber} {event.airline && `(${event.airline})`}</div>
+                <div>{event.flightNumber ? `Flight: ${event.flightNumber} ${event.airline && `(${event.airline})`}` : 'Flight'}</div>
                 {event.departure && (
                   <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
                 )}
                 {event.arrival && (
                   <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
                 )}
-                {event.seat && <div>Seat: {event.seat}</div>}
+                {event.trainNumber && <div>Train: {event.trainNumber}</div>}
+                {event.seat && <div>Seat {event.seat}</div>}
                 {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
               </>
             )}
             {['train', 'car', 'boat', 'bus', 'other'].includes(event.type) && (
               <>
-                <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)} transit</div>
+                {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
                 {event.departure && (
                   <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
                 )}
                 {event.arrival && (
                   <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
                 )}
-                {event.seat && <div>Seat: {event.seat}</div>}
+                <div className="flex gap-1">
+                  {event.trainNumber && <div>Train {event.trainNumber}, </div>}
+                  {event.seat && <div>Seat {event.seat}</div>}
+                </div>
                 {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
               </>
             )}
@@ -166,7 +170,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         {/* Accommodation Events (hotel, hostel, airbnb, other) */}
         {event.category === 'accommodation' && (
           <div className="mt-2 text-xs">
-            <div>Place: {event.placeName}</div>
+            {/* <div>{event.placeName}</div> */}
             {event.checkIn && (
               <div>Check-in: {event.checkIn.location?.name} {event.checkIn.time && `@ ${formatDate(event.checkIn.time)} ${formatTime(event.checkIn.time)}`}</div>
             )}
@@ -180,8 +184,8 @@ export const EventCard: React.FC<EventCardProps> = ({
         {/* Experience Events (activity, tour, museum, concert, other) */}
         {event.category === 'experience' && (
           <div className="mt-2 text-xs">
-            <div>Type: {event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div>
-            {event.location && <div>Location: {event.location.name}</div>}
+            {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
+            {/* {event.location && <div>Location: {event.location.name}</div>} */}
             {event.startTime && <div>Start: {formatDate(event.startTime)} {formatTime(event.startTime)}</div>}
             {event.endTime && <div>End: {formatDate(event.endTime)} {formatTime(event.endTime)}</div>}
             {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
@@ -190,7 +194,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         {/* Meal Events (restaurant, other) */}
         {event.category === 'meal' && (
           <div className="mt-2 text-xs">
-            <div>Type: {event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div>
+            {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
             {event.location && <div>Location: {event.location.name}</div>}
             {event.time && <div>Time: {formatDate(event.time)} {formatTime(event.time)}</div>}
             {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
