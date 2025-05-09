@@ -124,7 +124,7 @@ export const Dashboard = () => {
                     <p className="text-muted-foreground text-sm flex items-center gap-2">
                       <CalendarDays size={16} />
 
-                      <span>{formatDateRange(trip.dateRange)}</span>
+                      <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
                     </p>
                     <div className="mt-4 flex items-center text-sm text-chart-2">
                       <span className="mr-4 flex items-center gap-2">

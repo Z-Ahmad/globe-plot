@@ -31,20 +31,20 @@ function normalizeEvent(event: any) {
   // Determine start/end times based on category
   switch (event.category) {
     case 'accommodation':
-      start = event.checkIn?.time || '';
-      end = event.checkOut?.time || '';
+      start = event.checkIn?.date || '';
+      end = event.checkOut?.date || '';
       break;
     case 'travel':
-      start = event.departure?.time || '';
-      end = event.arrival?.time || '';
+      start = event.departure?.date || '';
+      end = event.arrival?.date || '';
       break;
     case 'experience':
-      start = event.startTime || '';
-      end = event.endTime || '';
+      start = event.startDate || '';
+      end = event.endDate || '';
       break;
     case 'meal':
-      start = event.time || '';
-      end = event.time || '';
+      start = event.date || '';
+      end = event.date || '';
       break;
     default:
       start = event.start || '';
@@ -66,10 +66,10 @@ function normalizeEvent(event: any) {
     // Accommodation events can also have a bookingReference (already defined above)
     
     // Experience event fields
-    startTime: true, endTime: true, // bookingReference already defined above
+    startDate: true, endDate: true, // bookingReference already defined above
     
     // Meal event fields
-    time: true, reservationReference: true
+    date: true, reservationReference: true
   };
   
   // Collect unknown fields
@@ -110,13 +110,13 @@ function normalizeEvent(event: any) {
 function validateEvent(event: any) {
   switch (event.category) {
     case 'accommodation':
-      return !!(event.checkIn?.time && event.checkOut?.time);
+      return !!(event.checkIn?.date && event.checkOut?.date);
     case 'travel':
-      return !!(event.departure?.time && event.arrival?.time);
+      return !!(event.departure?.date && event.arrival?.date);
     case 'experience':
-      return !!(event.startTime && event.endTime);
+      return !!(event.startDate && event.endDate);
     case 'meal':
-      return !!event.time;
+      return !!event.date;
     default:
       return false;
   }
@@ -239,8 +239,8 @@ BASE EVENT FIELDS:
 CATEGORY-SPECIFIC FIELDS:
 1. Travel events (category: "travel"):
    - location: { name: string, city: string, country: string } - **Same as departure location**
-   - departure: { time: string, location: { name: string, city: string, country: string } }
-   - arrival: { time: string, location: { name: string, city: string, country: string } }
+   - departure: { date: string, location: { name: string, city: string, country: string } }
+   - arrival: { date: string, location: { name: string, city: string, country: string } }
    - airline: string (optional)
    - flightNumber: string (optional)
    - trainNumber: string (optional)
@@ -252,20 +252,20 @@ CATEGORY-SPECIFIC FIELDS:
 2. Accommodation events (category: "accommodation"):
    - location: { name: string, city: string, country: string } - **Same as checkIn location**
    - placeName: string 
-   - checkIn: { time: string, location: { name: string, city: string, country: string } }
-   - checkOut: { time: string, location: { name: string, city: string, country: string } }
+   - checkIn: { date: string, location: { name: string, city: string, country: string } }
+   - checkOut: { date: string, location: { name: string, city: string, country: string } }
    - roomNumber: string (optional)
    - bookingReference: string (optional)
 
 3. Experience events (category: "experience"):
    - location: { name: string, city: string, country: string }
-   - startTime: string
-   - endTime: string
+   - startDate: string
+   - endDate: string
    - bookingReference: string (optional)
 
 4. Meal events (category: "meal"):
    - location: { name: string, city: string, country: string }
-   - time: string
+   - date: string
    - reservationReference: string (optional)
 
 EXAMPLES:
@@ -278,7 +278,7 @@ Example 1 (flight, all fields present):
   "airline": "Icelandair",
   "flightNumber": "FI614",
   "departure": {
-    "time": "2025-06-10T20:30:00",
+    "date": "2025-06-10T20:30:00",
     "location": {
       "name": "JFK – New York",
       "city": "New York",
@@ -286,7 +286,7 @@ Example 1 (flight, all fields present):
     }
   },
   "arrival": {
-    "time": "2025-06-11T06:10:00",
+    "date": "2025-06-11T06:10:00",
     "location": {
       "name": "KEF – Reykjavik",
       "city": "Reykjavik",
@@ -309,7 +309,7 @@ Example 2 (flight, missing optional fields):
   "type": "flight",
   "title": "Flight from Paris to New York",
   "departure": {
-    "time": "2025-06-24T13:15:00",
+    "date": "2025-06-24T13:15:00",
     "location": {
       "name": "CDG – Paris Charles de Gaulle",
       "city": "Paris",
@@ -317,7 +317,7 @@ Example 2 (flight, missing optional fields):
     }
   },
   "arrival": {
-    "time": "2025-06-24T15:50:00",
+    "date": "2025-06-24T15:50:00",
     "location": {
       "name": "JFK – New York",
       "city": "New York",
@@ -338,7 +338,7 @@ Example 3 (accommodation, missing some fields):
   "title": "YellowSquare Hostel Stay",
   "placeName": "YellowSquare Hostel",
   "checkIn": {
-    "time": "2025-06-13T14:00:00",
+    "date": "2025-06-13T14:00:00",
     "location": {
       "name": "Via Palestro 51, 00185 Rome, Italy",
       "city": "Rome",
@@ -346,7 +346,7 @@ Example 3 (accommodation, missing some fields):
     }
   },
   "checkOut": {
-    "time": "2025-06-17T11:00:00",
+    "date": "2025-06-17T11:00:00",
     "location": {
       "name": "Via Palestro 51, 00185 Rome, Italy",
       "city": "Rome",
@@ -365,8 +365,8 @@ Example 4 (experience, minimal):
   "category": "experience",
   "type": "tour",
   "title": "Vatican Guided Tour",
-  "startTime": "2025-06-14T10:00:00",
-  "endTime": "2025-06-14T12:00:00",
+  "startDate": "2025-06-14T10:00:00",
+  "endDate": "2025-06-14T12:00:00",
   "location": {
     "name": "Viale Vaticano 100",
     "city": "Vatican City",

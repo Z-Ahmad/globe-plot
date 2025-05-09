@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTripStore, Trip, Event } from '../stores/tripStore';
+import { useTripStore, Trip, Event, ExperienceEvent } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
 import { format, parseISO } from 'date-fns';
 
@@ -226,10 +226,10 @@ export const NewTrip = () => {
       }
       
       if (updatedEvent.category === 'travel') {
-        if (!updatedEvent.departure) updatedEvent.departure = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.departure) updatedEvent.departure = { date: '', location: { name: '', city: '', country: '' } };
         if (!updatedEvent.departure.location) updatedEvent.departure.location = { name: '', city: '', country: '' };
         
-        if (!updatedEvent.arrival) updatedEvent.arrival = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.arrival) updatedEvent.arrival = { date: '', location: { name: '', city: '', country: '' } };
         if (!updatedEvent.arrival.location) updatedEvent.arrival.location = { name: '', city: '', country: '' };
         
         // Ensure top-level location is populated from departure.location
@@ -237,10 +237,10 @@ export const NewTrip = () => {
       }
       
       if (updatedEvent.category === 'accommodation') {
-        if (!updatedEvent.checkIn) updatedEvent.checkIn = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.checkIn) updatedEvent.checkIn = { date: '', location: { name: '', city: '', country: '' } };
         if (!updatedEvent.checkIn.location) updatedEvent.checkIn.location = { name: '', city: '', country: '' };
         
-        if (!updatedEvent.checkOut) updatedEvent.checkOut = { time: '', location: { name: '', city: '', country: '' } };
+        if (!updatedEvent.checkOut) updatedEvent.checkOut = { date: '', location: { name: '', city: '', country: '' } };
         if (!updatedEvent.checkOut.location) updatedEvent.checkOut.location = { name: '', city: '', country: '' };
         
         // Ensure top-level location is populated from checkIn.location
@@ -280,36 +280,37 @@ export const NewTrip = () => {
       // Update the start/end time based on category
       if (updatedEvent.category === 'accommodation') {
         // Update start time from check-in time
-        if (updatedEvent.checkIn?.time) {
-          updatedEvent.start = updatedEvent.checkIn.time;
+        if (updatedEvent.checkIn?.date) {
+          updatedEvent.start = updatedEvent.checkIn.date;
         }
         // Update end time from check-out time
-        if (updatedEvent.checkOut?.time) {
-          updatedEvent.end = updatedEvent.checkOut.time;
+        if (updatedEvent.checkOut?.date) {
+          updatedEvent.end = updatedEvent.checkOut.date;
         }
       } else if (updatedEvent.category === 'travel') {
         // Update start time from departure time
-        if (updatedEvent.departure?.time) {
-          updatedEvent.start = updatedEvent.departure.time;
+        if (updatedEvent.departure?.date) {
+          updatedEvent.start = updatedEvent.departure.date;
         }
         // Update end time from arrival time
-        if (updatedEvent.arrival?.time) {
-          updatedEvent.end = updatedEvent.arrival.time;
+        if (updatedEvent.arrival?.date) {
+          updatedEvent.end = updatedEvent.arrival.date;
         }
       } else if (updatedEvent.category === 'experience') {
-        // Update start time from startTime
-        if (updatedEvent.startTime) {
-          updatedEvent.start = updatedEvent.startTime;
+        // Update start time from startDate
+        const expEvent = updatedEvent as ExperienceEvent;
+        if (expEvent.startDate) {
+          updatedEvent.start = expEvent.startDate;
         }
-        // Update end time from endTime
-        if (updatedEvent.endTime) {
-          updatedEvent.end = updatedEvent.endTime;
+        // Update end time from endDate
+        if (expEvent.endDate) {
+          updatedEvent.end = expEvent.endDate;
         }
       } else if (updatedEvent.category === 'meal') {
         // For meals, use the same time for both start and end
-        if (updatedEvent.time) {
-          updatedEvent.start = updatedEvent.time;
-          updatedEvent.end = updatedEvent.time;
+        if (updatedEvent.date) {
+          updatedEvent.start = updatedEvent.date;
+          updatedEvent.end = updatedEvent.date;
         }
       }
       
@@ -329,7 +330,8 @@ export const NewTrip = () => {
     const newTrip: Trip = {
       id: tripId,
       name,
-      dateRange: `${startDate} - ${endDate}`,
+      startDate,
+      endDate,
       events: normalizedEvents,
       documents: tripDocuments
     };

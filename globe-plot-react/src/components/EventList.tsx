@@ -35,8 +35,8 @@ export const EventList: React.FC<EventListProps> = ({
         city: '',
         country: ''
       },
-      startTime: '',
-      endTime: '',
+      startDate: '',
+      endDate: '',
       notes: ''
     };
 
@@ -50,13 +50,13 @@ export const EventList: React.FC<EventListProps> = ({
         if (prevTime && nextTime) {
           const midTime = new Date(prevTime + (nextTime - prevTime) / 2);
           newEvent.start = midTime.toISOString();
-          newEvent.startTime = midTime.toISOString();
-          newEvent.endTime = midTime.toISOString();
+          newEvent.startDate = midTime.toISOString();
+          newEvent.endDate = midTime.toISOString();
         }
         else if (prevTime) {
           newEvent.start = new Date(prevTime).toISOString();
-          newEvent.startTime = new Date(prevTime).toISOString();
-          newEvent.endTime = new Date(prevTime).toISOString();
+          newEvent.startDate = new Date(prevTime).toISOString();
+          newEvent.endDate = new Date(prevTime).toISOString();
         }
       }
     }

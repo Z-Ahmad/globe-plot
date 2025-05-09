@@ -139,10 +139,10 @@ export const EventCard: React.FC<EventCardProps> = ({
               <>
                 <div>{event.flightNumber ? `Flight: ${event.flightNumber} ${event.airline && `(${event.airline})`}` : 'Flight'}</div>
                 {event.departure && (
-                  <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
+                  <div>Departure: {event.departure.location?.name} {event.departure.date && `@ ${formatDate(event.departure.date)} ${formatTime(event.departure.date)}`}</div>
                 )}
                 {event.arrival && (
-                  <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
+                  <div>Arrival: {event.arrival.location?.name} {event.arrival.date && `@ ${formatDate(event.arrival.date)} ${formatTime(event.arrival.date)}`}</div>
                 )}
                 {event.trainNumber && <div>Train: {event.trainNumber}</div>}
                 {event.seat && <div>Seat {event.seat}</div>}
@@ -153,10 +153,10 @@ export const EventCard: React.FC<EventCardProps> = ({
               <>
                 {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
                 {event.departure && (
-                  <div>Departure: {event.departure.location?.name} {event.departure.time && `@ ${formatDate(event.departure.time)} ${formatTime(event.departure.time)}`}</div>
+                  <div>Departure: {event.departure.location?.name} {event.departure.date && `@ ${formatDate(event.departure.date)} ${formatTime(event.departure.date)}`}</div>
                 )}
                 {event.arrival && (
-                  <div>Arrival: {event.arrival.location?.name} {event.arrival.time && `@ ${formatDate(event.arrival.time)} ${formatTime(event.arrival.time)}`}</div>
+                  <div>Arrival: {event.arrival.location?.name} {event.arrival.date && `@ ${formatDate(event.arrival.date)} ${formatTime(event.arrival.date)}`}</div>
                 )}
                 <div className="flex gap-1">
                   {event.trainNumber && <div>Train {event.trainNumber}, </div>}
@@ -172,10 +172,10 @@ export const EventCard: React.FC<EventCardProps> = ({
           <div className="mt-2 text-xs">
             {/* <div>{event.placeName}</div> */}
             {event.checkIn && (
-              <div>Check-in: {event.checkIn.location?.name} {event.checkIn.time && `@ ${formatDate(event.checkIn.time)} ${formatTime(event.checkIn.time)}`}</div>
+              <div>Check-in: {event.checkIn.location?.name} {event.checkIn.date && `@ ${formatDate(event.checkIn.date)} ${formatTime(event.checkIn.date)}`}</div>
             )}
             {event.checkOut && (
-              <div>Check-out: {event.checkOut.location?.name} {event.checkOut.time && `@ ${formatDate(event.checkOut.time)} ${formatTime(event.checkOut.time)}`}</div>
+              <div>Check-out: {event.checkOut.location?.name} {event.checkOut.date && `@ ${formatDate(event.checkOut.date)} ${formatTime(event.checkOut.date)}`}</div>
             )}
             {event.roomNumber && <div>Room: {event.roomNumber}</div>}
             {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
@@ -186,8 +186,8 @@ export const EventCard: React.FC<EventCardProps> = ({
           <div className="mt-2 text-xs">
             {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
             {/* {event.location && <div>Location: {event.location.name}</div>} */}
-            {event.startTime && <div>Start: {formatDate(event.startTime)} {formatTime(event.startTime)}</div>}
-            {event.endTime && <div>End: {formatDate(event.endTime)} {formatTime(event.endTime)}</div>}
+            {event.startDate && <div>Start: {formatDate(event.startDate)} {formatTime(event.startDate)}</div>}
+            {event.endDate && <div>End: {formatDate(event.endDate)} {formatTime(event.endDate)}</div>}
             {event.bookingReference && <div>Booking Ref: {event.bookingReference}</div>}
           </div>
         )}
@@ -196,7 +196,7 @@ export const EventCard: React.FC<EventCardProps> = ({
           <div className="mt-2 text-xs">
             {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
             {event.location && <div>Location: {event.location.name}</div>}
-            {event.time && <div>Time: {formatDate(event.time)} {formatTime(event.time)}</div>}
+            {event.date && <div>Time: {formatDate(event.date)} {formatTime(event.date)}</div>}
             {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
           </div>
         )}

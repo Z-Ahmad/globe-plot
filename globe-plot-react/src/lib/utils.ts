@@ -6,19 +6,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Format date range to be more readable
-export const formatDateRange = (dateRange: string): string => {
-  const parts = dateRange.split(' - ');
-  if (parts.length !== 2) return dateRange;
+export const formatDateRange = (startDate: string, endDate: string): string => {
   try {
-    const startDate = new Date(parts[0]);
-    const endDate = new Date(parts[1]);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     const options: Intl.DateTimeFormatOptions = { 
       year: 'numeric', 
       month: 'short', 
       day: 'numeric' 
     };
-    return `${startDate.toLocaleDateString(undefined, options)} - ${endDate.toLocaleDateString(undefined, options)}`;
+    return `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}`;
   } catch (e) {
-    return dateRange;
+    return `${startDate} - ${endDate}`;
   }
 };

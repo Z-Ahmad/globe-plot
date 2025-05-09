@@ -111,8 +111,8 @@ const EventForm: React.FC<EventFormProps> = ({
         
       updatedEvent = {
         ...baseUpdatedEvent,
-        departure: travelEvent?.departure || { time: '', location: { name: '' } },
-        arrival: travelEvent?.arrival || { time: '', location: { name: '' } },
+        departure: travelEvent?.departure || { date: '', location: { name: '' } },
+        arrival: travelEvent?.arrival || { date: '', location: { name: '' } },
         airline: travelEvent?.airline,
         flightNumber: travelEvent?.flightNumber,
         trainNumber: travelEvent?.trainNumber,
@@ -129,8 +129,8 @@ const EventForm: React.FC<EventFormProps> = ({
         
       updatedEvent = {
         ...baseUpdatedEvent,
-        checkIn: accomEvent?.checkIn || { time: '', location: { name: '' } },
-        checkOut: accomEvent?.checkOut || { time: '', location: { name: '' } },
+        checkIn: accomEvent?.checkIn || { date: '', location: { name: '' } },
+        checkOut: accomEvent?.checkOut || { date: '', location: { name: '' } },
         placeName: accomEvent?.placeName || '',
         roomNumber: accomEvent?.roomNumber,
         bookingReference: accomEvent?.bookingReference,
@@ -145,8 +145,8 @@ const EventForm: React.FC<EventFormProps> = ({
         
       updatedEvent = {
         ...baseUpdatedEvent,
-        startTime: expEvent?.startTime || '',
-        endTime: expEvent?.endTime || '',
+        startDate: expEvent?.startDate || '',
+        endDate: expEvent?.endDate || '',
         bookingReference: expEvent?.bookingReference,
         category: 'experience'
       } as ExperienceEvent;
@@ -159,7 +159,7 @@ const EventForm: React.FC<EventFormProps> = ({
         
       updatedEvent = {
         ...baseUpdatedEvent,
-        time: mealEvent?.time || '',
+        date: mealEvent?.date || '',
         reservationReference: mealEvent?.reservationReference,
         category: 'meal'
       } as MealEvent;
@@ -409,17 +409,17 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Departure Time</label>
+              <label className="text-sm font-medium">Departure Date</label>
               <Input
                 className="w-full"
                 type="datetime-local"
-                value={editingEvent.departure?.time ? editingEvent.departure.time.slice(0, 16) : ""}
+                value={editingEvent.departure?.date ? editingEvent.departure.date.slice(0, 16) : ""}
                 onChange={(e) =>
                   setEditingEvent({
                     ...editingEvent,
                     departure: {
                       ...editingEvent.departure,
-                      time: e.target.value
+                      date: e.target.value
                     },
                     start: e.target.value
                   })
@@ -452,17 +452,17 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Arrival Time</label>
+              <label className="text-sm font-medium">Arrival Date</label>
               <Input
                 className="w-full"
                 type="datetime-local"
-                value={editingEvent.arrival?.time ? editingEvent.arrival.time.slice(0, 16) : ""}
+                value={editingEvent.arrival?.date ? editingEvent.arrival.date.slice(0, 16) : ""}
                 onChange={(e) =>
                   setEditingEvent({
                     ...editingEvent,
                     arrival: {
                       ...editingEvent.arrival,
-                      time: e.target.value
+                      date: e.target.value
                     },
                     end: e.target.value
                   })
@@ -510,16 +510,16 @@ const EventForm: React.FC<EventFormProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Check-in</label>
+              <label className="text-sm font-medium">Check-in Date</label>
               <Input
                 type="datetime-local"
-                value={editingEvent.checkIn?.time ? editingEvent.checkIn.time.slice(0, 16) : ""}
+                value={editingEvent.checkIn?.date ? editingEvent.checkIn.date.slice(0, 16) : ""}
                 onChange={(e) =>
                   setEditingEvent({
                     ...editingEvent,
                     checkIn: {
                       ...editingEvent.checkIn,
-                      time: e.target.value
+                      date: e.target.value
                     },
                     start: e.target.value
                   })
@@ -527,16 +527,16 @@ const EventForm: React.FC<EventFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Check-out</label>
+              <label className="text-sm font-medium">Check-out Date</label>
               <Input
                 type="datetime-local"
-                value={editingEvent.checkOut?.time ? editingEvent.checkOut.time.slice(0, 16) : ""}
+                value={editingEvent.checkOut?.date ? editingEvent.checkOut.date.slice(0, 16) : ""}
                 onChange={(e) =>
                   setEditingEvent({
                     ...editingEvent,
                     checkOut: {
                       ...editingEvent.checkOut,
-                      time: e.target.value
+                      date: e.target.value
                     },
                     end: e.target.value
                   })
@@ -563,28 +563,26 @@ const EventForm: React.FC<EventFormProps> = ({
               <label className="text-sm font-medium">Start</label>
               <Input
                 type="datetime-local"
-                value={editingEvent.startTime ? editingEvent.startTime.slice(0, 16) : ""}
-                onChange={(e) =>
-                  setEditingEvent({
-                    ...editingEvent,
-                    startTime: e.target.value,
-                    start: e.target.value
-                  })
-                }
+                value={(editingEvent as ExperienceEvent).startDate ? (editingEvent as ExperienceEvent).startDate.slice(0, 16) : ""}
+                onChange={(e) => {
+                  const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                  updatedEvent.startDate = e.target.value;
+                  updatedEvent.start = e.target.value;
+                  setEditingEvent(updatedEvent);
+                }}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">End</label>
               <Input
                 type="datetime-local"
-                value={editingEvent.endTime ? editingEvent.endTime.slice(0, 16) : ""}
-                onChange={(e) =>
-                  setEditingEvent({
-                    ...editingEvent,
-                    endTime: e.target.value,
-                    end: e.target.value
-                  })
-                }
+                value={(editingEvent as ExperienceEvent).endDate ? (editingEvent as ExperienceEvent).endDate.slice(0, 16) : ""}
+                onChange={(e) => {
+                  const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                  updatedEvent.endDate = e.target.value;
+                  updatedEvent.end = e.target.value;
+                  setEditingEvent(updatedEvent);
+                }}
               />
             </div>
           </div>
@@ -592,7 +590,14 @@ const EventForm: React.FC<EventFormProps> = ({
           {/* Booking reference field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Booking Reference</label>
-            <Input value={editingEvent.bookingReference || ""} onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })} />
+            <Input 
+              value={(editingEvent as ExperienceEvent).bookingReference || ""}
+              onChange={(e) => {
+                const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                updatedEvent.bookingReference = e.target.value;
+                setEditingEvent(updatedEvent);
+              }}
+            />
           </div>
         </>
       )}
@@ -601,18 +606,26 @@ const EventForm: React.FC<EventFormProps> = ({
       {editingEvent.category === "meal" && (
         <>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Time</label>
+            <label className="text-sm font-medium">Date</label>
             <Input
               type="datetime-local"
-              value={editingEvent.time ? editingEvent.time.slice(0, 16) : ""}
-              onChange={(e) =>
-                setEditingEvent({
-                  ...editingEvent,
-                  time: e.target.value,
-                  start: e.target.value,
-                  end: e.target.value
-                })
-              }
+              value={(editingEvent as MealEvent).date ? 
+                    (editingEvent as MealEvent).date.slice(0, 16) : ""}
+              onChange={(e) => {
+                // Convert to MealEvent and update
+                const updatedEvent = { 
+                  ...editingEvent as MealEvent,
+                } as MealEvent;
+                
+                // Set date first to ensure it's defined
+                updatedEvent.date = e.target.value;
+                
+                // Update start/end as well for consistency
+                updatedEvent.start = e.target.value;
+                updatedEvent.end = e.target.value;
+                
+                setEditingEvent(updatedEvent);
+              }}
             />
           </div>
 
@@ -621,8 +634,12 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="space-y-2">
               <label className="text-sm font-medium">Reservation Reference</label>
               <Input
-                value={editingEvent.reservationReference || ""}
-                onChange={(e) => setEditingEvent({ ...editingEvent, reservationReference: e.target.value })}
+                value={(editingEvent as MealEvent).reservationReference || ""}
+                onChange={(e) => {
+                  const updatedEvent = { ...editingEvent as MealEvent } as MealEvent;
+                  updatedEvent.reservationReference = e.target.value;
+                  setEditingEvent(updatedEvent);
+                }}
               />
             </div>
           )}
@@ -668,12 +685,12 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       // Update the start/end time based on category
       if (updatedEvent.category === 'accommodation') {
         // Update start time from check-in time
-        if (updatedEvent.checkIn?.time) {
-          updatedEvent.start = updatedEvent.checkIn.time;
+        if (updatedEvent.checkIn?.date) {
+          updatedEvent.start = updatedEvent.checkIn.date;
         }
         // Update end time from check-out time
-        if (updatedEvent.checkOut?.time) {
-          updatedEvent.end = updatedEvent.checkOut.time;
+        if (updatedEvent.checkOut?.date) {
+          updatedEvent.end = updatedEvent.checkOut.date;
         }
         // Ensure top-level location is populated from checkIn.location
         if (updatedEvent.checkIn?.location) {
@@ -681,31 +698,33 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         }
       } else if (updatedEvent.category === 'travel') {
         // Update start time from departure time
-        if (updatedEvent.departure?.time) {
-          updatedEvent.start = updatedEvent.departure.time;
+        if (updatedEvent.departure?.date) {
+          updatedEvent.start = updatedEvent.departure.date;
         }
         // Update end time from arrival time
-        if (updatedEvent.arrival?.time) {
-          updatedEvent.end = updatedEvent.arrival.time;
+        if (updatedEvent.arrival?.date) {
+          updatedEvent.end = updatedEvent.arrival.date;
         }
         // Ensure top-level location is populated from departure.location
         if (updatedEvent.departure?.location) {
           updatedEvent.location = {...updatedEvent.departure.location};
         }
       } else if (updatedEvent.category === 'experience') {
-        // Update start time from startTime
-        if (updatedEvent.startTime) {
-          updatedEvent.start = updatedEvent.startTime;
+        // Update start time from startDate
+        const expEvent = updatedEvent as ExperienceEvent;
+        if (expEvent.startDate) {
+          updatedEvent.start = expEvent.startDate;
         }
-        // Update end time from endTime
-        if (updatedEvent.endTime) {
-          updatedEvent.end = updatedEvent.endTime;
+        // Update end time from endDate
+        if (expEvent.endDate) {
+          updatedEvent.end = expEvent.endDate;
         }
       } else if (updatedEvent.category === 'meal') {
         // For meals, use the same time for both start and end
-        if (updatedEvent.time) {
-          updatedEvent.start = updatedEvent.time;
-          updatedEvent.end = updatedEvent.time;
+        const mealEvent = updatedEvent as MealEvent;
+        if (mealEvent.date) {
+          updatedEvent.start = mealEvent.date;
+          updatedEvent.end = mealEvent.date;
         }
       }
       

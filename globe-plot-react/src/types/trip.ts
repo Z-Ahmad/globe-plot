@@ -47,11 +47,11 @@ export interface AccommodationEvent extends BaseEvent {
   type: 'hotel' | 'hostel' | 'airbnb' | 'other';
   placeName?: string;
   checkIn: {
-    time: string;
+    date: string;
     location: Location;
   };
   checkOut: {
-    time: string;
+    date: string;
     location: Location;
   };
   roomNumber?: string;
@@ -63,11 +63,11 @@ export interface TravelEvent extends BaseEvent {
   category: 'travel';
   type: 'flight' | 'train' | 'car' | 'boat' | 'bus' | 'other';
   departure: {
-    time: string;
+    date: string;
     location: Location;
   };
   arrival: {
-    time: string;
+    date: string;
     location: Location;
   };
   airline?: string;
@@ -83,8 +83,8 @@ export interface TravelEvent extends BaseEvent {
 export interface ExperienceEvent extends BaseEvent {
   category: 'experience';
   type: 'activity' | 'tour' | 'museum' | 'concert' | 'other';
-  startTime: string;
-  endTime: string;
+  startDate: string;
+  endDate: string;
   bookingReference?: string;
 }
 
@@ -92,7 +92,7 @@ export interface ExperienceEvent extends BaseEvent {
 export interface MealEvent extends BaseEvent {
   category: 'meal';
   type: 'restaurant' | 'other';
-  time: string;
+  date: string;
   reservationReference?: string;
 }
 
@@ -110,7 +110,8 @@ export interface Document {
 export interface Trip {
   id: string;
   name: string;
-  dateRange: string; // or startDate/endDate
+  startDate: string;
+  endDate: string;
   events: Event[];
   documents: Document[];
 }

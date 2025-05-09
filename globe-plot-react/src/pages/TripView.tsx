@@ -311,7 +311,7 @@ export const TripView = () => {
             </h1>
             <p className="text-muted-foreground flex items-center gap-2 ml-2">
               <CalendarDays className="w-5 h-5" />
-              <span>{formatDateRange(trip.dateRange)}</span>
+              <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
               <span className="mx-2 text-border">•</span>
               <span>{trip.events.length} events</span>
             </p>
