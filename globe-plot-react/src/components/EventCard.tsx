@@ -46,7 +46,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   onDelete
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { bgColor, borderColor, color, icon } = getEventStyle(event);
+  const { bgColor, borderColor, color, icon, hoverBgColor } = getEventStyle(event);
 
   const handleDelete = () => {
     if (onDelete) {
@@ -56,7 +56,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   };
 
   return (
-    <div className={`p-5 border rounded-lg shadow-sm ${borderColor} ${bgColor} relative overflow-hidden`}>
+    <div className={`p-5 border rounded-lg shadow-sm ${borderColor} ${bgColor} relative overflow-hidden ${hoverBgColor}`}>
       {/* Large background icon */}
       <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center opacity-8 pointer-events-none" style={{ height: '140%' }}>
         {React.createElement(icon, { className: `${color}`, size: 160 })}

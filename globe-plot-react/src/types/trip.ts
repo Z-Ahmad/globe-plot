@@ -122,4 +122,5 @@ export interface EventStyle {
   color: string; // Tailwind color class
   bgColor: string; // Tailwind background color class
   borderColor: string; // Tailwind border color class
+  hoverBgColor: string; // Tailwind hover background color class
 } 

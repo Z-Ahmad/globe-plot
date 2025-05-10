@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTripStore } from '../stores/tripStore';
 import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays, isSameDay, isBefore, isWithinInterval } from 'date-fns';
 import {
   Accordion,
   AccordionContent,
@@ -10,13 +10,27 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { getEventStyle } from '../styles/eventStyles';
-import { EventCard } from '@/components/EventCard';
 import { EventEditor } from '@/components/EventEditor';
-import { CalendarDays, MapPinPlusInside, Plus } from 'lucide-react';
+import { 
+  CalendarDays, 
+  MapPinPlusInside, 
+  Plus, 
+  MapPin,
+  ArrowRight,
+  CalendarClock,
+  ListTodo,
+  Map as MapIcon
+} from 'lucide-react';
 import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { v4 as uuidv4 } from 'uuid';
-import { EventList } from '@/components/EventList';
+import { Itinerary } from '@/components/Itinerary';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -122,15 +136,66 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+// Helper: format time
+const formatTime = (dateStr: string) => {
+  try {
+    return format(parseISO(dateStr), 'h:mm a');
+  } catch {
+    return dateStr;
+  }
+};
+
+// Get events for today and upcoming days
+function getUpcomingEvents(events: Event[], tripStartDate: string, dayCount: number = 30) {
+  if (!events.length) return [];
+  
+  // Sort events chronologically
+  const sorted = sortEventsByStart(events);
+  
+  try {
+    // Get today's date at the start of the day (midnight)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find events that are today or later
+    const upcomingEvents = sorted.filter(event => {
+      if (!event.start) return false;
+      
+      try {
+        const eventDate = parseISO(event.start);
+        return eventDate >= today;
+      } catch {
+        return false;
+      }
+    });
+    
+    // If we're in the middle of the trip or it's started, show upcoming events
+    if (upcomingEvents.length > 0) {
+      return upcomingEvents.slice(0, 5);
+    }
+    
+    // If the trip hasn't started yet, show the first events
+    return sorted.slice(0, 5);
+  } catch (error) {
+    console.error('Date parsing error:', error);
+    return sorted.slice(0, 5); // Fallback to first few events
+  }
+}
+
 export const TripView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { trips, removeEvent, updateEvent, updateTrip } = useTripStore();
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
-
+  const [activeTab, setActiveTab] = useState("itinerary");
+  
   const trip = trips.find(trip => trip.id === id);
-  const [expanded, setExpanded] = useState<string[]>([]);
+  
+  // Initialize with empty array for main accordion
+  const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  // Initialize with empty object for nested city accordions
+  const [expandedCities, setExpandedCities] = useState<Record<string, string[]>>({});
 
   // Check and normalize events on component mount
   useEffect(() => {
@@ -146,9 +211,7 @@ export const TripView = () => {
         updateTrip(trip.id, { 
           events: normalizedEvents 
         });
-
       }
-      console.log(trip)
     }
   }, [trip?.id]);
 
@@ -173,9 +236,31 @@ export const TripView = () => {
 
   // Group and sort events for sidebar
   const groupedSorted = groupAndSortEventsByCountryCity(trip.events);
+  const upcomingEvents = getUpcomingEvents(trip.events, trip.startDate);
+  
+  // Get the unique countries visited
+  const uniqueCountries = new Set<string>();
+  trip.events.forEach(event => {
+    const { country } = getLocationInfo(event);
+    if (country) uniqueCountries.add(country);
+  });
 
-  // For main content: show all events chronologically
-  const sortedEvents = sortEventsByStart(trip.events);
+  // Get unique cities
+  const uniqueCities = new Set<string>();
+  trip.events.forEach(event => {
+    const { city } = getLocationInfo(event);
+    if (city) uniqueCities.add(city);
+  });
+
+  // Determine summary text based on hierarchy
+  let tripSummary = "";
+  if (uniqueCountries.size > 1) {
+    tripSummary = `${uniqueCountries.size} ${uniqueCountries.size === 1 ? 'country' : 'countries'}`;
+  } else if (uniqueCities.size > 1) {
+    tripSummary = `${uniqueCities.size} ${uniqueCities.size === 1 ? 'city' : 'cities'}`;
+  } else {
+    tripSummary = `${trip.events.length} ${trip.events.length === 1 ? 'event' : 'events'}`;
+  }
 
   // Handlers for event actions
   const handleEditEvent = (event: Event) => {
@@ -219,8 +304,17 @@ export const TripView = () => {
     setShowEventEditor(true);
   };
 
-  // Sidebar expand/collapse logic
-  const handleAccordionChange = (value: string[]) => setExpanded(value);
+  // Updated accordion handlers
+  const handleCountryAccordionChange = (value: string[]) => {
+    setExpandedCountries(value);
+  };
+
+  const handleCityAccordionChange = (country: string, value: string[]) => {
+    setExpandedCities(prev => ({
+      ...prev,
+      [country]: value
+    }));
+  };
 
   // Empty state to display when there are no events
   const emptyState = (
@@ -250,98 +344,238 @@ export const TripView = () => {
     </div>
   );
 
+  // Reusable content sections
+  const ComingUpSection = () => (
+    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <CalendarClock className="h-5 w-5 text-primary" />
+          <span>Coming Up</span>
+        </h2>
+        <span className="text-xs text-muted-foreground">{upcomingEvents.length} upcoming events</span>
+      </div>
+
+      {upcomingEvents.length === 0 ? (
+        <div className="text-center py-6 text-muted-foreground">
+          <p>No upcoming events in the next few days</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {upcomingEvents.map(event => {
+            const { color, bgColor, icon: Icon, hoverBgColor } = getEventStyle(event);
+            return (
+              <div 
+                key={event.id}
+                className={`p-3 rounded-lg border cursor-pointer transition-colors ${bgColor} ${hoverBgColor}`}
+                onClick={() => handleEditEvent(event)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-full ${bgColor}`}>
+                    <Icon className={`h-5 w-5 ${color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium">{event.title}</h3>
+                    <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+                      <span>{formatDate(event.start)}</span>
+                      <span>•</span>
+                      <span>{formatTime(event.start)}</span>
+                    </div>
+                    <div className="mt-1 text-sm flex items-center gap-1 text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      <span className="truncate">
+                        {event.location?.name || event.location?.city || 'Location not specified'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      <div className="mt-6 text-center">
+        <Button variant="outline" className="w-full" onClick={() => navigate('/calendar')}>
+          <span>View Full Calendar</span>
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </section>
+  );
+
+  const ItinerarySection = () => (
+    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold">Full Itinerary</h2>
+      </div>
+
+      <Itinerary 
+        events={trip.events}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+        onAddNew={createNewEvent}
+        emptyState={emptyState}
+        startDate={trip.startDate}
+        endDate={trip.endDate}
+      />
+    </section>
+  );
+
+  const LocationsSection = () => (
+    <div className="bg-primary text-primary-foreground border border-primary/20 shadow-sm rounded-lg overflow-hidden h-auto">
+      <div className="p-4 flex justify-between items-center">
+        <h3 className="font-semibold">Locations</h3>
+        <span className="text-xs font-medium bg-white/20 rounded-full px-2 py-0.5">
+          <span>
+            {tripSummary}
+          </span>
+        </span>
+      </div>
+      <div className="p-3 bg-white text-foreground overflow-auto" style={{ minHeight: '200px' }}>
+        <Accordion 
+          type="multiple" 
+          value={expandedCountries} 
+          onValueChange={handleCountryAccordionChange} 
+          className="w-full"
+        >
+          {groupedSorted.map(([country, cities]) => (
+            <AccordionItem key={country} value={country} className="border-b border-border last:border-0">
+              <AccordionTrigger className="font-semibold text-base py-3 hover:bg-muted/40 transition-colors px-2 rounded-md">
+                {country}
+              </AccordionTrigger>
+              <AccordionContent className="pb-1">
+                <Accordion 
+                  type="multiple" 
+                  value={expandedCities[country] || []} 
+                  onValueChange={(value) => handleCityAccordionChange(country, value)} 
+                  className="w-full pl-2"
+                >
+                  {cities.map(([city, events]) => (
+                    <AccordionItem key={city} value={city} className="border-b border-border/50 last:border-0">
+                      <AccordionTrigger className="text-sm font-medium py-2 hover:bg-muted/30 transition-colors px-2 rounded-md">
+                        <div className="flex items-center">
+                          <span>{city}</span>
+                          <span className="ml-2 text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
+                            {events.length}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-1 pl-2">
+                        <ul className="space-y-2 py-1">
+                          {sortEventsByStart(events).map(event => {
+                            const { icon, color, bgColor } = getEventStyle(event);
+                            return (
+                              <li key={event.id} className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors">
+                                <div className={`${bgColor} p-1 rounded-md flex-shrink-0`}>
+                                  {React.createElement(icon, { size: 14, className: color })}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <button 
+                                    onClick={() => handleEditEvent(event)}
+                                    className="hover:underline text-left font-medium text-xs truncate block w-full"
+                                  >
+                                    {event.title}
+                                  </button>
+                                  <span className="text-xs text-muted-foreground">{formatDate(event.start)}</span>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto p-6 grid grid-cols-12 gap-6">
-      {/* Sidebar: Countries > Cities > Events */}
-      <aside className="col-span-3 hidden md:block">
-        <div className="sticky top-6 bg-sidebar border border-sidebar-border rounded-lg shadow-sm overflow-hidden">
-          <div className="p-4 bg-sidebar-primary text-sidebar-primary-foreground flex justify-between items-center">
-            <h3 className="font-semibold">Itinerary</h3>
-            <span className="text-xs font-medium bg-sidebar-primary-foreground/20 rounded-full px-2 py-0.5">
-              {trip.events.length} events
+    <div className="max-w-full mx-auto p-4 md:p-6">
+      {/* Header */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
+            <span className="">
+            { trip.name}
             </span>
-          </div>
-          <div className="p-3">
-            <Accordion type="multiple" value={expanded} onValueChange={handleAccordionChange} className="w-full">
-              {groupedSorted.map(([country, cities]) => (
-                <AccordionItem key={country} value={country}>
-                  <AccordionTrigger className="font-semibold text-base">
-                    {country}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <Accordion type="multiple" className="w-full">
-                      {cities.map(([city, events]) => (
-                        <AccordionItem key={city} value={city}>
-                          <AccordionTrigger className="text-sm font-medium">
-                            {city} <span className="ml-2 text-xs text-muted-foreground">({events.length})</span>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <ul className="pl-2 space-y-1">
-                              {sortEventsByStart(events).map(event => {
-                                const { icon, color } = getEventStyle(event);
-                                return (
-                                  <li key={event.id} className="truncate text-xs flex items-center">
-                                    <span className={`${color} mr-1`}>{React.createElement(icon, { size: 14 })}</span>
-                                    <span className="font-semibold">{event.title}</span>
-                                    <span className="ml-1 text-muted-foreground">{formatDate(event.start)}</span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        </div>
-      </aside>
+          </h1>
+          <p className="text-muted-foreground flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" />
+            <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
 
-      {/* Main Content: Chronological event list */}
-      <section className="col-span-12 md:col-span-9 bg-gradient-to-b from-card to-card/98 border border-border rounded-lg shadow-sm p-6">
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <span className="">
-              { trip.name}
-              </span>
-            </h1>
-            <p className="text-muted-foreground flex items-center gap-2 ml-2">
-              <CalendarDays className="w-5 h-5" />
-              <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-              <span className="mx-2 text-border">•</span>
-              <span>{trip.events.length} events</span>
-            </p>
-          </div>
-          <Button onClick={() => createNewEvent({
-            id: uuidv4(),
-            category: 'experience',
-            type: 'activity',
-            title: 'New Event',
-            start: '',
-            location: {
-              name: '',
-              city: '',
-              country: ''
-            }
-          } as any)} className="flex items-center gap-2">
-            <MapPinPlusInside size={20} />
-            <span>Add Event</span>
-          </Button>
+          </p>
         </div>
+        <Button onClick={() => createNewEvent({
+          id: uuidv4(),
+          category: 'experience',
+          type: 'activity',
+          title: 'New Event',
+          start: '',
+          location: {
+            name: '',
+            city: '',
+            country: ''
+          }
+        } as any)} className="flex items-center gap-2">
+          <MapPinPlusInside size={20} />
+          <span>Add Event</span>
+        </Button>
+      </div>
 
-        {/* Use the new EventList component */}
-        <EventList 
-          events={sortedEvents}
-          onEdit={handleEditEvent}
-          onDelete={handleDeleteEvent}
-          onAddNew={createNewEvent}
-          emptyState={emptyState}
-        />
-      </section>
+      {/* Mobile Tabs View */}
+      <div className="block md:hidden mb-6">
+        <Tabs defaultValue="itinerary" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="itinerary" className="flex items-center gap-1">
+              <ListTodo className="h-4 w-4" />
+              <span>Itinerary</span>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex items-center gap-1">
+              <CalendarClock className="h-4 w-4" />
+              <span>Coming Up</span>
+            </TabsTrigger>
+            <TabsTrigger value="locations" className="flex items-center gap-1">
+              <MapIcon className="h-4 w-4" />
+              <span>Locations</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="itinerary" className="mt-4">
+            <ItinerarySection />
+          </TabsContent>
+          
+          <TabsContent value="upcoming" className="mt-4">
+            <ComingUpSection />
+          </TabsContent>
+          
+          <TabsContent value="locations" className="mt-4">
+            <LocationsSection />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
+      <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
+        {/* Left panel: Coming Up section */}
+        <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
+          <ComingUpSection />
+        </div>
+        
+        {/* Middle panel: Full Itinerary */}
+        <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
+          <ItinerarySection />
+        </div>
+        
+        {/* Right panel: Locations */}
+        <div className="md:col-span-3 lg:col-span-7 xl:col-span-6">
+          <LocationsSection />
+        </div>
+      </div>
 
       {/* Event Editor Dialog */}
       <EventEditor
