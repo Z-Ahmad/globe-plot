@@ -19,7 +19,8 @@ import {
   ArrowRight,
   CalendarClock,
   ListTodo,
-  Map as MapIcon
+  Map as MapIcon,
+  MapPinned
 } from 'lucide-react';
 import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -347,7 +348,7 @@ export const TripView = () => {
   // Reusable content sections
   const ComingUpSection = () => (
     <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <CalendarClock className="h-5 w-5 text-primary" />
           <span>Coming Up</span>
@@ -405,8 +406,9 @@ export const TripView = () => {
 
   const ItinerarySection = () => (
     <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold">Full Itinerary</h2>
+      <div className="mb-4 flex items-center gap-2">
+        <ListTodo className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Itinerary</h2>
       </div>
 
       <Itinerary 
@@ -424,7 +426,11 @@ export const TripView = () => {
   const LocationsSection = () => (
     <div className="bg-primary text-primary-foreground border border-primary/20 shadow-sm rounded-lg overflow-hidden h-auto">
       <div className="p-4 flex justify-between items-center">
-        <h3 className="font-semibold">Locations</h3>
+        <div className="flex items-center gap-2">
+          <MapPinned className="h-5 w-5 text-white" />
+          <h3 className="font-semibold">Locations</h3>
+
+        </div>
         <span className="text-xs font-medium bg-white/20 rounded-full px-2 py-0.5">
           <span>
             {tripSummary}
@@ -540,7 +546,7 @@ export const TripView = () => {
               <span>Coming Up</span>
             </TabsTrigger>
             <TabsTrigger value="locations" className="flex items-center gap-1">
-              <MapIcon className="h-4 w-4" />
+              <MapPinned className="h-4 w-4" />
               <span>Locations</span>
             </TabsTrigger>
           </TabsList>

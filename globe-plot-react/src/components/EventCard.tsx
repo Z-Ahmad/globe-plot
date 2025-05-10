@@ -195,7 +195,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         {event.category === 'meal' && (
           <div className="mt-2 text-xs">
             {/* <div>{event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div> */}
-            {event.location && <div>Location: {event.location.name}</div>}
+            {/* {event.location && <div>Location: {event.location.name}</div>} */}
             {event.date && <div>Time: {formatDate(event.date)} {formatTime(event.date)}</div>}
             {event.reservationReference && <div>Reservation Ref: {event.reservationReference}</div>}
           </div>

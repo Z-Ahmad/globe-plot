@@ -233,14 +233,14 @@ BASE EVENT FIELDS:
 - title: string
 - start: string (ISO date format) - will be set automatically based on category-specific fields
 - end: string (ISO date format) - will be set automatically based on category-specific fields
-- location: { name: string, city: string, country: string } - **ALL events must have this top-level location property**
+- location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } - **ALL events must have this top-level location property**
 - notes: string (optional)
 
 CATEGORY-SPECIFIC FIELDS:
 1. Travel events (category: "travel"):
-   - location: { name: string, city: string, country: string } - **Same as departure location**
-   - departure: { date: string, location: { name: string, city: string, country: string } }
-   - arrival: { date: string, location: { name: string, city: string, country: string } }
+   - location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } - **Same as departure location**
+   - departure: { date: string, location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } }
+   - arrival: { date: string, location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } }
    - airline: string (optional)
    - flightNumber: string (optional)
    - trainNumber: string (optional)
@@ -250,23 +250,31 @@ CATEGORY-SPECIFIC FIELDS:
    - bookingReference: string (optional)
 
 2. Accommodation events (category: "accommodation"):
-   - location: { name: string, city: string, country: string } - **Same as checkIn location**
+   - location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } - **Same as checkIn location**
    - placeName: string 
-   - checkIn: { date: string, location: { name: string, city: string, country: string } }
-   - checkOut: { date: string, location: { name: string, city: string, country: string } }
+   - checkIn: { date: string, location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } }
+   - checkOut: { date: string, location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } } }
    - roomNumber: string (optional)
    - bookingReference: string (optional)
 
 3. Experience events (category: "experience"):
-   - location: { name: string, city: string, country: string }
+   - location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } }
    - startDate: string
    - endDate: string
    - bookingReference: string (optional)
 
 4. Meal events (category: "meal"):
-   - location: { name: string, city: string, country: string }
+   - location: { name: string, city: string, country: string, geolocation?: { lat: number, lng: number } }
    - date: string
    - reservationReference: string (optional)
+
+NOTES ON LOCATION DATA:
+- When extracting locations, try to include **specific** name of the venue, airport, hotel, etc.
+- For location.name, include the full name of the venue or place (e.g., "Eiffel Tower", "JFK International Airport")
+- Put detailed address information in the name field if available
+- If geolocation coordinates (latitude/longitude) are provided in the document, include them for better map visualization, otherwise do not include them or set them to null
+- IMPORTANT: NEVER generate or guess geolocation coordinates. ONLY include coordinates if they are explicitly provided in the document.
+- If no coordinates are present in the document, OMIT the geolocation field entirely rather than providing empty or null values.
 
 EXAMPLES:
 
@@ -280,21 +288,22 @@ Example 1 (flight, all fields present):
   "departure": {
     "date": "2025-06-10T20:30:00",
     "location": {
-      "name": "JFK – New York",
+      "name": "JFK International Airport",
       "city": "New York",
       "country": "USA"
+      // Notice: No geolocation since it wasn't explicitly in the document
     }
   },
   "arrival": {
     "date": "2025-06-11T06:10:00",
     "location": {
-      "name": "KEF – Reykjavik",
+      "name": "Keflavik International Airport",
       "city": "Reykjavik",
       "country": "Iceland"
     }
   },
   "location": {
-    "name": "JFK – New York",
+    "name": "JFK International Airport",
     "city": "New York",
     "country": "USA"
   },
@@ -311,7 +320,7 @@ Example 2 (flight, missing optional fields):
   "departure": {
     "date": "2025-06-24T13:15:00",
     "location": {
-      "name": "CDG – Paris Charles de Gaulle",
+      "name": "Charles de Gaulle Airport",
       "city": "Paris",
       "country": "France"
     }
@@ -319,13 +328,13 @@ Example 2 (flight, missing optional fields):
   "arrival": {
     "date": "2025-06-24T15:50:00",
     "location": {
-      "name": "JFK – New York",
+      "name": "JFK International Airport",
       "city": "New York",
       "country": "USA"
     }
   },
   "location": {
-    "name": "CDG – Paris Charles de Gaulle",
+    "name": "Charles de Gaulle Airport",
     "city": "Paris",
     "country": "France"
   }
@@ -340,7 +349,7 @@ Example 3 (accommodation, missing some fields):
   "checkIn": {
     "date": "2025-06-13T14:00:00",
     "location": {
-      "name": "Via Palestro 51, 00185 Rome, Italy",
+      "name": "YellowSquare Hostel, Via Palestro 51",
       "city": "Rome",
       "country": "Italy"
     }
@@ -348,19 +357,19 @@ Example 3 (accommodation, missing some fields):
   "checkOut": {
     "date": "2025-06-17T11:00:00",
     "location": {
-      "name": "Via Palestro 51, 00185 Rome, Italy",
+      "name": "YellowSquare Hostel, Via Palestro 51",
       "city": "Rome",
       "country": "Italy"
     }
   },
   "location": {
-    "name": "Via Palestro 51, 00185 Rome, Italy",
+    "name": "YellowSquare Hostel, Via Palestro 51",
     "city": "Rome",
     "country": "Italy"
   }
 }
 
-Example 4 (experience, minimal):
+Example 4 (experience, with coordinates provided in document):
 {
   "category": "experience",
   "type": "tour",
@@ -368,9 +377,28 @@ Example 4 (experience, minimal):
   "startDate": "2025-06-14T10:00:00",
   "endDate": "2025-06-14T12:00:00",
   "location": {
-    "name": "Viale Vaticano 100",
+    "name": "Vatican Museums, Viale Vaticano 100",
     "city": "Vatican City",
-    "country": "Vatican City"
+    "country": "Vatican City",
+    "geolocation": {
+      "lat": 41.9067,
+      "lng": 12.4536
+    }
+  }
+}
+
+Example 5 (experience, no coordinates in original document):
+{
+  "category": "experience",
+  "type": "activity",
+  "title": "Colosseum Visit",
+  "startDate": "2025-06-15T09:00:00",
+  "endDate": "2025-06-15T12:00:00",
+  "location": {
+    "name": "Colosseum, Piazza del Colosseo",
+    "city": "Rome",
+    "country": "Italy"
+    // No geolocation field since none was provided in document
   }
 }
 
