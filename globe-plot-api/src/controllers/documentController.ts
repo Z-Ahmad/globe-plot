@@ -88,6 +88,8 @@ function normalizeEvent(event: any) {
   }
   
   // Create normalized event
+  // Generate a UUID for the event if it doesn't already have one
+  // This ensures compatibility with Firestore by using the same UUID format
   const normalizedEvent = {
     ...event,
     start,
@@ -449,9 +451,13 @@ DO NOT include any fields that are not present in the text. DO NOT invent or gue
       // Try to parse the response as JSON
       try {
         const parsedData = JSON.parse(contentStr);
-        // Normalize all events
+        // Normalize all events with fresh UUIDs
         if (parsedData && Array.isArray(parsedData.events)) {
-          parsedData.events = parsedData.events.map(normalizeEvent);
+          parsedData.events = parsedData.events.map((event: Record<string, any>) => {
+            // Always generate a new UUID (will be replaced with Firestore ID later)
+            return normalizeEvent(event);
+          });
+          
           // Validate events and log warnings
           parsedData.events.forEach((event: any) => {
             if (!validateEvent(event)) {
@@ -469,9 +475,10 @@ DO NOT include any fields that are not present in the text. DO NOT invent or gue
           const extractedJson = jsonMatch[0];
           try {
             const parsedData = JSON.parse(extractedJson);
-            // Normalize all events
+            // Normalize all events with fresh UUIDs
             if (parsedData && Array.isArray(parsedData.events)) {
-              parsedData.events = parsedData.events.map(normalizeEvent);
+              parsedData.events = parsedData.events.map((event: Record<string, any>) => normalizeEvent(event));
+              
               // Validate events and log warnings
               parsedData.events.forEach((event: any) => {
                 if (!validateEvent(event)) {

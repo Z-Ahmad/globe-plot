@@ -37,8 +37,17 @@ export const useUserStore = create<UserState>()(
       logout: async () => {
         set({ loading: true, error: null });
         try {
+          // Sign out from Firebase
           await signOut();
+          
+          // Clear all localStorage
+          localStorage.clear();
+          
+          // Reset state
           set({ user: null, loading: false });
+          
+          // Redirect to home page
+          window.location.href = '/';
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Failed to sign out',

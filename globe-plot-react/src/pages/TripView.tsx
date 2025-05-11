@@ -186,7 +186,7 @@ function getUpcomingEvents(events: Event[], tripStartDate: string, dayCount: num
 export const TripView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { trips, removeEvent, updateEvent, updateTrip } = useTripStore();
+  const { trips, removeEvent, updateEvent, updateTrip, addEvent } = useTripStore();
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [activeTab, setActiveTab] = useState("itinerary");
@@ -269,22 +269,28 @@ export const TripView = () => {
     setShowEventEditor(true);
   };
 
-  const handleSaveEventEdit = (updatedEvent: Event) => {
+  const handleSaveEventEdit = async (updatedEvent: Event) => {
     if (id) {
-      // Check if this is a new event (doesn't exist in the trip yet)
-      const isNewEvent = !trip.events.some(e => e.id === updatedEvent.id);
-      
-      if (isNewEvent) {
-        // Add new event to the trip
-        const updatedEvents = [...trip.events, updatedEvent];
-        updateTrip(id, { events: updatedEvents });
-      } else {
-        // Update existing event
-        updateEvent(id, updatedEvent.id, updatedEvent);
+      try {
+        // Check if this is a new event (doesn't exist in the trip yet)
+        const isNewEvent = !trip.events.some(e => e.id === updatedEvent.id);
+        
+        if (isNewEvent) {
+          // Use addEvent instead of updateTrip to ensure proper Firestore sync
+          await addEvent(id, updatedEvent);
+          console.log(`Added new event "${updatedEvent.title}" to trip ${id}`);
+        } else {
+          // Update existing event
+          await updateEvent(id, updatedEvent.id, updatedEvent);
+          console.log(`Updated event "${updatedEvent.title}"`);
+        }
+        
+        setShowEventEditor(false);
+        setCurrentEditingEvent(null);
+      } catch (error) {
+        console.error('Error saving event:', error);
+        // Could add error handling UI here
       }
-      
-      setShowEventEditor(false);
-      setCurrentEditingEvent(null);
     }
   };
 
@@ -293,9 +299,14 @@ export const TripView = () => {
     setCurrentEditingEvent(null);
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
     if (id) {
-      removeEvent(id, eventId);
+      try {
+        await removeEvent(id, eventId);
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        // Could add error handling UI here
+      }
     }
   };
 

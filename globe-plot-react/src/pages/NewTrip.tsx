@@ -101,7 +101,10 @@ export const NewTrip = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: uploadResult.text }),
+        body: JSON.stringify({ 
+          text: uploadResult.text 
+          // No need to send existing events since we'll get new Firestore IDs when saving
+        }),
       });
 
       if (!parseResponse.ok) {
@@ -211,7 +214,10 @@ export const NewTrip = () => {
     setEditingEvents(prev => prev.filter(event => event.id !== eventId));
   };
 
-  const handleSubmitWithEditedEvents = () => {
+  const handleSubmitWithEditedEvents = async () => {
+    // Show loading state (could add a loading indicator here)
+    setIsProcessing(true);
+    
     // Generate a unique ID for the trip
     const tripId = uuidv4();
     
@@ -336,8 +342,16 @@ export const NewTrip = () => {
       documents: tripDocuments
     };
     
-    addTrip(newTrip);
-    navigate('/dashboard');
+    try {
+      // Add trip to store (which will now handle both local storage and Firestore)
+      await addTrip(newTrip);
+      // Navigate to dashboard after successful creation
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      setIsProcessing(false);
+      // Could add error handling UI here
+    }
   };
 
   // Helper function to determine document type

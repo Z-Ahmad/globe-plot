@@ -11,13 +11,15 @@ export function LoginButton() {
     setIsLoading(true);
     try {
       if (user) {
+        // The logout function now handles everything including redirection,
+        // so we don't need to set isLoading to false because the page will redirect
         await logout();
       } else {
         await signIn();
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Authentication error:', error);
-    } finally {
       setIsLoading(false);
     }
   };

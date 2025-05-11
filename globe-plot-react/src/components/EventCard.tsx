@@ -46,13 +46,24 @@ export const EventCard: React.FC<EventCardProps> = ({
   onDelete
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const { bgColor, borderColor, color, icon, hoverBgColor } = getEventStyle(event);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (onDelete) {
-      onDelete(event.id);
+      try {
+        setIsDeleting(true);
+        setDeleteError('');
+        await onDelete(event.id);
+        setShowDeleteDialog(false);
+      } catch (err) {
+        console.error('Error deleting event:', err);
+        setDeleteError(err instanceof Error ? err.message : 'Failed to delete event');
+      } finally {
+        setIsDeleting(false);
+      }
     }
-    setShowDeleteDialog(false);
   };
 
   return (
@@ -96,13 +107,19 @@ export const EventCard: React.FC<EventCardProps> = ({
             <AlertDialogDescription>
               Are you sure you want to delete "{event.title}"? This action cannot be undone.
             </AlertDialogDescription>
+            {deleteError && (
+              <div className="bg-destructive/10 border border-destructive text-destructive p-3 my-3 rounded-md text-sm">
+                <p className="font-medium">Error: {deleteError}</p>
+              </div>
+            )}
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 className="bg-destructive text-white hover:bg-destructive/90"
+                disabled={isDeleting}
               >
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

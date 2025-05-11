@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the userId matches
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // User-specific data
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Trip collection rules
+    match /trips/{tripId} {
+      // Allow read if user is authenticated and owns the resource
+      allow read: if isAuthenticated() && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Allow create if user is setting their own userId
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Allow update and delete if user owns the trip
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Event collection rules
+    match /events/{eventId} {
+      // Allow read if user is authenticated and owns the resource
+      // or when querying by tripId (needed for deletion)
+      allow read: if isAuthenticated() && 
+        ((resource == null) || 
+         (resource.data.userId == request.auth.uid));
+      
+      // Allow create if user is setting their own userId
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Allow update and delete if user owns the event
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+        
+      // Future enhancement: Allow read if event is shared with user
+      // allow read: if resource.data.sharedWith[request.auth.uid] == true;
+    }
+    
+    // Document collection rules
+    match /documents/{docId} {
+      // Allow read if user is authenticated and owns the resource
+      // or when querying by tripId (needed for deletion)
+      allow read: if isAuthenticated() && 
+        ((resource == null) || 
+         (resource.data.userId == request.auth.uid));
+      
+      // Allow create if user is setting their own userId
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Allow update and delete if user owns the document
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+  }
+} 

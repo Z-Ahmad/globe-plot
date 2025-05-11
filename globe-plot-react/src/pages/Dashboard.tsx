@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDateRange } from '@/lib/utils';
+import { deleteTrip as firebaseDeleteTrip } from '@/lib/firebaseService';
 
 
 // Helper function to get city and country from event
@@ -63,11 +64,46 @@ interface PreviewEvent {
 }
 
 export const Dashboard = () => {
-  const { trips, removeTrip } = useTripStore();
+  const { trips, removeTrip, error } = useTripStore();
   const navigate = useNavigate();
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
 
-  const confirmDelete = (tripId: string) => {
-    removeTrip(tripId);
+  const confirmDelete = async (tripId: string) => {
+    try {
+      console.log(`Dashboard: confirming delete for trip ${tripId}`);
+      setDeleteError('');
+      setIsDeleting(true);
+      setDeletingTripId(tripId);
+      
+      try {
+        // First try the regular store method
+        await removeTrip(tripId);
+        
+        // Check if the store has an error after deletion attempt
+        const storeError = useTripStore.getState().error;
+        if (storeError) {
+          console.log('Store reported an error, will try direct firebase delete');
+          throw new Error(storeError);
+        }
+      } catch (storeError) {
+        // If the store method fails, try the direct Firebase method
+        console.log('First delete attempt failed, trying alternative method');
+        await firebaseDeleteTrip(tripId);
+        
+        // If we get here, the direct method worked, so update the store state
+        // to reflect the deletion (the trip is actually gone from Firestore)
+        const currentTrips = useTripStore.getState().trips;
+        useTripStore.getState().setTrips(currentTrips.filter(t => t.id !== tripId));
+      }
+    } catch (err) {
+      console.error('Error in Dashboard delete handler:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete trip');
+    } finally {
+      setIsDeleting(false);
+      setDeletingTripId(null);
+    }
   };
 
   return (
@@ -81,6 +117,13 @@ export const Dashboard = () => {
           + New Trip
         </Link>
       </div>
+
+      {deleteError && (
+        <div className="bg-destructive/10 border border-destructive text-destructive p-4 mb-4 rounded-md">
+          <p className="font-medium">Error deleting trip: {deleteError}</p>
+          <p className="text-sm mt-1">Please try again or refresh the page.</p>
+        </div>
+      )}
 
       {trips.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-12 text-center">
@@ -176,8 +219,12 @@ export const Dashboard = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => confirmDelete(trip.id)} className="bg-destructive text-white hover:bg-destructive/90">
-                        Delete
+                      <AlertDialogAction 
+                        onClick={() => confirmDelete(trip.id)} 
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                        disabled={isDeleting && deletingTripId === trip.id}
+                      >
+                        {isDeleting && deletingTripId === trip.id ? 'Deleting...' : 'Delete'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

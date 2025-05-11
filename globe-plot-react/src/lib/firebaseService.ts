@@ -166,29 +166,70 @@ export const getCurrentUser = (): User | null => {
 //   }
 // };
 
-// export const deleteTrip = async (tripId: string): Promise<void> => {
-//   try {
-//     const userId = getCurrentUser()?.uid;
+export const deleteTrip = async (tripId: string): Promise<void> => {
+  try {
+    const userId = getCurrentUser()?.uid;
     
-//     if (!userId) {
-//       throw new Error('User not authenticated');
-//     }
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
     
-//     const tripRef = doc(db, 'trips', tripId);
-//     const tripDoc = await getDoc(tripRef);
+    console.log(`firebaseService.deleteTrip: Deleting trip ${tripId} for user ${userId}`);
     
-//     if (!tripDoc.exists()) {
-//       throw new Error('Trip not found');
-//     }
+    const tripRef = doc(db, 'trips', tripId);
+    const tripDoc = await getDoc(tripRef);
     
-//     // Verify ownership
-//     if (tripDoc.data().userId !== userId) {
-//       throw new Error('Not authorized to delete this trip');
-//     }
+    if (!tripDoc.exists()) {
+      console.log(`Trip ${tripId} not found in Firestore`);
+      return;
+    }
     
-//     await deleteDoc(tripRef);
-//   } catch (error) {
-//     console.error('Error deleting trip:', error);
-//     throw error;
-//   }
-// }; 
+    const tripData = tripDoc.data();
+    console.log(`Trip data:`, tripData);
+    
+    // Verify ownership
+    if (tripData.userId !== userId) {
+      throw new Error(`Not authorized to delete this trip. Owner: ${tripData.userId}, Current user: ${userId}`);
+    }
+    
+    // Delete the trip document directly
+    await deleteDoc(tripRef);
+    console.log(`Successfully deleted trip ${tripId}`);
+    
+    // Find and delete related events - include userId in query for proper permissions
+    const eventsRef = collection(db, 'events');
+    const eventsQuery = query(
+      eventsRef, 
+      where('tripId', '==', tripId), 
+      where('userId', '==', userId)
+    );
+    const eventsSnapshot = await getDocs(eventsQuery);
+    
+    console.log(`Found ${eventsSnapshot.docs.length} events to delete`);
+    
+    for (const eventDoc of eventsSnapshot.docs) {
+      await deleteDoc(eventDoc.ref);
+      console.log(`Deleted event ${eventDoc.id}`);
+    }
+    
+    // Find and delete related documents - include userId in query for proper permissions
+    const docsRef = collection(db, 'documents');
+    const docsQuery = query(
+      docsRef, 
+      where('tripId', '==', tripId), 
+      where('userId', '==', userId)
+    );
+    const docsSnapshot = await getDocs(docsQuery);
+    
+    console.log(`Found ${docsSnapshot.docs.length} documents to delete`);
+    
+    for (const docSnapshot of docsSnapshot.docs) {
+      await deleteDoc(docSnapshot.ref);
+      console.log(`Deleted document ${docSnapshot.id}`);
+    }
+    
+  } catch (error) {
+    console.error('Error in firebaseService.deleteTrip:', error);
+    throw error;
+  }
+}; 
