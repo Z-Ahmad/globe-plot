@@ -2,30 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTripStore, Trip, Event, ExperienceEvent } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
-import { format, parseISO } from 'date-fns';
 
-import { EventCard } from "@/components/EventCard";
 import { EventEditor } from "@/components/EventEditor";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside } from "lucide-react";
 import { EventList } from "@/components/EventList";
-
-// Helper functions for date and time formatting
-const formatDate = (dateStr: string) => {
-  try {
-    return format(parseISO(dateStr), 'MMM d, yyyy');
-  } catch {
-    return dateStr;
-  }
-};
-
-const formatTime = (dateStr: string) => {
-  try {
-    return format(parseISO(dateStr), 'h:mm a');
-  } catch {
-    return dateStr;
-  }
-};
+import { Progress } from "@/components/ui/progress";
+import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface DocumentItem {
   file: File;
@@ -35,17 +19,20 @@ interface DocumentItem {
   events: any[];
 }
 
+type FormStep = 'trip-details' | 'document-upload' | 'event-review';
+
 export const NewTrip = () => {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'form' | 'review'>('form');
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [currentStep, setCurrentStep] = useState<FormStep>('trip-details');
   const [editingEvents, setEditingEvents] = useState<Event[]>([]);
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [totalEventsFound, setTotalEventsFound] = useState(0);
 
   const API_URL = import.meta.env.VITE_API_URL;
   
@@ -70,89 +57,105 @@ export const NewTrip = () => {
     setDocuments(prev => prev.filter(doc => doc.id !== id));
   };
 
-  const handleProcessDocument = async (docId: string) => {
-    const documentToProcess = documents.find(doc => doc.id === docId);
-    if (!documentToProcess) return;
-
-    // Update status to processing
-    setDocuments(prev => prev.map(doc => 
-      doc.id === docId ? { ...doc, status: 'processing' as const } : doc
-    ));
-
-    try {
-      // First, upload the document
-      const formData = new FormData();
-      formData.append('document', documentToProcess.file);
-
-      const uploadResponse = await fetch(`${API_URL}/api/documents/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload document');
-      }
-
-      const uploadResult = await uploadResponse.json();
-      
-      // Then, parse the text with Mistral
-      const parseResponse = await fetch(`${API_URL}/api/documents/parse-mistral`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text: uploadResult.text 
-          // No need to send existing events since we'll get new Firestore IDs when saving
-        }),
-      });
-
-      if (!parseResponse.ok) {
-        throw new Error('Failed to parse document');
-      }
-
-      const parsedData = await parseResponse.json();
-      
-      // Update document with parsed events and completed status
-      setDocuments(prev => prev.map(doc => 
-        doc.id === docId 
-          ? { 
-              ...doc, 
-              status: 'completed' as const, 
-              events: parsedData.events || [] 
-            } 
-          : doc
-      ));
-    } catch (error) {
-      console.error('Error processing document:', error);
-      // Update document with error status
-      setDocuments(prev => prev.map(doc => 
-        doc.id === docId 
-          ? { 
-              ...doc, 
-              status: 'error' as const, 
-              error: error instanceof Error ? error.message : 'Failed to process document'
-            } 
-          : doc
-      ));
-    }
-  };
-
   const handleProcessAllDocuments = async () => {
     setIsProcessing(true);
+    setProcessingProgress(0);
     
     const pendingDocs = documents.filter(doc => doc.status === 'pending');
+    let processedDocs = [...documents];
     
-    for (const doc of pendingDocs) {
-      await handleProcessDocument(doc.id);
+    for (let i = 0; i < pendingDocs.length; i++) {
+      const docId = pendingDocs[i].id;
+      const documentToProcess = processedDocs.find(doc => doc.id === docId);
+      
+      if (!documentToProcess) continue;
+      
+      // Update status to processing
+      processedDocs = processedDocs.map(doc => 
+        doc.id === docId ? { ...doc, status: 'processing' as const } : doc
+      );
+      setDocuments(processedDocs);
+      
+      try {
+        // First, upload the document
+        const formData = new FormData();
+        formData.append('document', documentToProcess.file);
+
+        const uploadResponse = await fetch(`${API_URL}/api/documents/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload document');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        
+        // Then, parse the text with Mistral
+        const parseResponse = await fetch(`${API_URL}/api/documents/parse-mistral`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            text: uploadResult.text 
+          }),
+        });
+
+        if (!parseResponse.ok) {
+          throw new Error('Failed to parse document');
+        }
+
+        const parsedData = await parseResponse.json();
+        const newEvents = parsedData.events || [];
+        
+        // Update our local copy of processed docs
+        processedDocs = processedDocs.map(doc => 
+          doc.id === docId 
+            ? { 
+                ...doc, 
+                status: 'completed' as const, 
+                events: newEvents
+              } 
+            : doc
+        );
+        
+        // Update the state
+        setDocuments(processedDocs);
+        
+        // Update total events found
+        const totalEvents = processedDocs.reduce((sum, doc) => sum + doc.events.length, 0);
+        setTotalEventsFound(totalEvents);
+        
+      } catch (error) {
+        console.error('Error processing document:', error);
+        // Update document with error status
+        processedDocs = processedDocs.map(doc => 
+          doc.id === docId 
+            ? { 
+                ...doc, 
+                status: 'error' as const, 
+                error: error instanceof Error ? error.message : 'Failed to process document'
+              } 
+            : doc
+        );
+        setDocuments(processedDocs);
+      }
+      
+      // Update progress
+      setProcessingProgress(Math.round(((i + 1) / pendingDocs.length) * 100));
     }
     
-    setIsProcessing(false);
-  };
-
-  const handleReviewEvents = () => {
-    // Sort events by start date
-    const allEvents = documents.flatMap(doc => 
+    // Make sure progress bar reaches 100% even with fast processing
+    setProcessingProgress(100);
+    
+    // Use the final processed docs to extract all events
+    console.log("Processed docs:", processedDocs);
+    console.log("Events found:", processedDocs.flatMap(doc => doc.events));
+    
+    // Load events after all documents are processed (using processedDocs, not documents state)
+    const allEvents = processedDocs.flatMap(doc => 
       doc.events.map(event => ({
         ...event,
         id: event.id || uuidv4()
@@ -163,10 +166,32 @@ export const NewTrip = () => {
       return aTime - bTime;
     });
     
-    // Set editing events and switch to review step
-    setEditingEvents(allEvents);
-    setCurrentStep('review');
+    console.log("All events to be added to review:", allEvents);
+    
+    // Show success notification before changing state
+    if (allEvents.length > 0) {
+      const completedDocsCount = processedDocs.filter(doc => doc.status === 'completed').length;
+      toast.success(
+        `${allEvents.length} ${allEvents.length === 1 ? 'event' : 'events'} found from ${completedDocsCount} documents`, 
+        
+      );
+    } else {
+      toast.error(
+        "No events found", 
+        {
+          duration: 4000,
+        }
+      );
+    }
+    
+    // Add a delay to let users see the progress bar complete and toast notification
+    setTimeout(() => {
+      setEditingEvents(allEvents);
+      setIsProcessing(false);
+      setCurrentStep('event-review');
+    }, 1000); // 1 second delay
   };
+
 
   const sortEvents = (events: Event[]) => {
     const sorted = [...events].sort((a, b) => {
@@ -214,8 +239,8 @@ export const NewTrip = () => {
     setEditingEvents(prev => prev.filter(event => event.id !== eventId));
   };
 
-  const handleSubmitWithEditedEvents = async () => {
-    // Show loading state (could add a loading indicator here)
+  const handleSubmitTrip = async () => {
+    // Show loading state
     setIsProcessing(true);
     
     // Generate a unique ID for the trip
@@ -342,16 +367,48 @@ export const NewTrip = () => {
       documents: tripDocuments
     };
     
-    try {
-      // Add trip to store (which will now handle both local storage and Firestore)
-      await addTrip(newTrip);
-      // Navigate to dashboard after successful creation
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Error creating trip:', error);
-      setIsProcessing(false);
-      // Could add error handling UI here
-    }
+    // Custom toast styling for trip creation
+    const customToastStyle = {
+      background: 'rgb(209, 250, 229)', // Light teal background (teal-100)
+      color: 'rgb(6, 95, 70)',          // Dark teal text (teal-800)
+      border: '1px solid rgb(167, 243, 208)', // Light teal border (teal-200)
+      borderRadius: '8px',
+      padding: '12px 16px',
+    };
+    
+    // Use toast.promise for trip creation
+    toast.promise(
+      (async () => {
+        try {
+          // Add trip to store (which will now handle both local storage and Firestore)
+          await addTrip(newTrip);
+          
+          // If successful, navigate to dashboard after a short delay
+          setTimeout(() => {
+            navigate('/dashboard');
+            setIsProcessing(false);
+          }, 500);
+          
+          return newTrip; // Return trip for success message
+        } catch (error) {
+          console.error('Error creating trip:', error);
+          setIsProcessing(false);
+          throw error; // Rethrow to trigger the error toast
+        }
+      })(),
+      {
+        loading: `Creating your trip "${name}"...`,
+        success: `Trip "${name}" created successfully!`,
+        error: `Failed to create trip: ${(err: Error) => err.message || 'Unknown error'}`,
+      },
+      {
+        style: customToastStyle,
+        success: {
+          duration: 4000,
+          icon: <MapPinCheckInside color="rgb(6, 95, 70)" size={24} />,
+        },
+      }
+    );
   };
 
   // Helper function to determine document type
@@ -404,231 +461,328 @@ export const NewTrip = () => {
     </div>
   );
 
-  return (
-    <main className='max-w-2xl mx-auto p-6'>
-      {currentStep === 'form' ? (
-        // Form step
-      <div className="bg-card border border-border rounded-lg p-8">
-        <h1 className='text-2xl font-bold mb-6'>Create New Trip</h1>
+  const renderTripDetailsStep = () => (
+    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
+      <h1 className='text-2xl font-bold mb-6'>Create New Trip</h1>
+      
+      <form onSubmit={(e) => { e.preventDefault(); setCurrentStep('document-upload'); }}>
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2" htmlFor="name">
+            Trip Name
+          </label>
+          <input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-input rounded-md px-3 py-2 bg-background"
+            placeholder="European Adventure"
+            required
+          />
+        </div>
         
-          <form onSubmit={(e) => { e.preventDefault(); handleReviewEvents(); }}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="name">
-              Trip Name
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div>
+            <label className="block text-sm font-medium mb-2" htmlFor="startDate">
+              Start Date
             </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-input rounded-md px-3 py-2 bg-background"
-              placeholder="European Adventure"
-              required
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="startDate">
-                Start Date
-              </label>
+            <div className="relative">
+              <CalendarDays size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <input
                 id="startDate"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border border-input rounded-md px-3 py-2 bg-background"
+                className="w-full border border-input rounded-md pl-10 pr-3 py-2 bg-background"
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="endDate">
-                End Date
-              </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2" htmlFor="endDate">
+              End Date
+            </label>
+            <div className="relative">
+              <CalendarDays size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <input
                 id="endDate"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border border-input rounded-md px-3 py-2 bg-background"
+                className="w-full border border-input rounded-md pl-10 pr-3 py-2 bg-background"
                 required
               />
             </div>
           </div>
-            
-            <div className="mb-6 border border-dashed border-input rounded-md p-4">
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-1">
-                  Add Travel Documents (Optional)
-                </label>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Upload trip confirmations to automatically extract flight, hotel, and activity details.
-                </p>
-              </div>
-              
-              <div className="flex flex-col space-y-3">
-                <input
-                  type="file"
-                  onChange={handleFileChange}
-                  className="text-sm"
-                  accept=".pdf,.eml,.txt,image/*"
-                  multiple
-                />
-                
-                {documents.length > 0 && (
-                  <div className="flex flex-col space-y-4 mt-2">
-                    <div className="text-sm font-medium">
-                      Documents ({documents.length})
-                      {pendingCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleProcessAllDocuments}
-                          disabled={isProcessing || hasProcessingDocuments}
-                          className="ml-4 px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-xs hover:bg-secondary/90 transition-colors"
-                        >
-                          {isProcessing ? 'Processing...' : 'Process All'}
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Status summary */}
-                    {documents.length > 0 && (
-                      <div className="flex text-xs space-x-3 text-muted-foreground">
-                        {pendingCount > 0 && <span>⏳ {pendingCount} pending</span>}
-                        {completedCount > 0 && <span className="text-green-600">✓ {completedCount} completed</span>}
-                        {errorCount > 0 && <span className="text-red-500">✗ {errorCount} failed</span>}
-                        {totalEvents > 0 && <span className="text-primary">🗓 {totalEvents} events found</span>}
-                      </div>
-                    )}
-                    
-                    <ul className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                      {documents.map(doc => (
-                        <li key={doc.id} className="text-sm border border-border rounded-md p-2 bg-background">
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-center space-x-2">
-                              {doc.status === 'pending' && <span className="text-muted-foreground">⏳</span>}
-                              {doc.status === 'processing' && <span className="text-blue-500">⟳</span>}
-                              {doc.status === 'completed' && <span className="text-green-600">✓</span>}
-                              {doc.status === 'error' && <span className="text-red-500">✗</span>}
-                              <span>{doc.file.name}</span>
-                            </div>
-                            <div className="flex space-x-1">
-                              {doc.status === 'pending' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleProcessDocument(doc.id)}
-                                  disabled={isProcessing || hasProcessingDocuments}
-                                  className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded hover:bg-secondary/90"
-                                >
-                                  Process
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveDocument(doc.id)}
-                                className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded hover:bg-destructive/20"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                          
-                          {/* Error message */}
-                          {doc.status === 'error' && doc.error && (
-                            <div className="mt-1 text-xs text-red-500">{doc.error}</div>
-                          )}
-                          
-                          {/* Found events */}
-                          {doc.status === 'completed' && doc.events.length > 0 && (
-                            <div className="mt-1 ml-6">
-                              <span className="text-xs font-medium text-green-600">
-                                Found {doc.events.length} events
-                              </span>
-                              <ul className="text-xs text-muted-foreground mt-1 ml-2">
-                                {doc.events.slice(0, 2).map((event, i) => (
-                                  <li key={i}>• {event.type}: {event.title}</li>
-                                ))}
-                                {doc.events.length > 2 && (
-                                  <li>• ...and {doc.events.length - 2} more</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-            </div>
-          </div>
-          
-          <div className="flex justify-end">
-            <button 
-              type="button" 
-              className="mr-2 px-4 py-2 border border-border rounded-full text-foreground"
-              onClick={() => navigate('/dashboard')}
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-full"
-                disabled={isProcessing || hasProcessingDocuments || !name || !startDate || !endDate}
-              >
-                Review Events
-              </button>
-            </div>
-          </form>
         </div>
-      ) : (
-        // Review step
-        <div className="bg-card p-6 rounded-lg border border-border">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold">Review Trip: {name}</h2>
-            <Button onClick={() => createNewEvent({
-              id: uuidv4(),
-              category: 'experience',
-              type: 'activity',
-              title: 'New Event',
-              start: '',
-              location: {
-                name: '',
-                city: '',
-                country: ''
-              }
-            } as any)} className="flex items-center gap-2">
-              <Plus size={16} />
-              <span>Add Event</span>
+        
+        <div className="flex justify-between">
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={() => navigate('/dashboard')}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={!name || !startDate || !endDate}
+            className="gap-2"
+          >
+            Continue
+            <ArrowRight size={16} />
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const renderDocumentUploadStep = () => (
+    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
+      <h1 className='text-2xl font-bold mb-6'>Upload Travel Documents</h1>
+      
+      <div className="text-sm text-muted-foreground mb-6">
+        <p>Upload booking confirmations, tickets, and reservations to automatically extract your itinerary.</p>
+      </div>
+      
+      <div className="mb-6">
+        {documents.length === 0 ? (
+          <div 
+            className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
+            onClick={() => document.getElementById('file-upload')?.click()}
+          >
+            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Upload size={24} className="text-primary" />
+            </div>
+            <p className="font-medium mb-1">Upload Documents</p>
+            <p className="text-sm text-muted-foreground mb-4">Drag and drop or click to select files</p>
+            <Button size="sm" variant="secondary" className="gap-2">
+              <FilePlus size={16} />
+              Browse Files
             </Button>
+            <input 
+              id="file-upload" 
+              type="file" 
+              className="hidden" 
+              onChange={handleFileChange}
+              accept=".pdf,.eml,.txt,image/*"
+              multiple
+            />
           </div>
-          
-          {/* Use the new EventList component */}
-          <EventList 
-            events={editingEvents}
-            onEdit={handleEditEvent}
-            onDelete={handleDeleteEvent}
-            onAddNew={createNewEvent}
-            emptyState={emptyState}
-          />
-          
-          <div className="flex justify-end mt-6">
-            <button 
-              type="button" 
-              className="mr-2 px-4 py-2 border border-border rounded-full text-foreground"
-              onClick={() => setCurrentStep('form')}
-            >
-              Back to Form
-            </button>
-            <button 
-              type="button"
-              onClick={handleSubmitWithEditedEvents} 
-              disabled={editingEvents.length === 0}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-full"
-            >
-              Create Trip with {editingEvents.length} Events
-            </button>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-medium">Uploaded Documents ({documents.length})</h2>
+              <button
+                onClick={() => document.getElementById('file-upload')?.click()}
+                className="text-xs px-3 py-1 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+              >
+                + Add More
+              </button>
+              <input 
+                id="file-upload" 
+                type="file" 
+                className="hidden" 
+                onChange={handleFileChange}
+                accept=".pdf,.eml,.txt,image/*"
+                multiple
+              />
+            </div>
+            
+            <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4">
+              {documents.map(doc => (
+                <li key={doc.id} className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center",
+                      doc.status === 'pending' && "bg-muted text-muted-foreground",
+                      doc.status === 'processing' && "bg-blue-100 text-blue-600",
+                      doc.status === 'completed' && "bg-green-100 text-green-600",
+                      doc.status === 'error' && "bg-red-100 text-red-600"
+                    )}>
+                      {doc.status === 'pending' && <FileText size={16} />}
+                      {doc.status === 'processing' && <Loader2 size={16} className="animate-spin" />}
+                      {doc.status === 'completed' && <CheckCircle2 size={16} />}
+                      {doc.status === 'error' && <XCircle size={16} />}
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="truncate font-medium">{doc.file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.status === 'completed' ? 
+                          `${doc.events.length} events found` : 
+                          `${Math.round(doc.file.size / 1024)} KB`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveDocument(doc.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <FileX size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            
+            {/* Status summary */}
+            {documents.length > 0 && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6">
+                {pendingCount > 0 && <span className="flex items-center gap-1"><FileText size={12} /> {pendingCount} pending</span>}
+                {completedCount > 0 && <span className="flex items-center gap-1 text-green-600"><CheckCircle2 size={12} /> {completedCount} processed</span>}
+                {errorCount > 0 && <span className="flex items-center gap-1 text-red-500"><XCircle size={12} /> {errorCount} failed</span>}
+                {totalEvents > 0 && <span className="flex items-center gap-1 text-primary ml-auto">{totalEvents} events found</span>}
+              </div>
+            )}
           </div>
+        )}
+      </div>
+      
+      <div className="flex justify-between mt-6">
+        <Button 
+          type="button" 
+          variant="outline"
+          onClick={() => setCurrentStep('trip-details')}
+          className="gap-2"
+        >
+          <ArrowLeft size={16} />
+          Back
+        </Button>
+        
+        {documents.length > 0 && pendingCount > 0 ? (
+          <Button 
+            onClick={handleProcessAllDocuments}
+            disabled={isProcessing || hasProcessingDocuments}
+            className="gap-2"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                Process Documents
+                <ArrowRight size={16} />
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button 
+            onClick={() => setCurrentStep('event-review')} 
+            className="gap-2"
+          >
+            Continue
+            <ArrowRight size={16} />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderProcessingStep = () => (
+    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
+      <h1 className='text-xl font-bold mb-6 flex items-center gap-2'>
+        <Loader2 size={20} className="animate-spin text-primary" />
+        Processing Documents
+      </h1>
+      
+      <Progress value={processingProgress} className="h-2 mb-4" />
+      
+      <p className="text-sm text-muted-foreground mb-6">
+        Extracting events from your documents. This might take a moment...
+      </p>
+      
+      <div className="p-4 bg-background rounded-lg border border-border mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className='flex items-center gap-2'>
+            <FileText size={16} />
+            <span className="text-sm font-medium">Documents processed</span>
+          </span>
+            <span className="text-sm font-medium">{completedCount}/{documents.length}</span>
         </div>
+        <div className="flex justify-between items-center">
+          <span className="flex items-center gap-2">
+            <CalendarSearch size={16} />
+            <span className="text-sm font-medium">Events found</span>
+          </span>
+          <span className="text-sm font-medium">{totalEventsFound}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEventReviewStep = () => (
+    <div className="max-w-3xl mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
+      <div className="mb-6">
+        <h1 className='text-2xl font-bold'>Review Events for "{name}"</h1>
+        <div className="flex justify-start mt-2">
+          <Button onClick={() => createNewEvent({
+            id: uuidv4(),
+            category: 'experience',
+            type: 'activity',
+            title: 'New Event',
+            start: '',
+            location: {
+              name: '',
+              city: '',
+              country: ''
+            }
+            } as any)} 
+            className="flex items-center gap-2"
+          >
+            <Plus size={16} />
+            <span>Add Event</span>
+          </Button>
+        </div>
+      </div>
+      
+      <EventList 
+        events={editingEvents}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+        onAddNew={createNewEvent}
+        emptyState={emptyState}
+      />
+      
+      <div className="flex justify-between mt-8">
+        <Button 
+          variant="outline"
+          onClick={() => setCurrentStep('document-upload')}
+          className="gap-2"
+        >
+          <ArrowLeft size={16} />
+          Back
+        </Button>
+        <Button 
+          onClick={handleSubmitTrip}
+          disabled={isProcessing}
+          className="gap-2"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Creating Trip...
+            </>
+          ) : (
+            <>
+              Create Trip
+              {editingEvents.length > 0 && ` with ${editingEvents.length} Events`}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <main className='p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center'>
+      {isProcessing && currentStep === 'document-upload' ? (
+        renderProcessingStep()
+      ) : (
+        currentStep === 'trip-details' ? renderTripDetailsStep() :
+        currentStep === 'document-upload' ? renderDocumentUploadStep() :
+        renderEventReviewStep()
       )}
 
       {/* Event Editor Dialog */}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTripStore } from '../stores/tripStore';
 import { Event, BaseEvent, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
 import { CalendarDays, Map, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,39 +72,77 @@ export const Dashboard = () => {
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
 
   const confirmDelete = async (tripId: string) => {
-    try {
-      console.log(`Dashboard: confirming delete for trip ${tripId}`);
-      setDeleteError('');
-      setIsDeleting(true);
-      setDeletingTripId(tripId);
-      
-      try {
-        // First try the regular store method
-        await removeTrip(tripId);
-        
-        // Check if the store has an error after deletion attempt
-        const storeError = useTripStore.getState().error;
-        if (storeError) {
-          console.log('Store reported an error, will try direct firebase delete');
-          throw new Error(storeError);
+    // Find the trip name for the toast message
+    const tripToDelete = trips.find(trip => trip.id === tripId);
+    const tripName = tripToDelete?.name || 'Trip';
+    
+    // Custom toast styling for trip deletion
+    const customToastStyle = {
+      background: 'rgb(219, 234, 254)', // Lighter blue background (blue-100)
+      color: 'rgb(30, 58, 138)',       // Dark blue text
+      border: '1px solid rgb(191, 219, 254)', // Lighter border (blue-200)
+      borderRadius: '8px',
+      padding: '12px 16px',
+    };
+    
+    // Create promise toast with custom styling
+    toast.promise(
+      (async () => {
+        try {
+          console.log(`Dashboard: confirming delete for trip ${tripId}`);
+          setDeleteError('');
+          setIsDeleting(true);
+          setDeletingTripId(tripId);
+          
+          try {
+            // First try the regular store method
+            await removeTrip(tripId);
+            
+            // Check if the store has an error after deletion attempt
+            const storeError = useTripStore.getState().error;
+            if (storeError) {
+              console.log('Store reported an error, will try direct firebase delete');
+              throw new Error(storeError);
+            }
+          } catch (storeError) {
+            // If the store method fails, try the direct Firebase method
+            console.log('First delete attempt failed, trying alternative method');
+            await firebaseDeleteTrip(tripId);
+            
+            // If we get here, the direct method worked, so update the store state
+            // to reflect the deletion (the trip is actually gone from Firestore)
+            const currentTrips = useTripStore.getState().trips;
+            useTripStore.getState().setTrips(currentTrips.filter(t => t.id !== tripId));
+          }
+        } catch (err) {
+          console.error('Error in Dashboard delete handler:', err);
+          setDeleteError(err instanceof Error ? err.message : 'Failed to delete trip');
+          throw err; // Re-throw to trigger toast error
+        } finally {
+          setIsDeleting(false);
+          setDeletingTripId(null);
         }
-      } catch (storeError) {
-        // If the store method fails, try the direct Firebase method
-        console.log('First delete attempt failed, trying alternative method');
-        await firebaseDeleteTrip(tripId);
-        
-        // If we get here, the direct method worked, so update the store state
-        // to reflect the deletion (the trip is actually gone from Firestore)
-        const currentTrips = useTripStore.getState().trips;
-        useTripStore.getState().setTrips(currentTrips.filter(t => t.id !== tripId));
+      })(),
+      {
+        loading: `Deleting "${tripName}"...`,
+        success: `"${tripName}" has been successfully deleted`,
+        error: `Failed to delete "${tripName}"`,
+      },
+      {
+        style: customToastStyle,
+        success: {
+          duration: 4000,
+          icon: <Trash2 color="rgb(30, 58, 138)" size={22} />,
+        },
+        error: {
+          style: {
+            background: 'rgb(254, 226, 226)', // Light red for errors
+            color: 'rgb(185, 28, 28)',
+            border: '1px solid rgb(254, 202, 202)',
+          },
+        },
       }
-    } catch (err) {
-      console.error('Error in Dashboard delete handler:', err);
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete trip');
-    } finally {
-      setIsDeleting(false);
-      setDeletingTripId(null);
-    }
+    );
   };
 
   return (
