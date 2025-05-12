@@ -1,6 +1,7 @@
 import React, { useState, ChangeEvent } from 'react';
 import { Event, EventCategory } from '@/stores/tripStore';
 import { useUserStore } from '@/stores/userStore';
+import { useTripContext } from '@/context/TripContext';
 import {
   Dialog,
   DialogClose,
@@ -53,7 +54,6 @@ interface EventEditorProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedEvent: Event) => void;
-  tripId?: string;
 }
 
 // Shared event form component to reduce duplication
@@ -61,17 +61,16 @@ interface EventFormProps {
   editingEvent: Event;
   setEditingEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   containerStyle?: string; // Optional style for the container
-  tripId?: string;
 }
 
 const EventForm: React.FC<EventFormProps> = ({
   editingEvent,
   setEditingEvent,
-  tripId,
 }) => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const user = useUserStore((state) => state.user);
   const isAuthenticated = !!user;
+  const { tripId } = useTripContext();
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -248,7 +247,7 @@ const EventForm: React.FC<EventFormProps> = ({
       const result = await geocodeLocation(
         locationData, 
         editingEvent.id, 
-        tripId, 
+        tripId || undefined, 
         locationType
       );
       
@@ -1060,7 +1059,6 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   isOpen,
   onClose,
   onSave,
-  tripId,
 }) => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(event);
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -1174,7 +1172,6 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           <EventForm 
             editingEvent={editingEvent} 
             setEditingEvent={setEditingEvent}
-            tripId={tripId}
           />
           
           <DialogFooter>
@@ -1208,7 +1205,6 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             <EventForm 
               editingEvent={editingEvent} 
               setEditingEvent={setEditingEvent}
-              tripId={tripId}
             />
           </div>
           

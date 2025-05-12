@@ -10,16 +10,16 @@ import { getEventStyle } from '@/styles/eventStyles';
 import { useUserStore } from '@/stores/userStore';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
+import { useTripContext } from '@/context/TripContext';
 
 interface ItineraryProps {
   events: Event[];
   onEdit: (event: Event) => void;
   onDelete: (eventId: string) => void;
   onAddNew: (event: Event) => void;
-  emptyState: React.ReactNode;
-  startDate: string;
-  endDate: string;
-  tripId: string;
+  emptyState?: React.ReactNode;
+  startDate?: string;
+  endDate?: string;
 }
 
 type SortOption = 'chronological' | 'category' | 'location';
@@ -44,9 +44,9 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   onAddNew,
   emptyState,
   startDate,
-  endDate,
-  tripId
+  endDate
 }) => {
+  const { tripId } = useTripContext();
   // Persist sort option and view mode to localStorage
   const [sortOption, setSortOption] = useState<SortOption>(() => 
     getStoredValue('itinerary-sort-option', 'chronological' as SortOption)
@@ -95,34 +95,38 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   useEffect(() => {
     if (viewMode === 'map') {
       if (!isAuthenticated) {
-        toast.error("Please sign in to use the map view");
-        setViewMode('list'); // Fallback to list view
+        toast.error("Please sign in to view the map");
+        setViewMode('list');
         return;
       }
-      
-      console.log(`[Itinerary] Starting geocoding process for ${events.length} events in trip ${tripId}`);
-      
-      // Count events that need geocoding
-      const eventsNeedingCoordinates = events.filter(event => {
+
+      // Only perform geocoding if we have a valid tripId
+      if (!tripId) {
+        console.log("[Itinerary] No tripId available for geocoding");
+        return;
+      }
+
+      // Force update if we don't have coordinates for all events
+      const eventsWithCoordinates = events.filter(event => {
         if (event.category === 'travel') {
-          // Travel events need both departure and arrival coordinates
-          return (!event.departure?.location?.geolocation || !event.arrival?.location?.geolocation);
+          // Travel events need departure coordinates
+          return event.departure?.location?.geolocation;
         } else if (event.category === 'accommodation') {
           // Accommodation events need check-in coordinates
-          return !event.checkIn?.location?.geolocation;
+          return event.checkIn?.location?.geolocation;
         } else {
-          // Other events need general location coordinates
-          return !event.location?.geolocation;
+          // Other events need location coordinates
+          return event.location?.geolocation;
         }
       });
       
-      // Only force update if there are events missing coordinates
-      const forceUpdate = eventsNeedingCoordinates.length > 0;
-      console.log(`[Itinerary] ${eventsNeedingCoordinates.length} events need geocoding, force update: ${forceUpdate}`);
+      // Force update if any events are missing coordinates
+      const forceUpdate = eventsWithCoordinates.length < events.length;
+      console.log(`[Itinerary] ${events.length - eventsWithCoordinates.length} events need geocoding, force update: ${forceUpdate}`);
       
       // Start geocoding process
       setIsGeocoding(true);
-      enrichAndSaveEventCoordinates(tripId, events, forceUpdate)
+      enrichAndSaveEventCoordinates(tripId || '', events, forceUpdate)
         .then(enrichedEvents => {
           console.log(`[Itinerary] Geocoding completed for ${enrichedEvents.length} events`);
           
@@ -329,7 +333,6 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             onDelete={onDelete}
             onAddNew={onAddNew}
             emptyState={emptyState}
-            tripId={tripId}
           />
         )}
 

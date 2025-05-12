@@ -32,6 +32,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { TripProvider } from '@/context/TripContext';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -430,7 +431,6 @@ export const TripView = () => {
         emptyState={emptyState}
         startDate={trip.startDate}
         endDate={trip.endDate}
-        tripId={id || ''}
       />
     </section>
   );
@@ -513,96 +513,97 @@ export const TripView = () => {
   );
 
   return (
-    <div className="max-w-full mx-auto p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
-            <span className="">
-            { trip.name}
-            </span>
-          </h1>
-          <p className="text-muted-foreground flex items-center gap-2">
-            <CalendarDays className="w-5 h-5" />
-            <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+    <TripProvider tripId={id || null}>
+      <div className="max-w-full mx-auto p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
+              <span className="">
+              { trip.name}
+              </span>
+            </h1>
+            <p className="text-muted-foreground flex items-center gap-2">
+              <CalendarDays className="w-5 h-5" />
+              <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
 
-          </p>
+            </p>
+          </div>
+          <Button onClick={() => createNewEvent({
+            id: uuidv4(),
+            category: 'experience',
+            type: 'activity',
+            title: 'New Event',
+            start: '',
+            location: {
+              name: '',
+              city: '',
+              country: ''
+            }
+          } as any)} className="flex items-center gap-2">
+            <MapPinPlusInside size={20} />
+            <span>Add Event</span>
+          </Button>
         </div>
-        <Button onClick={() => createNewEvent({
-          id: uuidv4(),
-          category: 'experience',
-          type: 'activity',
-          title: 'New Event',
-          start: '',
-          location: {
-            name: '',
-            city: '',
-            country: ''
-          }
-        } as any)} className="flex items-center gap-2">
-          <MapPinPlusInside size={20} />
-          <span>Add Event</span>
-        </Button>
-      </div>
 
-      {/* Mobile Tabs View */}
-      <div className="block md:hidden mb-6">
-        <Tabs defaultValue="itinerary" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="itinerary" className="flex items-center gap-1">
-              <ListTodo className="h-4 w-4" />
-              <span>Itinerary</span>
-            </TabsTrigger>
-            <TabsTrigger value="upcoming" className="flex items-center gap-1">
-              <CalendarClock className="h-4 w-4" />
-              <span>Coming Up</span>
-            </TabsTrigger>
-            <TabsTrigger value="locations" className="flex items-center gap-1">
-              <MapPinned className="h-4 w-4" />
-              <span>Locations</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="itinerary" className="mt-4">
-            <ItinerarySection />
-          </TabsContent>
-          
-          <TabsContent value="upcoming" className="mt-4">
+        {/* Mobile Tabs View */}
+        <div className="block md:hidden mb-6">
+          <Tabs defaultValue="itinerary" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="itinerary" className="flex items-center gap-1">
+                <ListTodo className="h-4 w-4" />
+                <span>Itinerary</span>
+              </TabsTrigger>
+              <TabsTrigger value="upcoming" className="flex items-center gap-1">
+                <CalendarClock className="h-4 w-4" />
+                <span>Coming Up</span>
+              </TabsTrigger>
+              <TabsTrigger value="locations" className="flex items-center gap-1">
+                <MapPinned className="h-4 w-4" />
+                <span>Locations</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="itinerary" className="mt-4">
+              <ItinerarySection />
+            </TabsContent>
+            
+            <TabsContent value="upcoming" className="mt-4">
+              <ComingUpSection />
+            </TabsContent>
+            
+            <TabsContent value="locations" className="mt-4">
+              <LocationsSection />
+            </TabsContent>
+          </Tabs>
+                </div>
+
+        {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
+        <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
+          {/* Left panel: Coming Up section */}
+          <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
             <ComingUpSection />
-          </TabsContent>
-          
-          <TabsContent value="locations" className="mt-4">
-            <LocationsSection />
-          </TabsContent>
-        </Tabs>
               </div>
+          
+          {/* Middle panel: Full Itinerary */}
+          <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
+            <ItinerarySection />
+          </div>
+          
+          {/* Right panel: Locations */}
+          <div className="md:col-span-3 lg:col-span-7 xl:col-span-6">
+            <LocationsSection />
+          </div>
+        </div>
 
-      {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
-      <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
-        {/* Left panel: Coming Up section */}
-        <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
-          <ComingUpSection />
-            </div>
-        
-        {/* Middle panel: Full Itinerary */}
-        <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
-          <ItinerarySection />
-        </div>
-        
-        {/* Right panel: Locations */}
-        <div className="md:col-span-3 lg:col-span-7 xl:col-span-6">
-          <LocationsSection />
-        </div>
+        {/* Event Editor Dialog */}
+        <EventEditor
+          event={currentEditingEvent}
+          isOpen={showEventEditor}
+          onClose={handleCloseEventEditor}
+          onSave={handleSaveEventEdit}
+        />
       </div>
-
-      {/* Event Editor Dialog */}
-      <EventEditor
-        event={currentEditingEvent}
-        isOpen={showEventEditor}
-        onClose={handleCloseEventEditor}
-        onSave={handleSaveEventEdit}
-        tripId={id}
-      />
-    </div>
+    </TripProvider>
   );
 }; 

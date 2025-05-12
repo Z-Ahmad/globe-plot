@@ -22,7 +22,6 @@ interface EventCardProps {
   showEditControls?: boolean;
   onEdit?: (event: Event) => void;
   onDelete?: (id: string) => void;
-  tripId?: string;
 }
 
 // Helper functions for date/time formatting
@@ -46,8 +45,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   event, 
   showEditControls = false,
   onEdit,
-  onDelete,
-  tripId
+  onDelete
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);

@@ -10,6 +10,7 @@ import { EventList } from "@/components/EventList";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { TripProvider } from '@/context/TripContext';
 
 interface DocumentItem {
   file: File;
@@ -744,7 +745,6 @@ export const NewTrip = () => {
         onDelete={handleDeleteEvent}
         onAddNew={createNewEvent}
         emptyState={emptyState}
-        tripId={tempTripId}
       />
       
       <div className="flex justify-between mt-8">
@@ -778,23 +778,24 @@ export const NewTrip = () => {
   );
 
   return (
-    <main className='p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center'>
-      {isProcessing && currentStep === 'document-upload' ? (
-        renderProcessingStep()
-      ) : (
-        currentStep === 'trip-details' ? renderTripDetailsStep() :
-        currentStep === 'document-upload' ? renderDocumentUploadStep() :
-        renderEventReviewStep()
-      )}
+    <TripProvider tripId={tempTripId}>
+      <main className='p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center'>
+        {isProcessing && currentStep === 'document-upload' ? (
+          renderProcessingStep()
+        ) : (
+          currentStep === 'trip-details' ? renderTripDetailsStep() :
+          currentStep === 'document-upload' ? renderDocumentUploadStep() :
+          renderEventReviewStep()
+        )}
 
-      {/* Event Editor Dialog */}
-      <EventEditor
-        event={currentEditingEvent}
-        isOpen={showEventEditor}
-        onClose={() => setShowEventEditor(false)}
-        onSave={handleSaveEventEdit}
-        tripId={tempTripId}
-      />
-    </main>
+        {/* Event Editor Dialog */}
+        <EventEditor
+          event={currentEditingEvent}
+          isOpen={showEventEditor}
+          onClose={() => setShowEventEditor(false)}
+          onSave={handleSaveEventEdit}
+        />
+      </main>
+    </TripProvider>
   );
 };
