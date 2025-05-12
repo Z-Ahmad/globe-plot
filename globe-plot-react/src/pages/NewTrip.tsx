@@ -33,6 +33,7 @@ export const NewTrip = () => {
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [totalEventsFound, setTotalEventsFound] = useState(0);
+  const [tempTripId] = useState<string>(uuidv4());
 
   const API_URL = import.meta.env.VITE_API_URL;
   
@@ -81,7 +82,7 @@ export const NewTrip = () => {
         const formData = new FormData();
         formData.append('document', documentToProcess.file);
 
-        const uploadResponse = await fetch(`${API_URL}/api/documents/upload`, {
+        const uploadResponse = await fetch(`${API_URL}documents/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -93,7 +94,7 @@ export const NewTrip = () => {
         const uploadResult = await uploadResponse.json();
         
         // Then, parse the text with Mistral
-        const parseResponse = await fetch(`${API_URL}/api/documents/parse-mistral`, {
+        const parseResponse = await fetch(`${API_URL}documents/parse-mistral`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -743,6 +744,7 @@ export const NewTrip = () => {
         onDelete={handleDeleteEvent}
         onAddNew={createNewEvent}
         emptyState={emptyState}
+        tripId={tempTripId}
       />
       
       <div className="flex justify-between mt-8">
@@ -791,6 +793,7 @@ export const NewTrip = () => {
         isOpen={showEventEditor}
         onClose={() => setShowEventEditor(false)}
         onSave={handleSaveEventEdit}
+        tripId={tempTripId}
       />
     </main>
   );

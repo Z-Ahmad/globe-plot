@@ -10,6 +10,7 @@ interface EventListProps {
   onDelete: (eventId: string) => void;
   onAddNew: (event: Event) => void;
   emptyState?: React.ReactNode;
+  tripId?: string;
 }
 
 export const EventList: React.FC<EventListProps> = ({
@@ -17,7 +18,8 @@ export const EventList: React.FC<EventListProps> = ({
   onEdit,
   onDelete,
   onAddNew,
-  emptyState
+  emptyState,
+  tripId
 }) => {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -98,6 +100,7 @@ export const EventList: React.FC<EventListProps> = ({
             showEditControls={true}
             onEdit={onEdit}
             onDelete={onDelete}
+            tripId={tripId}
           />
         </React.Fragment>
       ))}

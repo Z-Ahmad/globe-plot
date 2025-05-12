@@ -3,6 +3,8 @@ import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } fr
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '../styles/eventStyles';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
+import { useUserStore } from '@/stores/userStore';
+import toast from 'react-hot-toast';
 
 import { 
   AlertDialog,
@@ -20,6 +22,7 @@ interface EventCardProps {
   showEditControls?: boolean;
   onEdit?: (event: Event) => void;
   onDelete?: (id: string) => void;
+  tripId?: string;
 }
 
 // Helper functions for date/time formatting
@@ -43,12 +46,27 @@ export const EventCard: React.FC<EventCardProps> = ({
   event, 
   showEditControls = false,
   onEdit,
-  onDelete
+  onDelete,
+  tripId
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const { bgColor, borderColor, color, icon, hoverBgColor } = getEventStyle(event);
+  const user = useUserStore((state) => state.user);
+  const isAuthenticated = !!user;
+
+  const handleEdit = (event: Event) => {
+    // Check authentication for map features
+    if (!isAuthenticated && event.location?.geolocation) {
+      toast.error("Please sign in to edit locations with coordinates");
+      return;
+    }
+    
+    if (onEdit) {
+      onEdit(event);
+    }
+  };
 
   const handleDelete = async () => {
     if (onDelete) {
@@ -82,8 +100,8 @@ export const EventCard: React.FC<EventCardProps> = ({
             
             {showEditControls && onEdit && onDelete && (
               <div className="flex gap-1 ml-2">
-                <button onClick={() => onEdit(event)} className="text-xs hover:bg-blue-400/20 text-secondary-foreground p-1 rounded-full">
-                  <PencilIcon className="w-3.5 h-3.5" />
+                <button onClick={() => handleEdit(event)} className="text-xs hover:bg-blue-400/20 text-secondary-foreground p-1 rounded-full">
+                    <PencilIcon className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => setShowDeleteDialog(true)} className="text-xs hover:bg-destructive/10 text-destructive p-1 rounded-full">
                   <Trash2Icon className="w-3.5 h-3.5" />

@@ -399,9 +399,9 @@ export const useTripStore = create<TripState>()(
         
         // Update local state first
         set((state) => ({
-          trips: state.trips.map(trip => 
-            trip.id === id ? { ...trip, ...updatedTrip } : trip
-          )
+        trips: state.trips.map(trip => 
+          trip.id === id ? { ...trip, ...updatedTrip } : trip
+        )
         }));
         
         // Skip Firestore if user is not authenticated
@@ -507,11 +507,11 @@ export const useTripStore = create<TripState>()(
           // On error, update local state with original ID
           console.error('Error adding event to Firestore:', error);
           set((state) => ({
-            trips: state.trips.map(trip =>
-              trip.id === tripId
-                ? { ...trip, events: [...trip.events, event] }
-                : trip
-            )
+        trips: state.trips.map(trip =>
+          trip.id === tripId
+            ? { ...trip, events: [...trip.events, event] }
+            : trip
+        )
           }));
           set({ error: error instanceof Error ? error.message : 'Failed to save event' });
         }
@@ -524,11 +524,11 @@ export const useTripStore = create<TripState>()(
         
         // Update local state first
         set((state) => ({
-          trips: state.trips.map(trip =>
-            trip.id === tripId
-              ? { ...trip, events: trip.events.filter(event => event.id !== eventId) }
-              : trip
-          )
+        trips: state.trips.map(trip =>
+          trip.id === tripId
+            ? { ...trip, events: trip.events.filter(event => event.id !== eventId) }
+            : trip
+        )
         }));
         
         // Skip Firestore if user is not authenticated
@@ -601,18 +601,18 @@ export const useTripStore = create<TripState>()(
         
         // Update local state first
         set((state) => ({
-          trips: state.trips.map(trip =>
-            trip.id === tripId
-              ? {
-                  ...trip,
-                  events: trip.events.map(event =>
-                    event.id === eventId 
-                      ? { ...event, ...updatedEvent } as Event 
-                      : event
-                  )
-                }
-              : trip
-          )
+        trips: state.trips.map(trip =>
+          trip.id === tripId
+            ? {
+                ...trip,
+                events: trip.events.map(event =>
+                  event.id === eventId 
+                    ? { ...event, ...updatedEvent } as Event 
+                    : event
+                )
+              }
+            : trip
+        )
         }));
         
         // Skip Firestore if user is not authenticated
@@ -697,11 +697,11 @@ export const useTripStore = create<TripState>()(
           // On error, update local state with original ID
           console.error('Error adding document to Firestore:', error);
           set((state) => ({
-            trips: state.trips.map(trip =>
-              trip.id === tripId
-                ? { ...trip, documents: [...trip.documents, document] }
-                : trip
-            )
+        trips: state.trips.map(trip =>
+          trip.id === tripId
+            ? { ...trip, documents: [...trip.documents, document] }
+            : trip
+        )
           }));
           set({ error: error instanceof Error ? error.message : 'Failed to save document' });
         }
@@ -714,11 +714,11 @@ export const useTripStore = create<TripState>()(
         
         // Update local state first
         set((state) => ({
-          trips: state.trips.map(trip =>
-            trip.id === tripId
-              ? { ...trip, documents: trip.documents.filter(doc => doc.id !== documentId) }
-              : trip
-          )
+        trips: state.trips.map(trip =>
+          trip.id === tripId
+            ? { ...trip, documents: trip.documents.filter(doc => doc.id !== documentId) }
+            : trip
+        )
         }));
         
         // Skip Firestore if user is not authenticated

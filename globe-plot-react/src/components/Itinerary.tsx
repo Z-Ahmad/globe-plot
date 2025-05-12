@@ -3,10 +3,13 @@ import { Event } from '@/types/trip';
 import { EventList } from './EventList';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Calendar, CalendarRange, Filter, List, Map, MapPin } from 'lucide-react';
+import { Calendar, CalendarRange, Filter, List, Map, MapPin, Loader } from 'lucide-react';
 import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getEventStyle } from '@/styles/eventStyles';
+import { useUserStore } from '@/stores/userStore';
+import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
+import toast from 'react-hot-toast';
 
 interface ItineraryProps {
   events: Event[];
@@ -16,6 +19,7 @@ interface ItineraryProps {
   emptyState: React.ReactNode;
   startDate: string;
   endDate: string;
+  tripId: string;
 }
 
 type SortOption = 'chronological' | 'category' | 'location';
@@ -40,7 +44,8 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   onAddNew,
   emptyState,
   startDate,
-  endDate
+  endDate,
+  tripId
 }) => {
   // Persist sort option and view mode to localStorage
   const [sortOption, setSortOption] = useState<SortOption>(() => 
@@ -75,6 +80,75 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   useEffect(() => {
     localStorage.setItem('itinerary-selected-month', JSON.stringify(selectedMonth.toISOString()));
   }, [selectedMonth]);
+
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodedEvents, setGeocodedEvents] = useState<Event[]>(events);
+  const user = useUserStore((state) => state.user);
+  const isAuthenticated = !!user;
+  
+  // Update geocoded events when events prop changes
+  useEffect(() => {
+    setGeocodedEvents(events);
+  }, [events]);
+  
+  // Handle map view mode selection
+  useEffect(() => {
+    if (viewMode === 'map') {
+      if (!isAuthenticated) {
+        toast.error("Please sign in to use the map view");
+        setViewMode('list'); // Fallback to list view
+        return;
+      }
+      
+      console.log(`[Itinerary] Starting geocoding process for ${events.length} events in trip ${tripId}`);
+      
+      // Count events that need geocoding
+      const eventsNeedingCoordinates = events.filter(event => {
+        if (event.category === 'travel') {
+          // Travel events need both departure and arrival coordinates
+          return (!event.departure?.location?.geolocation || !event.arrival?.location?.geolocation);
+        } else if (event.category === 'accommodation') {
+          // Accommodation events need check-in coordinates
+          return !event.checkIn?.location?.geolocation;
+        } else {
+          // Other events need general location coordinates
+          return !event.location?.geolocation;
+        }
+      });
+      
+      // Only force update if there are events missing coordinates
+      const forceUpdate = eventsNeedingCoordinates.length > 0;
+      console.log(`[Itinerary] ${eventsNeedingCoordinates.length} events need geocoding, force update: ${forceUpdate}`);
+      
+      // Start geocoding process
+      setIsGeocoding(true);
+      enrichAndSaveEventCoordinates(tripId, events, forceUpdate)
+        .then(enrichedEvents => {
+          console.log(`[Itinerary] Geocoding completed for ${enrichedEvents.length} events`);
+          
+          // Count events with coordinates
+          let eventsWithCoords = 0;
+          enrichedEvents.forEach(event => {
+            if (event.location?.geolocation || 
+                (event.category === 'travel' && (event.departure?.location?.geolocation || event.arrival?.location?.geolocation)) ||
+                (event.category === 'accommodation' && event.checkIn?.location?.geolocation)) {
+              eventsWithCoords++;
+            }
+          });
+          
+          console.log(`[Itinerary] ${eventsWithCoords} events have coordinates`);
+          setGeocodedEvents(enrichedEvents);
+          toast.success(`Location coordinates updated for ${eventsWithCoords} events`);
+        })
+        .catch(error => {
+          console.error("[Itinerary] Error geocoding events:", error);
+          toast.error("Failed to get coordinates for some locations");
+        })
+        .finally(() => {
+          setIsGeocoding(false);
+        });
+    }
+  }, [viewMode, events, isAuthenticated, tripId]);
 
   // Memoize sorted events to prevent unnecessary recalculations
   const sortedEvents = useMemo(() => {
@@ -205,6 +279,8 @@ export const Itinerary: React.FC<ItineraryProps> = ({
               size="sm" 
               className="flex items-center gap-2"
               onClick={() => setViewMode('map')}
+              disabled={!isAuthenticated}
+              title={!isAuthenticated ? "Sign in to view map" : "View map"}
             >
               <Map className="h-4 w-4" /> 
               <span className="hidden sm:inline">Map</span>
@@ -253,6 +329,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             onDelete={onDelete}
             onAddNew={onAddNew}
             emptyState={emptyState}
+            tripId={tripId}
           />
         )}
 
@@ -340,18 +417,37 @@ export const Itinerary: React.FC<ItineraryProps> = ({
         )}
 
         {viewMode === 'map' && (
-          <div className="flex items-center justify-center h-[400px] border border-dashed rounded-lg bg-muted/50">
-            <div className="text-center">
-              <Map className="h-12 w-12 mx-auto text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">Map view coming soon</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-4"
-                onClick={() => setViewMode('list')}
-              >
-                Return to list view
-              </Button>
+          <div className="relative h-[400px] border border-dashed rounded-lg bg-muted/50">
+            {isGeocoding && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                <Loader className="h-8 w-8 animate-spin text-primary mb-2" />
+                <p className="text-muted-foreground">Updating location coordinates...</p>
+              </div>
+            )}
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <Map className="h-12 w-12 mx-auto text-muted-foreground" />
+                <p className="mt-2 text-muted-foreground">Map view coming soon</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                  {geocodedEvents.filter(e => {
+                    if (e.category === 'travel') {
+                      return e.departure?.location?.geolocation || e.arrival?.location?.geolocation;
+                    } else if (e.category === 'accommodation') {
+                      return e.checkIn?.location?.geolocation;
+                    } else {
+                      return e.location?.geolocation;
+                    }
+                  }).length} of {events.length} events have coordinates
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4"
+                  onClick={() => setViewMode('list')}
+                >
+                  Return to list view
+                </Button>
+              </div>
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { documentRoutes } from './routes/documentRoutes';
+import { geocodeRoutes } from './routes/geocodeRoutes';
 import { swaggerSpec } from './config/swagger';
 
 // Load environment variables
@@ -16,7 +17,8 @@ if (result.error) {
 console.log('Environment variables after loading:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
-  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY ? '***' : 'undefined'
+  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY ? '***' : 'undefined',
+  MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN ? '***' : 'undefined'
 });
 
 const app = express();
@@ -38,6 +40,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/documents', documentRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

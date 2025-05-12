@@ -190,7 +190,7 @@ export const TripView = () => {
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [activeTab, setActiveTab] = useState("itinerary");
-  
+
   const trip = trips.find(trip => trip.id === id);
   
   // Initialize with empty array for main accordion
@@ -285,8 +285,8 @@ export const TripView = () => {
           console.log(`Updated event "${updatedEvent.title}"`);
         }
         
-        setShowEventEditor(false);
-        setCurrentEditingEvent(null);
+      setShowEventEditor(false);
+      setCurrentEditingEvent(null);
       } catch (error) {
         console.error('Error saving event:', error);
         // Could add error handling UI here
@@ -375,7 +375,7 @@ export const TripView = () => {
         <div className="space-y-4">
           {upcomingEvents.map(event => {
             const { color, bgColor, icon: Icon, hoverBgColor } = getEventStyle(event);
-            return (
+  return (
               <div 
                 key={event.id}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${bgColor} ${hoverBgColor}`}
@@ -430,6 +430,7 @@ export const TripView = () => {
         emptyState={emptyState}
         startDate={trip.startDate}
         endDate={trip.endDate}
+        tripId={id || ''}
       />
     </section>
   );
@@ -446,8 +447,8 @@ export const TripView = () => {
           <span>
             {tripSummary}
           </span>
-        </span>
-      </div>
+            </span>
+          </div>
       <div className="p-3 bg-white text-foreground overflow-auto" style={{ minHeight: '200px' }}>
         <Accordion 
           type="multiple" 
@@ -455,11 +456,11 @@ export const TripView = () => {
           onValueChange={handleCountryAccordionChange} 
           className="w-full"
         >
-          {groupedSorted.map(([country, cities]) => (
+              {groupedSorted.map(([country, cities]) => (
             <AccordionItem key={country} value={country} className="border-b border-border last:border-0">
               <AccordionTrigger className="font-semibold text-base py-3 hover:bg-muted/40 transition-colors px-2 rounded-md">
-                {country}
-              </AccordionTrigger>
+                    {country}
+                  </AccordionTrigger>
               <AccordionContent className="pb-1">
                 <Accordion 
                   type="multiple" 
@@ -467,7 +468,7 @@ export const TripView = () => {
                   onValueChange={(value) => handleCityAccordionChange(country, value)} 
                   className="w-full pl-2"
                 >
-                  {cities.map(([city, events]) => (
+                      {cities.map(([city, events]) => (
                     <AccordionItem key={city} value={city} className="border-b border-border/50 last:border-0">
                       <AccordionTrigger className="text-sm font-medium py-2 hover:bg-muted/30 transition-colors px-2 rounded-md">
                         <div className="flex items-center">
@@ -476,12 +477,12 @@ export const TripView = () => {
                             {events.length}
                           </span>
                         </div>
-                      </AccordionTrigger>
+                          </AccordionTrigger>
                       <AccordionContent className="pb-1 pl-2">
                         <ul className="space-y-2 py-1">
-                          {sortEventsByStart(events).map(event => {
+                              {sortEventsByStart(events).map(event => {
                             const { icon, color, bgColor } = getEventStyle(event);
-                            return (
+                                return (
                               <li key={event.id} className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors">
                                 <div className={`${bgColor} p-1 rounded-md flex-shrink-0`}>
                                   {React.createElement(icon, { size: 14, className: color })}
@@ -495,20 +496,20 @@ export const TripView = () => {
                                   </button>
                                   <span className="text-xs text-muted-foreground">{formatDate(event.start)}</span>
                                 </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
-    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </div>
   );
 
   return (
@@ -574,14 +575,14 @@ export const TripView = () => {
             <LocationsSection />
           </TabsContent>
         </Tabs>
-      </div>
+              </div>
 
       {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
       <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
         {/* Left panel: Coming Up section */}
         <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
           <ComingUpSection />
-        </div>
+            </div>
         
         {/* Middle panel: Full Itinerary */}
         <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
@@ -600,6 +601,7 @@ export const TripView = () => {
         isOpen={showEventEditor}
         onClose={handleCloseEventEditor}
         onSave={handleSaveEventEdit}
+        tripId={id}
       />
     </div>
   );

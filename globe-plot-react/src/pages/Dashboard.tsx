@@ -236,7 +236,7 @@ export const Dashboard = () => {
                   </div>
                   <div className="h-2 bg-gradient-to-r from-primary to-accent"></div>
                 </Link>
-
+                
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button
@@ -259,7 +259,7 @@ export const Dashboard = () => {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction 
-                        onClick={() => confirmDelete(trip.id)} 
+                        onClick={() => confirmDelete(trip.id)}
                         className="bg-destructive text-white hover:bg-destructive/90"
                         disabled={isDeleting && deletingTripId === trip.id}
                       >

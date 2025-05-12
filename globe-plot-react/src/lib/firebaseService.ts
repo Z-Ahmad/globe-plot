@@ -14,7 +14,8 @@ import {
   deleteDoc,
   query,
   where,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { Trip } from '@/types/trip';
@@ -230,6 +231,131 @@ export const deleteTrip = async (tripId: string): Promise<void> => {
     
   } catch (error) {
     console.error('Error in firebaseService.deleteTrip:', error);
+    throw error;
+  }
+}; 
+
+/**
+ * Updates a single event's location coordinates in Firestore
+ */
+export const updateEventCoordinates = async (
+  eventId: string,
+  coordinates: { lat: number; lng: number },
+  locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location'
+): Promise<void> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Get event reference
+    const eventRef = doc(db, 'events', eventId);
+    const eventDoc = await getDoc(eventRef);
+    
+    if (!eventDoc.exists()) {
+      throw new Error(`Event ${eventId} not found in Firestore`);
+    }
+    
+    // Verify ownership
+    if (eventDoc.data().userId !== userId) {
+      throw new Error('Not authorized to update this event');
+    }
+    
+    // Create update data based on location type
+    const updateData: Record<string, any> = {};
+    updateData[`${locationType}.geolocation`] = coordinates;
+    updateData['updatedAt'] = Timestamp.now();
+    
+    // Update Firestore
+    await updateDoc(eventRef, updateData);
+    
+    console.log(`Updated coordinates for ${eventId}, location: ${locationType}`);
+  } catch (error) {
+    console.error('Error updating event coordinates:', error);
+    throw error;
+  }
+};
+
+/**
+ * Batch updates coordinates for multiple events in Firestore
+ */
+export const batchUpdateEventCoordinates = async (
+  updates: Array<{
+    eventId: string,
+    coordinates: { lat: number; lng: number },
+    locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location'
+  }>
+): Promise<void> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    
+    console.log(`Starting batch update with ${updates.length} updates, user: ${userId}`);
+    
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    
+    if (updates.length === 0) return;
+    
+    // Process in batches of 500 to avoid Firestore limits
+    const batchSize = 500;
+    for (let i = 0; i < updates.length; i += batchSize) {
+      const batch = updates.slice(i, i + batchSize);
+      
+      console.log(`Processing batch ${i/batchSize + 1} with ${batch.length} updates`);
+      
+      // Create a Firestore batch
+      const firestoreBatch = writeBatch(db);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // Add each update to the batch
+      for (const update of batch) {
+        try {
+          console.log(`Checking event ${update.eventId} for ${update.locationType}`);
+          
+          const eventRef = doc(db, 'events', update.eventId);
+          const eventDoc = await getDoc(eventRef);
+          
+          if (!eventDoc.exists()) {
+            console.log(`Event ${update.eventId} not found in Firestore`);
+            errorCount++;
+            continue;
+          }
+          
+          const eventData = eventDoc.data();
+          if (eventData.userId !== userId) {
+            console.log(`Event ${update.eventId} - ownership mismatch. Event owner: ${eventData.userId}, Current user: ${userId}`);
+            errorCount++;
+            continue;
+          }
+          
+          // Create update data
+          const updateData: Record<string, any> = {};
+          updateData[`${update.locationType}.geolocation`] = update.coordinates;
+          updateData['updatedAt'] = Timestamp.now();
+          
+          console.log(`Adding to batch: ${update.eventId}, location: ${update.locationType}, coords: ${JSON.stringify(update.coordinates)}`);
+          firestoreBatch.update(eventRef, updateData);
+          successCount++;
+        } catch (error) {
+          console.error(`Error processing event ${update.eventId}:`, error);
+          errorCount++;
+        }
+      }
+      
+      // Commit the batch
+      if (successCount > 0) {
+        await firestoreBatch.commit();
+        console.log(`Batch committed: ${successCount} events updated, ${errorCount} errors`);
+      } else {
+        console.log(`No events to update in this batch`);
+      }
+    }
+  } catch (error) {
+    console.error('Error batch updating event coordinates:', error);
     throw error;
   }
 }; 

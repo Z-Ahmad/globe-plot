@@ -500,4 +500,4 @@ DO NOT include any fields that are not present in the text. DO NOT invent or gue
       res.status(500).json({ error: 'Failed to parse document with Mistral' });
     }
   }
-};
+}; 

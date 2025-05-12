@@ -1,5 +1,6 @@
 import React, { useState, ChangeEvent } from 'react';
 import { Event, EventCategory } from '@/stores/tripStore';
+import { useUserStore } from '@/stores/userStore';
 import {
   Dialog,
   DialogClose,
@@ -43,13 +44,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Info } from 'lucide-react';
+import { Info, Loader, Map } from 'lucide-react';
+import { geocodeLocation } from '@/lib/mapboxService';
+import toast from 'react-hot-toast';
 
 interface EventEditorProps {
   event: Event | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedEvent: Event) => void;
+  tripId?: string;
 }
 
 // Shared event form component to reduce duplication
@@ -57,12 +61,18 @@ interface EventFormProps {
   editingEvent: Event;
   setEditingEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   containerStyle?: string; // Optional style for the container
+  tripId?: string;
 }
 
 const EventForm: React.FC<EventFormProps> = ({
   editingEvent,
   setEditingEvent,
+  tripId,
 }) => {
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const user = useUserStore((state) => state.user);
+  const isAuthenticated = !!user;
+
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
   
@@ -179,7 +189,136 @@ const EventForm: React.FC<EventFormProps> = ({
   
   // Get available types for the current category
   const availableTypes = getTypesForCategory(editingEvent.category);
-  
+
+  // Function to get the current location data based on event type
+  const getCurrentLocationData = () => {
+    if (editingEvent.category === 'travel') {
+      return {
+        name: editingEvent.departure?.location?.name || '',
+        city: editingEvent.departure?.location?.city || '',
+        country: editingEvent.departure?.location?.country || '',
+      };
+    } else if (editingEvent.category === 'accommodation') {
+      return {
+        name: editingEvent.checkIn?.location?.name || '',
+        city: editingEvent.checkIn?.location?.city || '',
+        country: editingEvent.checkIn?.location?.country || '',
+      };
+    } else {
+      return {
+        name: editingEvent.location?.name || '',
+        city: editingEvent.location?.city || '',
+        country: editingEvent.location?.country || '',
+      };
+    }
+  };
+
+  // Handler for finding coordinates
+  const handleFindCoordinates = async () => {
+    const locationData = getCurrentLocationData();
+    
+    // Check if we have enough location data
+    if (!locationData.city && !locationData.country && !locationData.name) {
+      toast.error('Please enter a location name, city, or country first');
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      toast.error('Please sign in to use location services');
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      // Determine the location type based on event category
+      let locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location';
+      
+      if (editingEvent.category === 'travel') {
+        locationType = 'departure.location';
+      } else if (editingEvent.category === 'accommodation') {
+        locationType = 'checkIn.location';
+      } else {
+        locationType = 'location';
+      }
+      
+      // Check if this is a temporary event (UUID format) that hasn't been saved to Firestore yet
+      const isTemporaryEvent = editingEvent.id && editingEvent.id.includes('-');
+      
+      const result = await geocodeLocation(
+        locationData, 
+        editingEvent.id, 
+        tripId, 
+        locationType
+      );
+      
+      if (result) {
+        // Update the event with coordinates and potentially improved location data
+        if (editingEvent.category === 'travel') {
+          setEditingEvent({
+            ...editingEvent,
+            departure: {
+              ...editingEvent.departure,
+              location: {
+                ...(editingEvent.departure?.location || {}),
+                geolocation: {
+                  lat: result.lat,
+                  lng: result.lng
+                },
+                // Update city/country if they were missing
+                city: editingEvent.departure?.location?.city || result.city,
+                country: editingEvent.departure?.location?.country || result.country,
+              }
+            }
+          });
+        } else if (editingEvent.category === 'accommodation') {
+          setEditingEvent({
+            ...editingEvent,
+            checkIn: {
+              ...editingEvent.checkIn,
+              location: {
+                ...(editingEvent.checkIn?.location || {}),
+                geolocation: {
+                  lat: result.lat,
+                  lng: result.lng
+                },
+                city: editingEvent.checkIn?.location?.city || result.city,
+                country: editingEvent.checkIn?.location?.country || result.country,
+              }
+            }
+          });
+        } else {
+          setEditingEvent({
+            ...editingEvent,
+            location: {
+              ...(editingEvent.location || {}),
+              geolocation: {
+                lat: result.lat,
+                lng: result.lng
+              },
+              city: editingEvent.location?.city || result.city,
+              country: editingEvent.location?.country || result.country,
+            }
+          });
+        }
+        
+        // Show different toast messages based on whether this is a temporary or saved event
+        if (isTemporaryEvent) {
+          toast.success('Location coordinates found. They will be saved when you save this event.');
+        } else {
+          toast.success('Location coordinates found and saved');
+        }
+      } else {
+        toast.error('Could not find coordinates for this location');
+      }
+    } catch (error) {
+      console.error('Error finding coordinates:', error);
+      toast.error('Error finding coordinates');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -389,6 +528,44 @@ const EventForm: React.FC<EventFormProps> = ({
           />
         </div>
       </div>
+
+      {/* Add the "Find Coordinates" button after the country and city fields */}
+      <div className="flex justify-end mt-2">
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm"
+          onClick={handleFindCoordinates}
+          disabled={isGeocoding}
+          className="flex items-center gap-2"
+        >
+          {isGeocoding ? (
+            <>
+              <Loader className="h-3 w-3 animate-spin" />
+              <span>Finding coordinates...</span>
+            </>
+          ) : (
+            <>
+              <Map className="h-3 w-3" />
+              <span>Find coordinates</span>
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Display coordinates if they exist */}
+      {((editingEvent.category === 'travel' && editingEvent.departure?.location?.geolocation) ||
+        (editingEvent.category === 'accommodation' && editingEvent.checkIn?.location?.geolocation) ||
+        (editingEvent.location?.geolocation)) && (
+        <div className="text-xs text-muted-foreground">
+          Coordinates found: {editingEvent.category === 'travel' 
+            ? `${editingEvent.departure?.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.departure?.location?.geolocation?.lng.toFixed(6)}`
+            : editingEvent.category === 'accommodation' 
+              ? `${editingEvent.checkIn?.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.checkIn?.location?.geolocation?.lng.toFixed(6)}`
+              : `${editingEvent.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.location?.geolocation?.lng.toFixed(6)}`
+          }
+        </div>
+      )}
 
       {/* Location name field - hide for travel and accommodation events */}
       {editingEvent.category !== "travel" && editingEvent.category !== "accommodation" && (
@@ -882,7 +1059,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   event,
   isOpen,
   onClose,
-  onSave
+  onSave,
+  tripId,
 }) => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(event);
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -995,7 +1173,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           {/* Use the shared EventForm component */}
           <EventForm 
             editingEvent={editingEvent} 
-            setEditingEvent={setEditingEvent} 
+            setEditingEvent={setEditingEvent}
+            tripId={tripId}
           />
           
           <DialogFooter>
@@ -1028,7 +1207,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             {/* Use the shared EventForm component */}
             <EventForm 
               editingEvent={editingEvent} 
-              setEditingEvent={setEditingEvent} 
+              setEditingEvent={setEditingEvent}
+              tripId={tripId}
             />
           </div>
           
