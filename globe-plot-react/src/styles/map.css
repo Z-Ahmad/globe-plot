@@ -1,0 +1,128 @@
+/* Map styles */
+.mapboxgl-map {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+}
+
+/* Event marker styles */
+.event-marker {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s;
+  animation: marker-pulse 2s infinite alternate-reverse;
+}
+
+.event-marker svg {
+  width: 18px;
+  height: 18px;
+}
+
+.event-marker:hover {
+  transform: scale(1.25);
+  z-index: 100 !important;
+  animation-play-state: paused;
+}
+
+@media (max-width: 850px) {
+  .event-marker {
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Define CSS variables for each color used in eventStyles.ts */
+:root {
+  /* Travel colors */
+  --sky-700: #0369a1;
+  --indigo-700: #4338ca;
+  --amber-700: #b45309;
+  --cyan-700: #0e7490;
+  --green-700: #15803d;
+  --blue-700: #1d4ed8;
+  
+  /* Accommodation colors */
+  --purple-700: #7e22ce;
+  --fuchsia-700: #a21caf;
+  --rose-700: #be123c;
+  --pink-700: #be185d;
+  
+  /* Experience colors */
+  --emerald-700: #047857;
+  --teal-700: #0f766e;
+  --violet-700: #6d28d9;
+  --red-700: #b91c1c;
+  --lime-700: #4d7c0f;
+  
+  /* Meal colors */
+  --orange-700: #c2410c;
+  --yellow-700: #a16207;
+  
+  /* Default color */
+  --gray-700: #374151;
+  
+  /* Background colors */
+  --sky-50: #f0f9ff;
+  --indigo-50: #eef2ff;
+  --amber-50: #fffbeb;
+  --cyan-50: #ecfeff;
+  --green-50: #f0fdf4;
+  --blue-50: #eff6ff;
+  --purple-50: #faf5ff;
+  --fuchsia-50: #fdf4ff;
+  --rose-50: #fff1f2;
+  --pink-50: #fdf2f8;
+  --emerald-50: #ecfdf5;
+  --teal-50: #f0fdfa;
+  --violet-50: #f5f3ff;
+  --red-50: #fef2f2;
+  --lime-50: #f7fee7;
+  --orange-50: #fff7ed;
+  --yellow-50: #fefce8;
+  --gray-50: #f9fafb;
+}
+
+/* Pulse animation for markers */
+@keyframes marker-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.3);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(0, 0, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+/* Loading spinner animation */
+@keyframes spinner {
+  to {transform: rotate(360deg);}
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: hsl(var(--primary));
+  animation: spinner 0.8s linear infinite;
+}
+
+/* Arc between route points styling */
+.route-arc {
+  stroke-dasharray: 8, 4;
+  stroke-width: 2;
+  fill: none;
+  animation: dash 1.5s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+} 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '../styles/eventStyles';
-import { PencilIcon, Trash2Icon } from 'lucide-react';
+import { PencilIcon, Trash2Icon, MapPinIcon } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import toast from 'react-hot-toast';
 
@@ -22,6 +22,7 @@ interface EventCardProps {
   showEditControls?: boolean;
   onEdit?: (event: Event) => void;
   onDelete?: (id: string) => void;
+  onViewOnMap?: (id: string) => void;
 }
 
 // Helper functions for date/time formatting
@@ -45,7 +46,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   event, 
   showEditControls = false,
   onEdit,
-  onDelete
+  onDelete,
+  onViewOnMap
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,14 +98,29 @@ export const EventCard: React.FC<EventCardProps> = ({
           <div className="flex items-center gap-2">
             <span className={`font-semibold text-lg ${color}`}>{event.title}</span>
             
-            {showEditControls && onEdit && onDelete && (
+            {showEditControls && (
               <div className="flex gap-1 ml-2">
-                <button onClick={() => handleEdit(event)} className="text-xs hover:bg-blue-400/20 text-secondary-foreground p-1 rounded-full">
+                {onEdit && (
+                  <button onClick={() => handleEdit(event)} className="text-xs hover:bg-blue-400/20 text-secondary-foreground p-1 rounded-full">
                     <PencilIcon className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setShowDeleteDialog(true)} className="text-xs hover:bg-destructive/10 text-destructive p-1 rounded-full">
-                  <Trash2Icon className="w-3.5 h-3.5" />
-                </button>
+                  </button>
+                )}
+                {onDelete && (
+                  <button onClick={() => setShowDeleteDialog(true)} className="text-xs hover:bg-destructive/10 text-destructive p-1 rounded-full">
+                    <Trash2Icon className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {onViewOnMap && (event.location?.geolocation || 
+                  (event.category === 'travel' && event.departure?.location?.geolocation) || 
+                  (event.category === 'accommodation' && event.checkIn?.location?.geolocation)) && (
+                  <button 
+                    onClick={() => onViewOnMap(event.id)} 
+                    className="text-xs hover:bg-primary/10 text-primary p-1 rounded-full"
+                    title="View on map"
+                  >
+                    <MapPinIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>

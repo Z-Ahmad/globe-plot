@@ -12,6 +12,7 @@ import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
 import { useTripContext } from '@/context/TripContext';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
+import { MapView } from './MapView';
 
 interface ItineraryProps {
   events: Event[];
@@ -55,6 +56,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>(() => 
     getStoredValue('itinerary-view-mode', 'list' as ViewMode)
   );
+  const [focusedEventId, setFocusedEventId] = useState<string | undefined>();
   
   // Save sort option and view mode to localStorage when they change
   useEffect(() => {
@@ -362,6 +364,10 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             onDelete={onDelete}
             onAddNew={onAddNew}
             emptyState={emptyState}
+            onViewOnMap={(eventId: string) => {
+              setFocusedEventId(eventId);
+              setViewMode('map');
+            }}
           />
         )}
 
@@ -449,38 +455,21 @@ export const Itinerary: React.FC<ItineraryProps> = ({
         )}
 
         {viewMode === 'map' && (
-          <div className="relative h-[400px] border border-dashed rounded-lg bg-muted/50">
+          <div className="relative h-[500px] border rounded-lg bg-muted/50 overflow-hidden">
             {isGeocoding && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                 <Loader className="h-8 w-8 animate-spin text-primary mb-2" />
                 <p className="text-muted-foreground">Updating location coordinates...</p>
               </div>
             )}
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Map className="h-12 w-12 mx-auto text-muted-foreground" />
-                <p className="mt-2 text-muted-foreground">Map view coming soon</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                  {geocodedEvents.filter(e => {
-                    if (e.category === 'travel') {
-                      return e.departure?.location?.geolocation || e.arrival?.location?.geolocation;
-                    } else if (e.category === 'accommodation') {
-                      return e.checkIn?.location?.geolocation;
-                    } else {
-                      return e.location?.geolocation;
-                    }
-                  }).length} of {events.length} events have coordinates
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-4"
-                  onClick={() => setViewMode('list')}
-                >
-                  Return to list view
-                </Button>
-              </div>
-            </div>
+
+            
+            {/* Render the actual map component */}
+            <MapView 
+              events={geocodedEvents} 
+              className="w-full h-full"
+              focusEventId={focusedEventId}
+            />
           </div>
         )}
       </div>
