@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Event } from '@/types/trip';
 import { EventList } from './EventList';
 import { Button } from './ui/button';
@@ -13,9 +13,9 @@ import toast from 'react-hot-toast';
 import { useTripContext } from '@/context/TripContext';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { MapView } from './MapView';
+import { registerViewModeCallback, clearViewModeCallback } from '@/context/TripContext';
 
 interface ItineraryProps {
-  events: Event[];
   onEdit: (event: Event) => void;
   onDelete: (eventId: string) => void;
   onAddNew: (event: Event) => void;
@@ -40,7 +40,6 @@ const getStoredValue = <T,>(key: string, defaultValue: T): T => {
 };
 
 export const Itinerary: React.FC<ItineraryProps> = ({
-  events,
   onEdit,
   onDelete,
   onAddNew,
@@ -48,7 +47,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   startDate,
   endDate
 }) => {
-  const { tripId } = useTripContext();
+  const { tripId, events, setFocusedEventId } = useTripContext();
   // Persist sort option and view mode to localStorage
   const [sortOption, setSortOption] = useState<SortOption>(() => 
     getStoredValue('itinerary-sort-option', 'chronological' as SortOption)
@@ -56,7 +55,6 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>(() => 
     getStoredValue('itinerary-view-mode', 'list' as ViewMode)
   );
-  const [focusedEventId, setFocusedEventId] = useState<string | undefined>();
   
   // Save sort option and view mode to localStorage when they change
   useEffect(() => {
@@ -66,6 +64,35 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   useEffect(() => {
     localStorage.setItem('itinerary-view-mode', JSON.stringify(viewMode));
   }, [viewMode]);
+
+  // Register view mode callback to allow external control
+  useEffect(() => {
+    // Register the callback for external components to set view mode
+    registerViewModeCallback((mode) => {
+      setViewMode(mode);
+    });
+    
+    // Clean up on unmount
+    return () => {
+      clearViewModeCallback();
+    };
+  }, []);
+
+  // Listen for the custom focusEventOnMap event
+  useEffect(() => {
+    const handleFocusEventOnMap = (e: CustomEvent) => {
+      const { eventId } = e.detail;
+      setFocusedEventId(eventId);
+    };
+
+    // Add event listener
+    window.addEventListener('focusEventOnMap', handleFocusEventOnMap as EventListener);
+    
+    // Remove event listener on cleanup
+    return () => {
+      window.removeEventListener('focusEventOnMap', handleFocusEventOnMap as EventListener);
+    };
+  }, [setFocusedEventId]);
 
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => {
     // Try to get the stored month first
@@ -93,6 +120,45 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   useEffect(() => {
     setGeocodedEvents(events);
   }, [events]);
+  
+  // Function to explicitly refresh all coordinates
+  const refreshCoordinates = useCallback(async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to use location services");
+      return;
+    }
+    
+    if (!tripId) {
+      toast.error("No trip ID available for geocoding");
+      return;
+    }
+    
+    setIsGeocoding(true);
+    try {
+      // Force update all coordinates
+      const enrichedEvents = await enrichAndSaveEventCoordinates(tripId, events, true);
+      console.log(`[Itinerary] Geocoding completed for ${enrichedEvents.length} events`);
+      
+      // Count events with coordinates
+      let eventsWithCoords = 0;
+      enrichedEvents.forEach(event => {
+        if (event.location?.geolocation || 
+            (event.category === 'travel' && (event.departure?.location?.geolocation || event.arrival?.location?.geolocation)) ||
+            (event.category === 'accommodation' && event.checkIn?.location?.geolocation)) {
+          eventsWithCoords++;
+        }
+      });
+      
+      console.log(`[Itinerary] ${eventsWithCoords} events have coordinates`);
+      setGeocodedEvents(enrichedEvents);
+      toast.success(`Location coordinates updated for ${eventsWithCoords} events`);
+    } catch (error) {
+      console.error("[Itinerary] Error geocoding events:", error);
+      toast.error("Failed to update coordinates for some locations");
+    } finally {
+      setIsGeocoding(false);
+    }
+  }, [tripId, events, isAuthenticated]);
   
   // Handle map view mode selection
   useEffect(() => {
@@ -127,35 +193,12 @@ export const Itinerary: React.FC<ItineraryProps> = ({
       const forceUpdate = eventsWithCoordinates.length < events.length;
       console.log(`[Itinerary] ${events.length - eventsWithCoordinates.length} events need geocoding, force update: ${forceUpdate}`);
       
-      // Start geocoding process
-      setIsGeocoding(true);
-      enrichAndSaveEventCoordinates(tripId || '', events, forceUpdate)
-        .then(enrichedEvents => {
-          console.log(`[Itinerary] Geocoding completed for ${enrichedEvents.length} events`);
-          
-          // Count events with coordinates
-          let eventsWithCoords = 0;
-          enrichedEvents.forEach(event => {
-            if (event.location?.geolocation || 
-                (event.category === 'travel' && (event.departure?.location?.geolocation || event.arrival?.location?.geolocation)) ||
-                (event.category === 'accommodation' && event.checkIn?.location?.geolocation)) {
-              eventsWithCoords++;
-            }
-          });
-          
-          console.log(`[Itinerary] ${eventsWithCoords} events have coordinates`);
-          setGeocodedEvents(enrichedEvents);
-          toast.success(`Location coordinates updated for ${eventsWithCoords} events`);
-        })
-        .catch(error => {
-          console.error("[Itinerary] Error geocoding events:", error);
-          toast.error("Failed to get coordinates for some locations");
-        })
-        .finally(() => {
-          setIsGeocoding(false);
-        });
+      // Start geocoding process if needed
+      if (forceUpdate) {
+        refreshCoordinates();
+      }
     }
-  }, [viewMode, events, isAuthenticated, tripId]);
+  }, [viewMode, events, isAuthenticated, tripId, refreshCoordinates]);
 
   // Memoize sorted events to prevent unnecessary recalculations
   const sortedEvents = useMemo(() => {
@@ -239,7 +282,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   }, [selectedMonth]);
 
   // Go to previous/next month in calendar view
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     setSelectedMonth(prevMonth => {
       const newMonth = new Date(prevMonth);
       if (direction === 'prev') {
@@ -249,7 +292,13 @@ export const Itinerary: React.FC<ItineraryProps> = ({
       }
       return newMonth;
     });
-  };
+  }, []);
+
+  // Callback for "View on Map" - uses context instead of local state
+  const handleViewOnMap = useCallback((eventId: string) => {
+    setFocusedEventId(eventId);
+    setViewMode('map');
+  }, [setFocusedEventId]);
 
   if (events.length === 0) {
     return <>{emptyState}</>;
@@ -364,10 +413,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             onDelete={onDelete}
             onAddNew={onAddNew}
             emptyState={emptyState}
-            onViewOnMap={(eventId: string) => {
-              setFocusedEventId(eventId);
-              setViewMode('map');
-            }}
+            onViewOnMap={handleViewOnMap}
           />
         )}
 
@@ -463,12 +509,10 @@ export const Itinerary: React.FC<ItineraryProps> = ({
               </div>
             )}
 
-            
             {/* Render the actual map component */}
             <MapView 
-              events={geocodedEvents} 
               className="w-full h-full"
-              focusEventId={focusedEventId}
+              onRefreshCoordinates={refreshCoordinates}
             />
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTripStore } from '../stores/tripStore';
 import { Event, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
@@ -32,7 +32,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { TripProvider } from '@/context/TripContext';
+import { TripProvider, useTripContext } from '@/context/TripContext';
+import { toast } from 'react-hot-toast';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -184,181 +185,17 @@ function getUpcomingEvents(events: Event[], tripStartDate: string, dayCount: num
   }
 }
 
-export const TripView = () => {
-  const { id } = useParams<{ id: string }>();
+// Extracted ComingUpSection component
+const ComingUpSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Event) => void }) => {
   const navigate = useNavigate();
-  const { trips, removeEvent, updateEvent, updateTrip, addEvent } = useTripStore();
-  const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
-  const [showEventEditor, setShowEventEditor] = useState(false);
-  const [activeTab, setActiveTab] = useState("itinerary");
-
-  const trip = trips.find(trip => trip.id === id);
+  const { events, trip } = useTripContext();
   
-  // Initialize with empty array for main accordion
-  const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
-  // Initialize with empty object for nested city accordions
-  const [expandedCities, setExpandedCities] = useState<Record<string, string[]>>({});
-
-  // Check and normalize events on component mount
-  useEffect(() => {
-    if (trip) {
-      // Check if any events need normalization
-      const needsNormalization = trip.events.some(event => !event.location);
-      
-      if (needsNormalization) {
-        // Normalize all events
-        const normalizedEvents = trip.events.map(normalizeEvent);
-        
-        // Update the trip with normalized events
-        updateTrip(trip.id, { 
-          events: normalizedEvents 
-        });
-      }
-    }
-  }, [trip?.id]);
-
-  if (!trip) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-primary mb-4">Trip Not Found</h1>
-          <p className="text-muted-foreground mb-6">
-            The trip you're looking for couldn't be found.
-          </p>
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-full"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Group and sort events for sidebar
-  const groupedSorted = groupAndSortEventsByCountryCity(trip.events);
-  const upcomingEvents = getUpcomingEvents(trip.events, trip.startDate);
-  
-  // Get the unique countries visited
-  const uniqueCountries = new Set<string>();
-  trip.events.forEach(event => {
-    const { country } = getLocationInfo(event);
-    if (country) uniqueCountries.add(country);
-  });
-
-  // Get unique cities
-  const uniqueCities = new Set<string>();
-  trip.events.forEach(event => {
-    const { city } = getLocationInfo(event);
-    if (city) uniqueCities.add(city);
-  });
-
-  // Determine summary text based on hierarchy
-  let tripSummary = "";
-  if (uniqueCountries.size > 1) {
-    tripSummary = `${uniqueCountries.size} ${uniqueCountries.size === 1 ? 'country' : 'countries'}`;
-  } else if (uniqueCities.size > 1) {
-    tripSummary = `${uniqueCities.size} ${uniqueCities.size === 1 ? 'city' : 'cities'}`;
-  } else {
-    tripSummary = `${trip.events.length} ${trip.events.length === 1 ? 'event' : 'events'}`;
-  }
-
-  // Handlers for event actions
-  const handleEditEvent = (event: Event) => {
-    setCurrentEditingEvent(event);
-    setShowEventEditor(true);
-  };
-
-  const handleSaveEventEdit = async (updatedEvent: Event) => {
-    if (id) {
-      try {
-        // Check if this is a new event (doesn't exist in the trip yet)
-        const isNewEvent = !trip.events.some(e => e.id === updatedEvent.id);
-        
-        if (isNewEvent) {
-          // Use addEvent instead of updateTrip to ensure proper Firestore sync
-          await addEvent(id, updatedEvent);
-          console.log(`Added new event "${updatedEvent.title}" to trip ${id}`);
-        } else {
-          // Update existing event
-          await updateEvent(id, updatedEvent.id, updatedEvent);
-          console.log(`Updated event "${updatedEvent.title}"`);
-        }
-        
-      setShowEventEditor(false);
-      setCurrentEditingEvent(null);
-      } catch (error) {
-        console.error('Error saving event:', error);
-        // Could add error handling UI here
-      }
-    }
-  };
-
-  const handleCloseEventEditor = () => {
-    setShowEventEditor(false);
-    setCurrentEditingEvent(null);
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    if (id) {
-      try {
-        await removeEvent(id, eventId);
-      } catch (error) {
-        console.error('Error deleting event:', error);
-        // Could add error handling UI here
-      }
-    }
-  };
-
-  // Create a new blank event
-  const createNewEvent = (event: Event) => {
-    setCurrentEditingEvent(event);
-    setShowEventEditor(true);
-  };
-
-  // Updated accordion handlers
-  const handleCountryAccordionChange = (value: string[]) => {
-    setExpandedCountries(value);
-  };
-
-  const handleCityAccordionChange = (country: string, value: string[]) => {
-    setExpandedCities(prev => ({
-      ...prev,
-      [country]: value
-    }));
-  };
-
-  // Empty state to display when there are no events
-  const emptyState = (
-    <div className="text-center py-12">
-      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-        <span className="text-primary text-2xl">🗓️</span>
-      </div>
-      <h2 className="text-xl font-semibold mb-2">No events added yet</h2>
-      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-        Add your first event to start planning your trip itinerary.
-      </p>
-      <Button onClick={() => createNewEvent({
-        id: uuidv4(),
-        category: 'experience',
-        type: 'activity',
-        title: 'New Event',
-        start: '',
-        location: {
-          name: '',
-          city: '',
-          country: ''
-        }
-      } as any)} className="flex items-center gap-2">
-        <Plus size={16} />
-        <span>Add Your First Event</span>
-      </Button>
-    </div>
+  const upcomingEvents = useMemo(() => 
+    getUpcomingEvents(events, trip?.startDate || ''),
+    [events, trip?.startDate]
   );
 
-  // Reusable content sections
-  const ComingUpSection = () => (
+  return (
     <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -376,11 +213,11 @@ export const TripView = () => {
         <div className="space-y-4">
           {upcomingEvents.map(event => {
             const { color, bgColor, icon: Icon, hoverBgColor } = getEventStyle(event);
-  return (
+            return (
               <div 
                 key={event.id}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${bgColor} ${hoverBgColor}`}
-                onClick={() => handleEditEvent(event)}
+                onClick={() => onEditEvent(event)}
               >
                 <div className="flex items-start gap-3">
                   <div className={`p-2 rounded-full ${bgColor}`}>
@@ -415,40 +252,78 @@ export const TripView = () => {
       </div>
     </section>
   );
+});
 
-  const ItinerarySection = () => (
-    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
-      <div className="mb-4 flex items-center gap-2">
-        <ListTodo className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold">Itinerary</h2>
-      </div>
+ComingUpSection.displayName = 'ComingUpSection';
 
-      <Itinerary 
-        events={trip.events}
-        onEdit={handleEditEvent}
-        onDelete={handleDeleteEvent}
-        onAddNew={createNewEvent}
-        emptyState={emptyState}
-        startDate={trip.startDate}
-        endDate={trip.endDate}
-      />
-    </section>
+// Extracted LocationsSection component
+const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Event) => void }) => {
+  const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  const [expandedCities, setExpandedCities] = useState<Record<string, string[]>>({});
+  const { events } = useTripContext();
+
+  // Group and sort events for sidebar
+  const groupedSorted = useMemo(() => 
+    groupAndSortEventsByCountryCity(events),
+    [events]
   );
+  
+  // Get the unique countries visited - memoize this calculation
+  const uniqueCountries = useMemo(() => {
+    const countries = new Set<string>();
+    events.forEach(event => {
+      const { country } = getLocationInfo(event);
+      if (country) countries.add(country);
+    });
+    return countries;
+  }, [events]);
 
-  const LocationsSection = () => (
+  // Get unique cities - memoize this calculation
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    events.forEach(event => {
+      const { city } = getLocationInfo(event);
+      if (city) cities.add(city);
+    });
+    return cities;
+  }, [events]);
+
+  // Determine summary text based on hierarchy
+  const tripSummary = useMemo(() => {
+    if (uniqueCountries.size > 1) {
+      return `${uniqueCountries.size} ${uniqueCountries.size === 1 ? 'country' : 'countries'}`;
+    } else if (uniqueCities.size > 1) {
+      return `${uniqueCities.size} ${uniqueCities.size === 1 ? 'city' : 'cities'}`;
+    } else {
+      return `${events.length} ${events.length === 1 ? 'event' : 'events'}`;
+    }
+  }, [uniqueCountries.size, uniqueCities.size, events.length]);
+
+  // Updated accordion handlers
+  const handleCountryAccordionChange = useCallback((value: string[]) => {
+    setExpandedCountries(value);
+  }, []);
+
+  const handleCityAccordionChange = useCallback((country: string, value: string[]) => {
+    setExpandedCities(prev => ({
+      ...prev,
+      [country]: value
+    }));
+  }, []);
+
+  return (
     <div className="bg-primary text-primary-foreground border border-primary/20 shadow-sm rounded-lg overflow-hidden h-auto">
       <div className="p-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <MapPinned className="h-5 w-5 text-white" />
           <h3 className="font-semibold">Locations</h3>
-
         </div>
         <span className="text-xs font-medium bg-white/20 rounded-full px-2 py-0.5">
           <span>
             {tripSummary}
           </span>
-            </span>
-          </div>
+        </span>
+      </div>
       <div className="p-3 bg-white text-foreground overflow-auto" style={{ minHeight: '200px' }}>
         <Accordion 
           type="multiple" 
@@ -456,11 +331,11 @@ export const TripView = () => {
           onValueChange={handleCountryAccordionChange} 
           className="w-full"
         >
-              {groupedSorted.map(([country, cities]) => (
+          {groupedSorted.map(([country, cities]) => (
             <AccordionItem key={country} value={country} className="border-b border-border last:border-0">
               <AccordionTrigger className="font-semibold text-base py-3 hover:bg-muted/40 transition-colors px-2 rounded-md">
-                    {country}
-                  </AccordionTrigger>
+                {country}
+              </AccordionTrigger>
               <AccordionContent className="pb-1">
                 <Accordion 
                   type="multiple" 
@@ -468,142 +343,351 @@ export const TripView = () => {
                   onValueChange={(value) => handleCityAccordionChange(country, value)} 
                   className="w-full pl-2"
                 >
-                      {cities.map(([city, events]) => (
+                  {cities.map(([city, cityEvents]) => (
                     <AccordionItem key={city} value={city} className="border-b border-border/50 last:border-0">
                       <AccordionTrigger className="text-sm font-medium py-2 hover:bg-muted/30 transition-colors px-2 rounded-md">
                         <div className="flex items-center">
                           <span>{city}</span>
                           <span className="ml-2 text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
-                            {events.length}
+                            {cityEvents.length}
                           </span>
                         </div>
-                          </AccordionTrigger>
+                      </AccordionTrigger>
                       <AccordionContent className="pb-1 pl-2">
                         <ul className="space-y-2 py-1">
-                              {sortEventsByStart(events).map(event => {
+                          {sortEventsByStart(cityEvents).map(event => {
                             const { icon, color, bgColor } = getEventStyle(event);
-                                return (
-                              <li key={event.id} className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors">
+                            return (
+                              <li 
+                                key={event.id} 
+                                className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors"
+                                onClick={() => onEditEvent(event)}
+                              >
                                 <div className={`${bgColor} p-1 rounded-md flex-shrink-0`}>
                                   {React.createElement(icon, { size: 14, className: color })}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <button 
-                                    onClick={() => handleEditEvent(event)}
+                                  <div 
                                     className="hover:underline text-left font-medium text-xs truncate block w-full"
                                   >
                                     {event.title}
-                                  </button>
+                                  </div>
                                   <span className="text-xs text-muted-foreground">{formatDate(event.start)}</span>
                                 </div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    </div>
   );
+});
+
+LocationsSection.displayName = 'LocationsSection';
+
+// Extracted ItinerarySection component
+const ItinerarySection = React.memo(({ 
+  onEditEvent, 
+  onDeleteEvent, 
+  onAddEvent,
+  emptyState 
+}: { 
+  onEditEvent: (event: Event) => void;
+  onDeleteEvent: (eventId: string) => void;
+  onAddEvent: (event: Event) => void;
+  emptyState: React.ReactNode;
+}) => {
+  const { trip } = useTripContext();
+
+  return (
+    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
+      <div className="mb-4 flex items-center gap-2">
+        <ListTodo className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Itinerary</h2>
+      </div>
+
+      <Itinerary 
+        onEdit={onEditEvent}
+        onDelete={onDeleteEvent}
+        onAddNew={onAddEvent}
+        emptyState={emptyState}
+        startDate={trip?.startDate}
+        endDate={trip?.endDate}
+      />
+    </section>
+  );
+});
+
+ItinerarySection.displayName = 'ItinerarySection';
+
+// Custom hook to provide consistent handlers across components
+function useEventHandlers() {
+  const { updateEvent, addEvent, removeEvent } = useTripContext();
+  const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
+  const [showEventEditor, setShowEventEditor] = useState(false);
+
+  // Handlers for event actions - move these to callbacks
+  const handleEditEvent = useCallback((event: Event) => {
+    setCurrentEditingEvent(event);
+    setShowEventEditor(true);
+  }, []);
+
+  const handleSaveEventEdit = useCallback(async (updatedEvent: Event) => {
+    try {
+      // Check if this is a new event (doesn't have an ID or ID includes hyphens which means it's a client-generated UUID)
+      const isNewEvent = !updatedEvent.id || (updatedEvent.id && updatedEvent.id.includes('-'));
+      
+      if (isNewEvent) {
+        // Use addEvent from context
+        await addEvent(updatedEvent);
+        console.log(`Added new event "${updatedEvent.title}"`);
+      } else {
+        // Update existing event using context
+        await updateEvent(updatedEvent.id, updatedEvent);
+        console.log(`Updated event "${updatedEvent.title}"`);
+      }
+      
+      setShowEventEditor(false);
+      setCurrentEditingEvent(null);
+    } catch (error) {
+      console.error('Error saving event:', error);
+      toast.error('Failed to save event: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }, [addEvent, updateEvent]);
+
+  const handleCloseEventEditor = useCallback(() => {
+    setShowEventEditor(false);
+    setCurrentEditingEvent(null);
+  }, []);
+
+  const handleDeleteEvent = useCallback(async (eventId: string) => {
+    try {
+      await removeEvent(eventId);
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      // Could add error handling UI here
+    }
+  }, [removeEvent]);
+
+  // Create a new blank event
+  const createNewEvent = useCallback((event: Event) => {
+    setCurrentEditingEvent(event);
+    setShowEventEditor(true);
+  }, []);
+
+  // Empty state to display when there are no events
+  const emptyState = useMemo(() => (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-primary text-2xl">🗓️</span>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">No events added yet</h2>
+      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+        Add your first event to start planning your trip itinerary.
+      </p>
+      <Button onClick={() => createNewEvent({
+        // Let Firebase generate the ID
+        category: 'experience',
+        type: 'activity',
+        title: 'New Event',
+        start: '',
+        location: {
+          name: '',
+          city: '',
+          country: ''
+        }
+      } as any)} className="flex items-center gap-2">
+        <MapPinPlusInside size={16} />
+        <span>Add Your First Event</span>
+      </Button>
+    </div>
+  ), [createNewEvent]);
+  
+  return {
+    currentEditingEvent,
+    showEventEditor,
+    handleEditEvent,
+    handleSaveEventEdit,
+    handleCloseEventEditor,
+    handleDeleteEvent,
+    createNewEvent,
+    emptyState
+  };
+}
+
+// Inner content component that uses TripContext
+const TripContent = () => {
+  const navigate = useNavigate();
+  const { trip } = useTripContext();
+  const [activeTab, setActiveTab] = useState("itinerary");
+  const { 
+    currentEditingEvent, 
+    showEventEditor, 
+    handleEditEvent,
+    handleSaveEventEdit, 
+    handleCloseEventEditor,
+    handleDeleteEvent,
+    createNewEvent,
+    emptyState 
+  } = useEventHandlers();
+
+  if (!trip) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-primary mb-4">Trip Not Found</h1>
+          <p className="text-muted-foreground mb-6">
+            The trip you're looking for couldn't be found.
+          </p>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-full"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-full mx-auto p-4 md:p-6">
+      {/* Header */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
+            <span className="">
+            { trip.name}
+            </span>
+          </h1>
+          <p className="text-muted-foreground flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" />
+            <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+          </p>
+        </div>
+        <Button onClick={() => createNewEvent({
+          // Let Firebase generate the ID
+          category: 'experience',
+          type: 'activity',
+          title: 'New Event',
+          start: '',
+          location: {
+            name: '',
+            city: '',
+            country: ''
+          }
+        } as any)} className="flex items-center gap-2">
+          <MapPinPlusInside size={20} />
+          <span>Add Event</span>
+        </Button>
+      </div>
+
+      {/* Mobile Tabs View */}
+      <div className="block md:hidden mb-6">
+        <Tabs defaultValue="itinerary" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="itinerary" className="flex items-center gap-1">
+              <ListTodo className="h-4 w-4" />
+              <span>Itinerary</span>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex items-center gap-1">
+              <CalendarClock className="h-4 w-4" />
+              <span>Coming Up</span>
+            </TabsTrigger>
+            <TabsTrigger value="locations" className="flex items-center gap-1">
+              <MapPinned className="h-4 w-4" />
+              <span>Locations</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="itinerary" className="mt-4">
+            <ItinerarySection 
+              onEditEvent={handleEditEvent}
+              onDeleteEvent={handleDeleteEvent}
+              onAddEvent={createNewEvent}
+              emptyState={emptyState}
+            />
+          </TabsContent>
+          
+          <TabsContent value="upcoming" className="mt-4">
+            <ComingUpSection onEditEvent={handleEditEvent} />
+          </TabsContent>
+          
+          <TabsContent value="locations" className="mt-4">
+            <LocationsSection onEditEvent={handleEditEvent} />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
+      <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
+        {/* Left panel: Coming Up section */}
+        <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
+          <ComingUpSection onEditEvent={handleEditEvent} />
+        </div>
+        
+        {/* Middle panel: Full Itinerary */}
+        <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
+          <ItinerarySection 
+            onEditEvent={handleEditEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onAddEvent={createNewEvent}
+            emptyState={emptyState}
+          />
+        </div>
+        
+        {/* Right panel: Locations */}
+        <div className="md:col-span-3 lg:col-span-7 xl:col-span-6">
+          <LocationsSection onEditEvent={handleEditEvent} />
+        </div>
+      </div>
+
+      {/* Event Editor Dialog */}
+      <EventEditor
+        event={currentEditingEvent}
+        isOpen={showEventEditor}
+        onClose={handleCloseEventEditor}
+        onSave={handleSaveEventEdit}
+      />
+    </div>
+  );
+};
+
+// Main component - wrapper that provides TripContext
+export const TripView = () => {
+  const { id } = useParams<{ id: string }>();
+  const { trips, updateTrip } = useTripStore();
+  const trip = trips.find(trip => trip.id === id);
+  
+  // Check and normalize events on component mount
+  useEffect(() => {
+    if (trip) {
+      // Check if any events need normalization
+      const needsNormalization = trip.events.some(event => !event.location);
+      
+      if (needsNormalization) {
+        // Normalize all events
+        const normalizedEvents = trip.events.map(normalizeEvent);
+        
+        // Update the trip with normalized events
+        updateTrip(trip.id, { 
+          events: normalizedEvents 
+        });
+      }
+    }
+  }, [trip?.id, trip, updateTrip]);
 
   return (
     <TripProvider tripId={id || null}>
-      <div className="max-w-full mx-auto p-4 md:p-6">
-        {/* Header */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
-              <span className="">
-              { trip.name}
-              </span>
-            </h1>
-            <p className="text-muted-foreground flex items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
-              <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-
-            </p>
-          </div>
-          <Button onClick={() => createNewEvent({
-            id: uuidv4(),
-            category: 'experience',
-            type: 'activity',
-            title: 'New Event',
-            start: '',
-            location: {
-              name: '',
-              city: '',
-              country: ''
-            }
-          } as any)} className="flex items-center gap-2">
-            <MapPinPlusInside size={20} />
-            <span>Add Event</span>
-          </Button>
-        </div>
-
-        {/* Mobile Tabs View */}
-        <div className="block md:hidden mb-6">
-          <Tabs defaultValue="itinerary" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="itinerary" className="flex items-center gap-1">
-                <ListTodo className="h-4 w-4" />
-                <span>Itinerary</span>
-              </TabsTrigger>
-              <TabsTrigger value="upcoming" className="flex items-center gap-1">
-                <CalendarClock className="h-4 w-4" />
-                <span>Coming Up</span>
-              </TabsTrigger>
-              <TabsTrigger value="locations" className="flex items-center gap-1">
-                <MapPinned className="h-4 w-4" />
-                <span>Locations</span>
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="itinerary" className="mt-4">
-              <ItinerarySection />
-            </TabsContent>
-            
-            <TabsContent value="upcoming" className="mt-4">
-              <ComingUpSection />
-            </TabsContent>
-            
-            <TabsContent value="locations" className="mt-4">
-              <LocationsSection />
-            </TabsContent>
-          </Tabs>
-                </div>
-
-        {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
-        <div className="hidden md:grid md:grid-cols-12 lg:grid-cols-24 gap-4 md:gap-5 lg:gap-6 min-h-[80vh]">
-          {/* Left panel: Coming Up section */}
-          <div className="md:col-span-3 lg:col-span-5 xl:col-span-6">
-            <ComingUpSection />
-              </div>
-          
-          {/* Middle panel: Full Itinerary */}
-          <div className="md:col-span-6 lg:col-span-12 xl:col-span-12">
-            <ItinerarySection />
-          </div>
-          
-          {/* Right panel: Locations */}
-          <div className="md:col-span-3 lg:col-span-7 xl:col-span-6">
-            <LocationsSection />
-          </div>
-        </div>
-
-        {/* Event Editor Dialog */}
-        <EventEditor
-          event={currentEditingEvent}
-          isOpen={showEventEditor}
-          onClose={handleCloseEventEditor}
-          onSave={handleSaveEventEdit}
-        />
-      </div>
+      <TripContent />
     </TripProvider>
   );
 }; 

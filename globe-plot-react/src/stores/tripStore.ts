@@ -456,10 +456,13 @@ export const useTripStore = create<TripState>()(
         
         // If not authenticated, just use the local ID
         if (!user) {
+          // Create a temporary UUID if no ID exists
+          const eventWithId = event.id ? event : { ...event, id: crypto.randomUUID() };
+          
           set((state) => ({
             trips: state.trips.map(trip =>
               trip.id === tripId
-                ? { ...trip, events: [...trip.events, event] }
+                ? { ...trip, events: [...trip.events, eventWithId] }
                 : trip
             )
           }));

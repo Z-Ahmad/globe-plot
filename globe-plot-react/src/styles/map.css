@@ -5,6 +5,18 @@
   border-radius: 8px;
 }
 
+/* Ensure controls remain visible in fullscreen mode */
+.mapboxgl-canvas-container.mapboxgl-interactive,
+.mapboxgl-ctrl-group {
+  pointer-events: auto !important;
+}
+
+/* Adjust navigation controls in fullscreen mode */
+.mapboxgl-map.mapboxgl-fullscreen .map-navigation-controls {
+  position: absolute;
+  bottom: 80px !important; /* Move it up to avoid interference with fullscreen exit button */
+}
+
 /* Event marker styles */
 .event-marker {
   width: 34px;

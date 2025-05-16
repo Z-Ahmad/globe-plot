@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+  <!-- Background circle -->
+  <circle cx="17" cy="17" r="16" fill="#ecfeff" stroke="#0e7490" stroke-width="2" />
+  
+  <!-- Center the icon in the circle -->
+  <g transform="translate(5, 5)" stroke="#0e7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M22 18H2a4 4 0 0 0 4 4h12a4 4 0 0 0 4-4Z"/>
+    <path d="M21 14 10 2 3 14h18Z"/>
+    <path d="M10 2v16"/>
+  </g>
+</svg> 

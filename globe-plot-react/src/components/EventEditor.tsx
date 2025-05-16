@@ -2,6 +2,7 @@ import React, { useState, ChangeEvent } from 'react';
 import { Event, EventCategory } from '@/stores/tripStore';
 import { useUserStore } from '@/stores/userStore';
 import { useTripContext } from '@/context/TripContext';
+import toast from 'react-hot-toast';
 import {
   Dialog,
   DialogClose,
@@ -47,8 +48,8 @@ import {
 } from "@/components/ui/select";
 import { Info, Loader, Map } from 'lucide-react';
 import { geocodeLocation } from '@/lib/mapboxService';
-import toast from 'react-hot-toast';
 import { CountryDropdown } from './CountryDropdown';
+import { focusEventOnMap } from '@/context/TripContext';
 
 interface EventEditorProps {
   event: Event | null;
@@ -62,16 +63,18 @@ interface EventFormProps {
   editingEvent: Event;
   setEditingEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   containerStyle?: string; // Optional style for the container
+  onClose?: () => void; // Add onClose prop
 }
 
 const EventForm: React.FC<EventFormProps> = ({
   editingEvent,
   setEditingEvent,
+  onClose,
 }) => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const user = useUserStore((state) => state.user);
   const isAuthenticated = !!user;
-  const { tripId } = useTripContext();
+  const { tripId, setFocusedEventId } = useTripContext();
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -213,116 +216,158 @@ const EventForm: React.FC<EventFormProps> = ({
     }
   };
 
-  // Handler for finding coordinates
-  const handleFindCoordinates = async () => {
-    const locationData = getCurrentLocationData();
+  // Function to view the event on the map
+  const handleViewOnMap = async () => {
+    // Check if we have coordinates already
+    const hasCoordinates = !!(
+      (editingEvent.category === 'travel' && editingEvent.departure?.location?.geolocation) ||
+      (editingEvent.category === 'accommodation' && editingEvent.checkIn?.location?.geolocation) ||
+      (editingEvent.location?.geolocation)
+    );
     
-    // Check if we have enough location data
-    if (!locationData.city && !locationData.country && !locationData.name) {
-      toast.error('Please enter a location name, city, or country first');
-      return;
-    }
-
-    // Check if user is authenticated
-    if (!isAuthenticated) {
-      toast.error('Please sign in to use location services');
-      return;
-    }
-
-    setIsGeocoding(true);
-    try {
-      // Determine the location type based on event category
-      let locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location';
-      
-      if (editingEvent.category === 'travel') {
-        locationType = 'departure.location';
-      } else if (editingEvent.category === 'accommodation') {
-        locationType = 'checkIn.location';
-      } else {
-        locationType = 'location';
+    // If we don't have coordinates, get them first
+    if (!hasCoordinates) {
+      // Check if we have enough location data to get coordinates
+      const locationData = getCurrentLocationData();
+      if (!locationData.city && !locationData.country && !locationData.name) {
+        toast.error('Please enter a location name, city, or country first');
+        return;
       }
       
-      // Check if this is a temporary event (UUID format) that hasn't been saved to Firestore yet
-      const isTemporaryEvent = editingEvent.id && editingEvent.id.includes('-');
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        toast.error('Please sign in to use location services');
+        return;
+      }
       
-      const result = await geocodeLocation(
-        locationData, 
-        editingEvent.id, 
-        tripId || undefined, 
-        locationType
-      );
-      
-      if (result) {
-        // Update the event with coordinates and potentially improved location data
+      setIsGeocoding(true);
+      try {
+        // Determine the location type based on event category
+        let locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location';
+        
         if (editingEvent.category === 'travel') {
-          setEditingEvent({
-            ...editingEvent,
-            departure: {
-              ...editingEvent.departure,
-              location: {
-                ...(editingEvent.departure?.location || {}),
-                geolocation: {
-                  lat: result.lat,
-                  lng: result.lng
-                },
-                // Update city/country if they were missing
-                city: editingEvent.departure?.location?.city || result.city,
-                country: editingEvent.departure?.location?.country || result.country,
-              }
-            }
-          });
+          locationType = 'departure.location';
         } else if (editingEvent.category === 'accommodation') {
-          setEditingEvent({
-            ...editingEvent,
-            checkIn: {
-              ...editingEvent.checkIn,
-              location: {
-                ...(editingEvent.checkIn?.location || {}),
-                geolocation: {
-                  lat: result.lat,
-                  lng: result.lng
-                },
-                city: editingEvent.checkIn?.location?.city || result.city,
-                country: editingEvent.checkIn?.location?.country || result.country,
-              }
-            }
-          });
+          locationType = 'checkIn.location';
         } else {
-          setEditingEvent({
-            ...editingEvent,
-            location: {
-              ...(editingEvent.location || {}),
-              geolocation: {
-                lat: result.lat,
-                lng: result.lng
-              },
-              city: editingEvent.location?.city || result.city,
-              country: editingEvent.location?.country || result.country,
-            }
-          });
+          locationType = 'location';
         }
         
-        // Show different toast messages based on whether this is a temporary or saved event
-        if (isTemporaryEvent) {
-          toast.success('Location coordinates found. They will be saved when you save this event.');
+        // Check if this is a temporary event (UUID format) that hasn't been saved to Firestore yet
+        const isTemporaryEvent = editingEvent.id && editingEvent.id.includes('-');
+        
+        const result = await geocodeLocation(
+          locationData, 
+          editingEvent.id, 
+          tripId || undefined, 
+          locationType
+        );
+        
+        if (result) {
+          // Update the event with coordinates and potentially improved location data
+          if (editingEvent.category === 'travel') {
+            setEditingEvent({
+              ...editingEvent,
+              departure: {
+                ...editingEvent.departure,
+                location: {
+                  ...(editingEvent.departure?.location || {}),
+                  geolocation: {
+                    lat: result.lat,
+                    lng: result.lng
+                  },
+                  // Update city/country if they were missing
+                  city: editingEvent.departure?.location?.city || result.city,
+                  country: editingEvent.departure?.location?.country || result.country,
+                }
+              }
+            });
+          } else if (editingEvent.category === 'accommodation') {
+            setEditingEvent({
+              ...editingEvent,
+              checkIn: {
+                ...editingEvent.checkIn,
+                location: {
+                  ...(editingEvent.checkIn?.location || {}),
+                  geolocation: {
+                    lat: result.lat,
+                    lng: result.lng
+                  },
+                  city: editingEvent.checkIn?.location?.city || result.city,
+                  country: editingEvent.checkIn?.location?.country || result.country,
+                }
+              }
+            });
+          } else {
+            setEditingEvent({
+              ...editingEvent,
+              location: {
+                ...(editingEvent.location || {}),
+                geolocation: {
+                  lat: result.lat,
+                  lng: result.lng
+                },
+                city: editingEvent.location?.city || result.city,
+                country: editingEvent.location?.country || result.country,
+              }
+            });
+          }
+          
+          toast.success('Location coordinates found');
         } else {
-          toast.success('Location coordinates found and saved');
+          toast.error('Could not find coordinates for this location');
+          return; // Exit early if we can't find coordinates
         }
-      } else {
-        toast.error('Could not find coordinates for this location');
+      } catch (error) {
+        console.error('Error finding coordinates:', error);
+        toast.error('Error finding coordinates');
+        return; // Exit early if there's an error
+      } finally {
+        setIsGeocoding(false);
       }
-    } catch (error) {
-      console.error('Error finding coordinates:', error);
-      toast.error('Error finding coordinates');
-    } finally {
-      setIsGeocoding(false);
+    }
+    
+    // Set the focused event in the trip context
+    if (editingEvent.id) {
+      // Focus the event on the map
+      setFocusedEventId(editingEvent.id);
+      
+      // Use the context bridge to focus and switch to map view
+      focusEventOnMap(editingEvent.id);
+      
+      // Close the dialog if onClose prop is provided
+      if (onClose) {
+        onClose();
+      }
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="title">Title</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="title">Title</Label>
+          <Button 
+            type="button" 
+            variant="outline" 
+            size="sm"
+            onClick={handleViewOnMap}
+            disabled={isGeocoding}
+            className="flex items-center gap-2"
+          >
+            {isGeocoding ? (
+              <>
+                <Loader className="h-3 w-3 animate-spin" />
+                <span>Finding location...</span>
+              </>
+            ) : (
+              <>
+                <Map className="h-3 w-3" />
+                <span>View on Map</span>
+              </>
+            )}
+          </Button>
+        </div>
         <Input 
           id="title"
           value={editingEvent.title} 
@@ -527,30 +572,6 @@ const EventForm: React.FC<EventFormProps> = ({
             }}
           />
         </div>
-      </div>
-
-      {/* Add the "Find Coordinates" button after the country and city fields */}
-      <div className="flex justify-end mt-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          size="sm"
-          onClick={handleFindCoordinates}
-          disabled={isGeocoding}
-          className="flex items-center gap-2"
-        >
-          {isGeocoding ? (
-            <>
-              <Loader className="h-3 w-3 animate-spin" />
-              <span>Finding coordinates...</span>
-            </>
-          ) : (
-            <>
-              <Map className="h-3 w-3" />
-              <span>Find coordinates</span>
-            </>
-          )}
-        </Button>
       </div>
 
       {/* Display coordinates if they exist */}
@@ -1080,16 +1101,29 @@ export const EventEditor: React.FC<EventEditorProps> = ({
       // Create updated event with proper start/end times
       let updatedEvent = {...editingEvent};
       
+      // Validate title field
+      if (!updatedEvent.title || updatedEvent.title.trim() === '') {
+        toast.error('Please enter a title for the event');
+        return;
+      }
+      
+      // Use current timestamp as fallback for dates
+      const currentISOString = new Date().toISOString();
+      
       // Update the start/end time based on category
       if (updatedEvent.category === 'accommodation') {
+        // Validate and update check-in/check-out dates
+        if (!updatedEvent.checkIn?.date) {
+          toast.error('Please enter a check-in date');
+          return;
+        }
+        
         // Update start time from check-in time
-        if (updatedEvent.checkIn?.date) {
-          updatedEvent.start = updatedEvent.checkIn.date;
-        }
-        // Update end time from check-out time
-        if (updatedEvent.checkOut?.date) {
-          updatedEvent.end = updatedEvent.checkOut.date;
-        }
+        updatedEvent.start = updatedEvent.checkIn.date;
+        
+        // Update end time from check-out time or set default
+        updatedEvent.end = updatedEvent.checkOut?.date || updatedEvent.checkIn.date; // Use check-in as fallback
+        
         // Ensure top-level location and checkOut location match checkIn location
         if (updatedEvent.checkIn?.location) {
           updatedEvent.location = {...updatedEvent.checkIn.location};
@@ -1116,35 +1150,46 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           }
         }
       } else if (updatedEvent.category === 'travel') {
+        // Validate departure date
+        if (!updatedEvent.departure?.date) {
+          toast.error('Please enter a departure date');
+          return;
+        }
+        
         // Update start time from departure time
-        if (updatedEvent.departure?.date) {
-          updatedEvent.start = updatedEvent.departure.date;
-        }
-        // Update end time from arrival time
-        if (updatedEvent.arrival?.date) {
-          updatedEvent.end = updatedEvent.arrival.date;
-        }
+        updatedEvent.start = updatedEvent.departure.date;
+        
+        // Update end time from arrival time or set to departure date as fallback
+        updatedEvent.end = updatedEvent.arrival?.date || updatedEvent.departure.date;
+        
         // Ensure top-level location is populated from departure.location
         if (updatedEvent.departure?.location) {
           updatedEvent.location = {...updatedEvent.departure.location};
         }
       } else if (updatedEvent.category === 'experience') {
-        // Update start time from startDate
+        // Validate start date
         const expEvent = updatedEvent as ExperienceEvent;
-        if (expEvent.startDate) {
-          updatedEvent.start = expEvent.startDate;
+        if (!expEvent.startDate) {
+          toast.error('Please enter a start date');
+          return;
         }
-        // Update end time from endDate
-        if (expEvent.endDate) {
-          updatedEvent.end = expEvent.endDate;
-        }
+        
+        // Update start time from startDate
+        updatedEvent.start = expEvent.startDate;
+        
+        // Update end time from endDate or set default to start date
+        updatedEvent.end = expEvent.endDate || expEvent.startDate;
       } else if (updatedEvent.category === 'meal') {
-        // For meals, use the same time for both start and end
+        // Validate meal date
         const mealEvent = updatedEvent as MealEvent;
-        if (mealEvent.date) {
-          updatedEvent.start = mealEvent.date;
-          updatedEvent.end = mealEvent.date;
+        if (!mealEvent.date) {
+          toast.error('Please enter a date for the meal');
+          return;
         }
+        
+        // For meals, use the same time for both start and end
+        updatedEvent.start = mealEvent.date;
+        updatedEvent.end = mealEvent.date; // Ensure end is never undefined
       }
       
       // Make sure we have at least an empty location object if none exists
@@ -1152,7 +1197,26 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         updatedEvent.location = { name: '' };
       }
       
-      onSave(updatedEvent);
+      // Type-safe way to ensure no undefined values
+      const sanitizedEvent: Record<string, any> = {};
+      
+      // Copy all properties to the sanitized object, replacing undefined with empty string or null
+      Object.entries(updatedEvent).forEach(([key, value]) => {
+        if (value === undefined) {
+          // For string fields, use empty string
+          if (typeof updatedEvent[key as keyof typeof updatedEvent] === 'string') {
+            sanitizedEvent[key] = '';
+          } else {
+            // For other fields, use null
+            sanitizedEvent[key] = null;
+          }
+        } else {
+          sanitizedEvent[key] = value;
+        }
+      });
+      
+      // Cast the sanitized object back to the Event type
+      onSave(sanitizedEvent as Event);
     }
   };
 
@@ -1173,6 +1237,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
           <EventForm 
             editingEvent={editingEvent} 
             setEditingEvent={setEditingEvent}
+            onClose={onClose}
           />
           
           <DialogFooter>
@@ -1206,6 +1271,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             <EventForm 
               editingEvent={editingEvent} 
               setEditingEvent={setEditingEvent}
+              onClose={onClose}
             />
           </div>
           
