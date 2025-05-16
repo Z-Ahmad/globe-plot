@@ -3,7 +3,7 @@ import { Event } from '@/types/trip';
 import { EventList } from './EventList';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Calendar, CalendarRange, Filter, List, Map, MapPin, Loader } from 'lucide-react';
+import { Calendar, CalendarRange, Filter, List, Map, MapPin, Loader, LockIcon } from 'lucide-react';
 import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getEventStyle } from '@/styles/eventStyles';
@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/userStore';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
 import { useTripContext } from '@/context/TripContext';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 
 interface ItineraryProps {
   events: Event[];
@@ -278,17 +279,45 @@ export const Itinerary: React.FC<ItineraryProps> = ({
               <Calendar className="h-4 w-4" /> 
               <span className="hidden sm:inline">Calendar</span>
             </Button>
-            <Button 
-              variant={viewMode === 'map' ? 'default' : 'outline'} 
-              size="sm" 
-              className="flex items-center gap-2"
-              onClick={() => setViewMode('map')}
-              disabled={!isAuthenticated}
-              title={!isAuthenticated ? "Sign in to view map" : "View map"}
-            >
-              <Map className="h-4 w-4" /> 
-              <span className="hidden sm:inline">Map</span>
-            </Button>
+            
+            {isAuthenticated ? (
+              <Button 
+                variant={viewMode === 'map' ? 'default' : 'outline'} 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setViewMode('map')}
+              >
+                <Map className="h-4 w-4" /> 
+                <span className="hidden sm:inline">Map</span>
+              </Button>
+            ) : (
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2 cursor-not-allowed opacity-70"
+                  >
+                    <Map className="h-4 w-4" /> 
+                    <span className="hidden sm:inline">Map</span>
+                  </Button>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div className="flex space-x-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted px-2">
+                      <LockIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold">Authentication Required</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Please sign in to view the map.
+                      </p>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            )}
+            
             <span className="text-xs text-muted-foreground ml-auto">
               {events.length} event{events.length !== 1 ? 's' : ''}
             </span>

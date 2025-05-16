@@ -292,7 +292,7 @@ Example 1 (flight, all fields present):
     "location": {
       "name": "JFK International Airport",
       "city": "New York",
-      "country": "USA"
+      "country": "United States"
       // Notice: No geolocation since it wasn't explicitly in the document
     }
   },
@@ -307,7 +307,7 @@ Example 1 (flight, all fields present):
   "location": {
     "name": "JFK International Airport",
     "city": "New York",
-    "country": "USA"
+    "country": "United States"
   },
   "seat": "14A",
   "bookingReference": "ABC123",
@@ -332,7 +332,7 @@ Example 2 (flight, missing optional fields):
     "location": {
       "name": "JFK International Airport",
       "city": "New York",
-      "country": "USA"
+      "country": "United States"
     }
   },
   "location": {

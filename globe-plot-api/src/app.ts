@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { documentRoutes } from './routes/documentRoutes';
 import { geocodeRoutes } from './routes/geocodeRoutes';
+import { countryRoutes } from './routes/countryRoutes';
 import { swaggerSpec } from './config/swagger';
 
 // Load environment variables
@@ -41,6 +42,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Routes
 app.use('/api/documents', documentRoutes);
 app.use('/api/geocode', geocodeRoutes);
+app.use('/api/countries', countryRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

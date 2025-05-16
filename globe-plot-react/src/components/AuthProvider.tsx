@@ -105,7 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               await syncLocalTripsToFirestore(localTripsToSync);
             } else {
               // If no local trips, just fetch from Firestore
-              await fetchTrips();
+            await fetchTrips();
               console.log('No local trips to sync, fetched from Firestore only');
               setHasSynced(true);
             }
@@ -117,15 +117,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (isMounted) {
-          setLoading(false);
+        setLoading(false);
         }
       },
       (error) => {
         console.error('Auth state change error:', error);
         if (isMounted) {
-          setError(error.message);
-          setLoading(false);
-        }
+        setError(error.message);
+        setLoading(false);
+      }
       }
     );
     

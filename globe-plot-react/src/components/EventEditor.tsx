@@ -48,6 +48,7 @@ import {
 import { Info, Loader, Map } from 'lucide-react';
 import { geocodeLocation } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
+import { CountryDropdown } from './CountryDropdown';
 
 interface EventEditorProps {
   event: Event | null;
@@ -398,8 +399,7 @@ const EventForm: React.FC<EventFormProps> = ({
               </Popover>
             )}
           </div>
-          <Input
-            id="country"
+          <CountryDropdown
             value={
               editingEvent.category === "travel"
                 ? editingEvent.departure?.location?.country || ""
@@ -407,7 +407,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 ? editingEvent.checkIn?.location?.country || ""
                 : editingEvent.location?.country || ""
             }
-            onChange={(e) => {
+            onChange={(countryName) => {
               if (editingEvent.category === "travel") {
                 setEditingEvent({
                   ...editingEvent,
@@ -415,7 +415,7 @@ const EventForm: React.FC<EventFormProps> = ({
                     ...editingEvent.departure,
                     location: {
                       ...(editingEvent.departure?.location || {}),
-                      country: e.target.value
+                      country: countryName
                     }
                   }
                 });
@@ -426,19 +426,19 @@ const EventForm: React.FC<EventFormProps> = ({
                     ...editingEvent.checkIn,
                     location: {
                       ...(editingEvent.checkIn?.location || {}),
-                      country: e.target.value
+                      country: countryName
                     }
                   },
                   checkOut: {
                     ...editingEvent.checkOut,
                     location: {
                       ...(editingEvent.checkOut?.location || {}),
-                      country: e.target.value
+                      country: countryName
                     }
                   },
                   location: {
                     ...(editingEvent.location || {}),
-                    country: e.target.value
+                    country: countryName
                   }
                 });
               } else {
@@ -446,11 +446,12 @@ const EventForm: React.FC<EventFormProps> = ({
                   ...editingEvent,
                   location: {
                     ...(editingEvent.location || {}),
-                    country: e.target.value
+                    country: countryName
                   }
                 });
               }
             }}
+            bgColor={getEventStyle(editingEvent).bgColor}
           />
         </div>
         <div className="space-y-2">
