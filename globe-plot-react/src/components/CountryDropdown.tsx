@@ -106,26 +106,33 @@ const CountryDropdownComponent = (
 
     // If we have a pending country name from the value prop, try to find it
     if (pendingCountryName) {
-      // First try exact match by name
-      let country = countries.find(c => c.name === pendingCountryName);
-      
-      // If no exact match, try case-insensitive match
-      if (!country) {
-        country = countries.find(c => 
-          c.name.toLowerCase() === pendingCountryName.toLowerCase()
-        );
-      }
-      
-      // If still no match, try to find a country that contains the name
-      if (!country) {
-        country = countries.find(c => 
-          c.name.toLowerCase().includes(pendingCountryName.toLowerCase())
-        );
-      }
+      try {
+        // First try exact match by name
+        let country = countries.find(c => c.name === pendingCountryName);
+        
+        // If no exact match, try case-insensitive match
+        if (!country) {
+          country = countries.find(c => 
+            c.name.toLowerCase() === pendingCountryName.toLowerCase()
+          );
+        }
+        
+        // If still no match, try to find a country that contains the name
+        if (!country) {
+          country = countries.find(c => 
+            c.name.toLowerCase().includes(pendingCountryName.toLowerCase())
+          );
+        }
 
-      if (country) {
-        setSelectedCountry(country);
-        setPendingCountryName(undefined);
+        if (country) {
+          console.log(`Country match found: ${pendingCountryName} -> ${country.name} (${country.code})`);
+          setSelectedCountry(country);
+          setPendingCountryName(undefined);
+        } else {
+          console.warn(`No country match found for: "${pendingCountryName}"`);
+        }
+      } catch (error) {
+        console.error('Error matching country name:', error, pendingCountryName);
       }
     } 
     // If we have a code directly, use that
@@ -140,7 +147,9 @@ const CountryDropdownComponent = (
   const handleSelect = useCallback(
     (country: Country) => {
       setSelectedCountry(country);
-      onChange?.(country.name); // Updated to match EventEditor usage
+      // Pass both name and code to parent component
+      console.log(`Selected country: ${country.name} (${country.code})`);
+      onChange?.(country.name); // We're currently only using the name in EventEditor
       setOpen(false);
     },
     [onChange]

@@ -18,13 +18,41 @@ const getCountryCode = (country?: string): string | undefined => {
   
   // If it's already a 2-letter code, return it
   if (country.length === 2 && country === country.toUpperCase()) {
+    console.log(`Country code already in ISO format: ${country}`);
     return country;
   }
   
   try {
+    // Log the country name being looked up
+    console.log(`Looking up country code for: "${country}"`);
+    
     // Try to look up the country by name
     const result = lookup.byCountry(country) || lookup.byFips(country) || lookup.byIso(country);
-    return result?.iso2 || undefined;
+    
+    if (result?.iso2) {
+      console.log(`Found country code for ${country}: ${result.iso2}`);
+      return result.iso2;
+    } else {
+      console.warn(`No country code found for: "${country}"`);
+      
+      // Handle known edge cases via direct mapping
+      const specialCases: Record<string, string> = {
+        'vatican city': 'VA',
+        'vatican': 'VA',
+        'holy see': 'VA',
+        'palestine': 'PS',
+        'east timor': 'TL',
+        'timor-leste': 'TL'
+      };
+      
+      const normalized = country.toLowerCase().trim();
+      if (specialCases[normalized]) {
+        console.log(`Using special case mapping for ${country}: ${specialCases[normalized]}`);
+        return specialCases[normalized];
+      }
+      
+      return undefined;
+    }
   } catch (error) {
     console.error('Error converting country name to code:', error);
     return undefined;

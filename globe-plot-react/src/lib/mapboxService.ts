@@ -123,53 +123,39 @@ export async function batchGeocodeLocations(locations: Array<{
     return [];
   }
 
-  // Skip locations that already have coordinates
-  const locationsToGeocode = locations.filter(
-    ({ location }) => !(location.geolocation?.lat && location.geolocation?.lng)
-  );
-  
-  // Immediately return locations that already have coordinates
-  const preGeocoded = locations
-    .filter(({ location }) => !!(location.geolocation?.lat && location.geolocation?.lng))
-    .map(({ id, location }) => ({
-      id,
-      lat: location.geolocation?.lat,
-      lng: location.geolocation?.lng,
-      city: location.city,
-      country: location.country,
-      placeName: location.name
-    }));
-
-  // If all locations already have coordinates, return them
-  if (locationsToGeocode.length === 0) {
-    return preGeocoded;
-  }
-
   try {
-    const requestData = locationsToGeocode.map(({ id, location }) => ({
+    // Now, use the original 'locations' array directly for the request.
+    const requestData = locations.map(({ id, location }) => ({
       id,
       name: location.name,
       city: location.city,
       country: location.country
     }));
 
+    // If locations array was not empty, requestData should not be empty unless all location objects lack name/city/country.
+    if (requestData.length === 0 && locations.length > 0) {
+      console.warn('[mapboxService] batchGeocodeLocations: requestData is empty but received locations. This might happen if all location objects are empty.');
+      // Return an error for each, as they can't be geocoded.
+      return locations.map(({ id }) => ({ id, error: 'Location data is empty' }));
+    }
+    if (requestData.length === 0) { // if locations was empty to begin with
+        return [];
+    }
+
     const response = await axios.post(`${API_BASE_URL}geocode/batch`, requestData);
 
     if (response.status === 200 && Array.isArray(response.data)) {
-      // Combine pre-geocoded locations with new results
-      return [...preGeocoded, ...response.data];
+      // Return the results from the API directly.
+      // The caller (`enrichEventsWithGeolocations`) will merge these with existing event data.
+      return response.data;
     }
     
-    return [
-      ...preGeocoded,
-      ...locationsToGeocode.map(({ id }) => ({ id, error: 'Failed to geocode' }))
-    ];
+    // If API call failed or returned unexpected data for some reason.
+    return locations.map(({ id }) => ({ id, error: 'Failed to geocode batch' }));
   } catch (error) {
     console.error("Error batch geocoding locations:", error);
-    return [
-      ...preGeocoded,
-      ...locationsToGeocode.map(({ id }) => ({ id, error: 'Failed to geocode' }))
-    ];
+    // Return an error for each location in the batch if the entire call fails.
+    return locations.map(({ id }) => ({ id, error: 'Batch geocoding API call failed' }));
   }
 }
 
@@ -190,8 +176,8 @@ export function getLocationFromEvent(event: Event): Partial<Location> {
 /**
  * Processes all events and enriches them with geolocation data
  */
-export async function enrichEventsWithGeolocations(events: Event[]): Promise<Event[]> {
-  console.log(`[mapboxService] Enriching ${events.length} events with geolocations`);
+export async function enrichEventsWithGeolocations(events: Event[], forceUpdate: boolean = false): Promise<Event[]> {
+  console.log(`[mapboxService] Enriching ${events.length} events with geolocations${forceUpdate ? ' (force update)' : ''}`);
   
   const enrichedEvents = [...events];
   const locationsToGeocode: Array<{
@@ -204,8 +190,8 @@ export async function enrichEventsWithGeolocations(events: Event[]): Promise<Eve
   // Collect all locations that need geocoding
   for (const event of enrichedEvents) {
     if (event.category === 'travel') {
-      if (event.departure?.location && !event.departure.location.geolocation) {
-        console.log(`[mapboxService] Travel event ${event.id} needs departure location geocoding`);
+      if (event.departure?.location && (forceUpdate || !event.departure.location.geolocation)) {
+        console.log(`[mapboxService] Travel event ${event.id} ${forceUpdate ? 'forcing' : 'needs'} departure location geocoding`);
         locationsToGeocode.push({
           id: `${event.id}-departure`,
           event,
@@ -214,8 +200,8 @@ export async function enrichEventsWithGeolocations(events: Event[]): Promise<Eve
         });
       }
       
-      if (event.arrival?.location && !event.arrival.location.geolocation) {
-        console.log(`[mapboxService] Travel event ${event.id} needs arrival location geocoding`);
+      if (event.arrival?.location && (forceUpdate || !event.arrival.location.geolocation)) {
+        console.log(`[mapboxService] Travel event ${event.id} ${forceUpdate ? 'forcing' : 'needs'} arrival location geocoding`);
         locationsToGeocode.push({
           id: `${event.id}-arrival`,
           event,
@@ -224,8 +210,8 @@ export async function enrichEventsWithGeolocations(events: Event[]): Promise<Eve
         });
       }
     } else if (event.category === 'accommodation') {
-      if (event.checkIn?.location && !event.checkIn.location.geolocation) {
-        console.log(`[mapboxService] Accommodation event ${event.id} needs checkIn location geocoding`);
+      if (event.checkIn?.location && (forceUpdate || !event.checkIn.location.geolocation)) {
+        console.log(`[mapboxService] Accommodation event ${event.id} ${forceUpdate ? 'forcing' : 'needs'} checkIn location geocoding`);
         locationsToGeocode.push({
           id: `${event.id}-checkin`,
           event,
@@ -234,8 +220,8 @@ export async function enrichEventsWithGeolocations(events: Event[]): Promise<Eve
         });
       }
       
-      if (event.checkOut?.location && !event.checkOut.location.geolocation) {
-        console.log(`[mapboxService] Accommodation event ${event.id} needs checkOut location geocoding`);
+      if (event.checkOut?.location && (forceUpdate || !event.checkOut.location.geolocation)) {
+        console.log(`[mapboxService] Accommodation event ${event.id} ${forceUpdate ? 'forcing' : 'needs'} checkOut location geocoding`);
         locationsToGeocode.push({
           id: `${event.id}-checkout`,
           event,
@@ -244,8 +230,8 @@ export async function enrichEventsWithGeolocations(events: Event[]): Promise<Eve
         });
       }
     } else {
-      if (event.location && !event.location.geolocation) {
-        console.log(`[mapboxService] ${event.category} event ${event.id} needs location geocoding`);
+      if (event.location && (forceUpdate || !event.location.geolocation)) {
+        console.log(`[mapboxService] ${event.category} event ${event.id} ${forceUpdate ? 'forcing' : 'needs'} location geocoding`);
         locationsToGeocode.push({
           id: event.id,
           event,
@@ -390,7 +376,7 @@ export async function enrichAndSaveEventCoordinates(
 
   // First enrich all events with coordinates (even those with temporary IDs)
   // This ensures UI shows coordinates for all events, even if they're not saved to Firestore yet
-  const enrichedEvents = await enrichEventsWithGeolocations(events);
+  const enrichedEvents = await enrichEventsWithGeolocations(events, forceUpdate);
   
   // Filter events that can be saved to Firestore
   const validEvents = events.filter(event => {

@@ -111,94 +111,18 @@ export const Itinerary: React.FC<ItineraryProps> = ({
     localStorage.setItem('itinerary-selected-month', JSON.stringify(selectedMonth.toISOString()));
   }, [selectedMonth]);
 
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [geocodedEvents, setGeocodedEvents] = useState<Event[]>(events);
   const user = useUserStore((state) => state.user);
   const isAuthenticated = !!user;
   
   // Update geocoded events when events prop changes
   useEffect(() => {
-    setGeocodedEvents(events);
+    // No longer needed, using events from context directly
   }, [events]);
   
-  // Function to explicitly refresh all coordinates
-  const refreshCoordinates = useCallback(async () => {
-    if (!isAuthenticated) {
-      toast.error("Please sign in to use location services");
-      return;
-    }
-    
-    if (!tripId) {
-      toast.error("No trip ID available for geocoding");
-      return;
-    }
-    
-    setIsGeocoding(true);
-    try {
-      // Force update all coordinates
-      const enrichedEvents = await enrichAndSaveEventCoordinates(tripId, events, true);
-      console.log(`[Itinerary] Geocoding completed for ${enrichedEvents.length} events`);
-      
-      // Count events with coordinates
-      let eventsWithCoords = 0;
-      enrichedEvents.forEach(event => {
-        if (event.location?.geolocation || 
-            (event.category === 'travel' && (event.departure?.location?.geolocation || event.arrival?.location?.geolocation)) ||
-            (event.category === 'accommodation' && event.checkIn?.location?.geolocation)) {
-          eventsWithCoords++;
-        }
-      });
-      
-      console.log(`[Itinerary] ${eventsWithCoords} events have coordinates`);
-      setGeocodedEvents(enrichedEvents);
-      toast.success(`Location coordinates updated for ${eventsWithCoords} events`);
-    } catch (error) {
-      console.error("[Itinerary] Error geocoding events:", error);
-      toast.error("Failed to update coordinates for some locations");
-    } finally {
-      setIsGeocoding(false);
-    }
-  }, [tripId, events, isAuthenticated]);
-  
-  // Handle map view mode selection
+  // Handle map view mode selection - REMOVED (logic moved to MapView)
   useEffect(() => {
-    if (viewMode === 'map') {
-      if (!isAuthenticated) {
-        toast.error("Please sign in to view the map");
-        setViewMode('list');
-        return;
-      }
-
-      // Only perform geocoding if we have a valid tripId
-      if (!tripId) {
-        console.log("[Itinerary] No tripId available for geocoding");
-        return;
-      }
-
-      // Force update if we don't have coordinates for all events
-      const eventsWithCoordinates = events.filter(event => {
-        if (event.category === 'travel') {
-          // Travel events need departure coordinates
-          return event.departure?.location?.geolocation;
-        } else if (event.category === 'accommodation') {
-          // Accommodation events need check-in coordinates
-          return event.checkIn?.location?.geolocation;
-        } else {
-          // Other events need location coordinates
-          return event.location?.geolocation;
-        }
-      });
-      
-      // Force update if any events are missing coordinates
-      const forceUpdate = eventsWithCoordinates.length < events.length;
-      console.log(`[Itinerary] ${events.length - eventsWithCoordinates.length} events need geocoding, force update: ${forceUpdate}`);
-      
-      // Start geocoding process if needed
-      if (forceUpdate) {
-        refreshCoordinates();
-      }
-    }
-  }, [viewMode, events, isAuthenticated, tripId, refreshCoordinates]);
+    // This effect was for triggering geocoding from Itinerary, which is now handled by MapView
+  }, [viewMode, events, isAuthenticated, tripId]);
 
   // Memoize sorted events to prevent unnecessary recalculations
   const sortedEvents = useMemo(() => {
@@ -374,39 +298,12 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             </span>
           </div>
         </div>
-        
-        {/* Sort control - only visible in list view */}
-        {viewMode === 'list' && (
-          <div className="pt-2 pb-4 border-b">
-            <Select
-              value={sortOption}
-              onValueChange={(value) => setSortOption(value as SortOption)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="chronological" className="flex items-center gap-2">
-                  <CalendarRange className="h-4 w-4" />
-                  <span>Date & Time</span>
-                </SelectItem>
-                <SelectItem value="category" className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Category</span>
-                </SelectItem>
-                <SelectItem value="location" className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span>Location</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      
       </div>
 
       {/* View content based on selected mode */}
       <div>
-        {viewMode === 'list' && (
+        <div style={{ display: viewMode === 'list' ? 'block' : 'none' }}>
           <EventList 
             events={sortedEvents}
             onEdit={onEdit}
@@ -415,9 +312,9 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             emptyState={emptyState}
             onViewOnMap={handleViewOnMap}
           />
-        )}
+        </div>
 
-        {viewMode === 'calendar' && (
+        <div style={{ display: viewMode === 'calendar' ? 'block' : 'none' }}>
           <div className="space-y-4">
             {/* Calendar navigation */}
             <div className="flex items-center justify-between">
@@ -498,24 +395,18 @@ export const Itinerary: React.FC<ItineraryProps> = ({
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {viewMode === 'map' && (
-          <div className="relative h-[500px] border rounded-lg bg-muted/50 overflow-hidden">
-            {isGeocoding && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-                <Loader className="h-8 w-8 animate-spin text-primary mb-2" />
-                <p className="text-muted-foreground">Updating location coordinates...</p>
-              </div>
-            )}
-
-            {/* Render the actual map component */}
-            <MapView 
-              className="w-full h-full"
-              onRefreshCoordinates={refreshCoordinates}
-            />
-          </div>
-        )}
+        {/* MapView is now always rendered but visibility is controlled by parent div */}
+        <div 
+          className="relative h-[500px] lg:h-[70vh] border rounded-lg bg-muted/50 overflow-hidden"
+          style={{ display: viewMode === 'map' ? 'block' : 'none' }}
+        >
+          <MapView 
+            className="w-full h-full"
+            isVisible={viewMode === 'map'}
+          />
+        </div>
       </div>
     </div>
   );

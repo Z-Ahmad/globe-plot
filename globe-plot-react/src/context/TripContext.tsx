@@ -11,6 +11,7 @@ interface TripContextValue {
   updateEvent: (eventId: string, eventData: Event) => Promise<void>;
   addEvent: (event: Event) => Promise<void>;
   removeEvent: (eventId: string) => Promise<void>;
+  setTripEvents: (newEvents: Event[]) => void;
 }
 
 const TripContext = createContext<TripContextValue | undefined>(undefined);
@@ -19,7 +20,13 @@ export const TripProvider: React.FC<{
   children: React.ReactNode;
   tripId: string | null;
 }> = ({ children, tripId }) => {
-  const { trips, updateEvent: storeUpdateEvent, addEvent: storeAddEvent, removeEvent: storeRemoveEvent } = useTripStore();
+  const { 
+    trips, 
+    updateEvent: storeUpdateEvent, 
+    addEvent: storeAddEvent, 
+    removeEvent: storeRemoveEvent,
+    setEventsForTrip: storeSetEventsForTrip
+  } = useTripStore();
   const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
   
   // Memoize trip data to avoid unnecessary re-renders
@@ -48,6 +55,11 @@ export const TripProvider: React.FC<{
     await storeRemoveEvent(tripId, eventId);
   }, [tripId, storeRemoveEvent]);
 
+  const setTripEventsHandler = useCallback((newEvents: Event[]) => {
+    if (!tripId) return;
+    storeSetEventsForTrip(tripId, newEvents);
+  }, [tripId, storeSetEventsForTrip]);
+
   // Create stable context value
   const contextValue = useMemo(() => ({
     tripId,
@@ -58,6 +70,7 @@ export const TripProvider: React.FC<{
     updateEvent: updateEventHandler,
     addEvent: addEventHandler,
     removeEvent: removeEventHandler,
+    setTripEvents: setTripEventsHandler,
   }), [
     tripId, 
     trip, 
@@ -65,7 +78,8 @@ export const TripProvider: React.FC<{
     focusedEventId, 
     updateEventHandler, 
     addEventHandler, 
-    removeEventHandler
+    removeEventHandler,
+    setTripEventsHandler
   ]);
 
   return (

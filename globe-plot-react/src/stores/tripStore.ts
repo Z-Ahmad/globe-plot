@@ -44,6 +44,7 @@ interface TripState {
   setTrips: (trips: Trip[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setEventsForTrip: (tripId: string, newEvents: Event[]) => void;
 }
 
 export const useTripStore = create<TripState>()(
@@ -764,6 +765,20 @@ export const useTripStore = create<TripState>()(
       setTrips: (trips) => set({ trips }),
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
+      setEventsForTrip: (tripId, newEvents) => {
+        set((state) => ({
+          trips: state.trips.map((trip) =>
+            trip.id === tripId
+              ? {
+                  ...trip,
+                  // Assuming newEvents are already in the correct string format for dates
+                  // as they come from enrichAndSaveEventCoordinates which processes them.
+                  events: newEvents,
+                }
+              : trip
+          ),
+        }));
+      },
     }),
     {
       name: 'trip-storage',

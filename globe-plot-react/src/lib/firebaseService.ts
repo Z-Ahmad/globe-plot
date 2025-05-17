@@ -359,3 +359,57 @@ export const batchUpdateEventCoordinates = async (
     throw error;
   }
 }; 
+
+// User specific functions for map refresh cooldown
+/**
+ * Retrieves the last map refresh timestamp for a user.
+ * @param userId The ID of the user.
+ * @returns A Promise that resolves to the timestamp (number in milliseconds) or null.
+ */
+export const getUserLastRefreshTimestamp = async (userId: string): Promise<number | null> => {
+  if (!userId) {
+    console.error("getUserLastRefreshTimestamp: userId is required.");
+    return null;
+  }
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData && userData.lastMapRefreshAt && userData.lastMapRefreshAt instanceof Timestamp) {
+        return userData.lastMapRefreshAt.toMillis();
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user last refresh timestamp:', error);
+    // It's generally safer not to throw here, as a missing timestamp is not a critical failure
+    // for the calling function, which should handle the null case.
+    return null; 
+  }
+};
+
+/**
+ * Updates the last map refresh timestamp for a user to the current server time.
+ * @param userId The ID of the user.
+ */
+export const updateUserLastRefreshTimestamp = async (userId: string): Promise<void> => {
+  if (!userId) {
+    console.error("updateUserLastRefreshTimestamp: userId is required.");
+    return;
+  }
+  try {
+    const userRef = doc(db, 'users', userId);
+    // Use setDoc with merge: true to create the document if it doesn't exist,
+    // or update it if it does.
+    await setDoc(userRef, {
+      lastMapRefreshAt: Timestamp.now()
+    }, { merge: true });
+    console.log(`Set/Updated lastMapRefreshAt for user ${userId}`);
+  } catch (error) {
+    console.error('Error setting/updating user last refresh timestamp:', error);
+    // Depending on requirements, you might want to re-throw or handle differently
+    // For now, just logging the error.
+  }
+}; 

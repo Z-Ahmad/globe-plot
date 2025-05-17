@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { Feature, LineString, GeoJSON, Point } from 'geojson';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -10,6 +10,8 @@ import { ArrowLeft, ArrowRight, Globe, Pin, RefreshCw } from 'lucide-react';
 import { useTripContext } from '@/context/TripContext';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
+import { useUserStore } from '@/stores/userStore';
+import { getUserLastRefreshTimestamp, updateUserLastRefreshTimestamp } from '@/lib/firebaseService';
 
 // You'll need to set your public Mapbox token in environment variables
 // For development, create a .env.local file with VITE_MAPBOX_TOKEN=your_token
@@ -21,14 +23,22 @@ const CUSTOM_STYLE_URL = 'mapbox://styles/zaki-ahmad/cmaqtn8yr00fx01r25vdp46c4';
 // Default map options
 const DEFAULT_CENTER = [-74.5, 40]; // Roughly center of US
 const DEFAULT_ZOOM = 1;
+const REFRESH_COOLDOWN_PERIOD = 2 * 60 * 1000; // 2 minutes in milliseconds
 
 interface MapViewProps {
   className?: string;
-  onRefreshCoordinates?: () => Promise<void>;
+  isVisible: boolean;
 }
 
-export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoordinates }) => {
-  const { events, focusedEventId, tripId, setFocusedEventId } = useTripContext();
+export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) => {
+  const { 
+    events, 
+    focusedEventId, 
+    tripId, 
+    setFocusedEventId, 
+    setTripEvents
+  } = useTripContext();
+  const user = useUserStore((state) => state.user);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,11 +47,85 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const [currentMapBounds, setCurrentMapBounds] = useState<mapboxgl.LngLatBounds | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAutoGeocoding, setIsAutoGeocoding] = useState(false);
+  const [isFlying, setIsFlying] = useState(false);
+  const [mapInitialized, setMapInitialized] = useState(false);
+  const [isRefreshOnCooldown, setIsRefreshOnCooldown] = useState(false);
+  const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState<string>('');
   
-  // Store sorted events with dates
-  const sortedEvents = events
+  // Helper function to close the current popup
+  const closeCurrentPopup = useCallback(() => {
+    if (popupRef.current) {
+      popupRef.current.remove();
+      popupRef.current = null;
+    }
+  }, []);
+  
+  // Helper function to show a popup for a given event and coordinates
+  const showPopupForEvent = useCallback((event: Event, coordinates: [number, number]) => {
+    if (!map.current) return;
+
+    closeCurrentPopup(); // Ensure any old popup is gone first
+
+    const locationName = 
+      (event.category === 'travel' && event.departure?.location?.name) ? 
+        event.departure.location.name : 
+      (event.category === 'accommodation' && event.checkIn?.location?.name) ?
+        (event.placeName || event.checkIn.location.name) :
+        (event.location?.name || '');
+        
+    const city = 
+      (event.category === 'travel' && event.departure?.location?.city) ? 
+        event.departure.location.city : 
+      (event.category === 'accommodation' && event.checkIn?.location?.city) ?
+        event.checkIn.location.city :
+        (event.location?.city || '');
+        
+    const country = 
+      (event.category === 'travel' && event.departure?.location?.country) ? 
+        event.departure.location.country : 
+      (event.category === 'accommodation' && event.checkIn?.location?.country) ?
+        event.checkIn.location.country :
+        (event.location?.country || '');
+
+    const popupContent = `
+      <div style="padding:4px 0;">
+        <h3 style="font-weight:bold;margin-bottom:6px;font-size:16px;">${event.title}</h3>
+        <p style="margin-bottom:4px;font-weight:500;">${locationName}</p>
+        ${city && country ? 
+          `<p style="margin-bottom:8px;font-size:13px;">${city}, ${country}</p>` : ''}
+        <div style="display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
+          <span style="font-size:12px;color:#666;text-transform:capitalize;padding:2px 6px;background:#f5f5f5;border-radius:4px;margin-right:8px;">
+            ${event.category} / ${event.type}
+          </span>
+          ${event.start ? `
+          <span style="font-size:12px;color:#666;">
+            ${new Date(event.start).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </span>` : ''}
+        </div>
+      </div>
+    `;
+
+    popupRef.current = new mapboxgl.Popup({ 
+      offset: 25,
+      closeButton: false,
+      maxWidth: '300px',
+      className: 'event-focus-popup'
+    })
+      .setLngLat(coordinates)
+      .setHTML(popupContent)
+      .addTo(map.current!);
+  }, [map, closeCurrentPopup]);
+
+  // Store sorted events with dates (Ensure this list only contains events with valid coordinates for navigation)
+  const navigableEvents = useMemo(() => events
     .filter(event => {
-      // Check if this event has coordinates
       return (
         (event.category === 'travel' && event.departure?.location?.geolocation) ||
         (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
@@ -51,23 +135,21 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
     .sort((a, b) => {
       if (!a.start || !b.start) return 0;
       return new Date(a.start).getTime() - new Date(b.start).getTime();
-    });
+    }), [events]);
   
-  // Update the current event index when focusEventId changes
+  // Update the current event index when focusEventId changes (relative to navigableEvents)
   useEffect(() => {
-    if (focusedEventId && sortedEvents.length > 0) {
-      // Find the index of the focused event in our sorted events
-      const index = sortedEvents.findIndex(event => event.id === focusedEventId);
-      
+    if (focusedEventId && navigableEvents.length > 0) {
+      const index = navigableEvents.findIndex(event => event.id === focusedEventId);
       if (index >= 0) {
-        // Found the event - update our current index
         setCurrentEventIndex(index);
-        console.log(`Focused on event index ${index} (${sortedEvents[index].title})`);
       } else {
-        console.log(`Event with ID ${focusedEventId} not found in sorted events or lacks coordinates`);
+        setCurrentEventIndex(null);
       }
+    } else if (!focusedEventId) {
+      setCurrentEventIndex(null);
     }
-  }, [focusedEventId, sortedEvents]);
+  }, [focusedEventId, navigableEvents]);
 
   // Function to reload the map if needed
   const initializeMap = () => {
@@ -181,55 +263,14 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
         
         // Add click event to show popups when clicking on markers
         map.current!.on('click', 'event-markers', (e) => {
+          if (isFlying) return; // Don't process clicks if map is animating
+
           if (!e.features || e.features.length === 0) return;
-          
           const feature = e.features[0];
-          const props = feature.properties;
-          if (!props) return;
+          if (!feature.properties || !feature.properties.id) return;
           
-          // Get coordinates for the clicked marker
-          const coordinates = (feature.geometry as Point).coordinates.slice() as [number, number];
-          
-          // Create HTML content for the popup
-          const popupContent = `
-            <div style="padding:4px 0;">
-              <h3 style="font-weight:bold;margin-bottom:6px;font-size:16px;">${props.title}</h3>
-              <p style="margin-bottom:4px;font-weight:500;">${props.locationName}</p>
-              ${props.city && props.country ? 
-                `<p style="margin-bottom:8px;font-size:13px;">${props.city}, ${props.country}</p>` : ''}
-              
-              <div style="display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
-                <span style="font-size:12px;color:#666;text-transform:capitalize;padding:2px 6px;background:#f5f5f5;border-radius:4px;margin-right:8px;">
-                  ${props.category} / ${props.type}
-                </span>
-                
-                ${props.start ? `
-                <span style="font-size:12px;color:#666;">
-                  ${new Date(props.start).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>` : ''}
-              </div>
-            </div>
-          `;
-          
-          // Close existing popup if one is open
-          if (popupRef.current) {
-            popupRef.current.remove();
-          }
-          
-          // Create and display the popup
-          popupRef.current = new mapboxgl.Popup({ 
-            offset: 25,
-            closeButton: false,
-            maxWidth: '300px'
-          })
-            .setLngLat(coordinates)
-            .setHTML(popupContent)
-            .addTo(map.current!);
+          const eventId = feature.properties.id as string;
+          setFocusedEventId(eventId); // Let the main useEffect handle flyTo and popup
         });
         
         // Change cursor to pointer when hovering over marker
@@ -453,37 +494,30 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
     }
   };
   
-  // Initialize map on component mount
+  // Initialize map on component mount if visible, or when it becomes visible for the first time
   useEffect(() => {
-    initializeMap();
-    
-    // Clean up on unmount
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
-  }, []);
-  
+    if (isVisible && !mapInitialized && mapContainer.current) {
+      initializeMap();
+      setMapInitialized(true);
+    }
+  }, [isVisible, mapInitialized, initializeMap]);
+
+  // Effect to handle map resizing when visibility changes
+  useEffect(() => {
+    if (isVisible && map.current) {
+      // Delay resize slightly to ensure container is fully visible and sized
+      const timer = setTimeout(() => {
+        map.current?.resize();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, map]);
+
   // Initial focus handling - when map first loads and we already have a focusedEventId
   useEffect(() => {
-    // When the map has loaded and is no longer in loading state
-    if (!loading && !error && map.current && focusedEventId && sortedEvents.length > 0) {
-      // Find the event in sorted events
-      const event = sortedEvents.find(e => e.id === focusedEventId);
-      if (event) {
-        // Find the index of the event
-        const index = sortedEvents.findIndex(e => e.id === focusedEventId);
-        setCurrentEventIndex(index); 
-        
-        // Slight delay to ensure the map has fully initialized
-        setTimeout(() => {
-          navigateToEvent(event);
-        }, 300);
-      }
+    if (!loading && !error && map.current && focusedEventId && navigableEvents.length > 0 && currentEventIndex !== null) {
     }
-  }, [loading, error, focusedEventId, sortedEvents]);
+  }, [loading, error, focusedEventId, navigableEvents, currentEventIndex, map]);
   
   // Add markers and routes when events change or map loads
   useEffect(() => {
@@ -495,273 +529,98 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
       
       return () => clearTimeout(timer);
     }
-  }, [events, loading, error, focusedEventId]); // Include focusedEventId so we don't reset view during focus
+  }, [events, loading, error, focusedEventId]);
 
-  // Effect to fly to a specific event when focusEventId changes
+  // MAIN Effect to fly to a specific event and show popup when focusEventId changes
   useEffect(() => {
-    if (!map.current || loading || error || !focusedEventId) return;
-    
-    // Find the event with the matching ID
-    const event = events.find(e => e.id === focusedEventId);
-    if (event) {
-      let coordinates: [number, number] | null = null;
-      
-      // Extract coordinates based on event category
-      if (event.category === 'travel' && event.departure?.location?.geolocation) {
-        coordinates = [
-          event.departure.location.geolocation.lng,
-          event.departure.location.geolocation.lat
-        ];
-      } else if (event.category === 'accommodation' && event.checkIn?.location?.geolocation) {
-        coordinates = [
-          event.checkIn.location.geolocation.lng,
-          event.checkIn.location.geolocation.lat
-        ];
-      } else if (event.location?.geolocation) {
-        coordinates = [
-          event.location.geolocation.lng,
-          event.location.geolocation.lat
-        ];
-      }
-      
-      if (coordinates) {
-        // Make sure we don't reset the view after focusing
-        console.log('Focusing on event:', event.title);
-        
-        // Close any existing popup first
-        if (popupRef.current) {
-          popupRef.current.remove();
-        }
-        
-        // Fly to the marker location with smooth animation
-        map.current.flyTo({
-          center: coordinates,
-          zoom: 14,
-          speed: 2.0, // Faster, smoother animation
-          curve: 1.5, // Natural curve
-          essential: true
-        });
-        
-        // Create HTML content for the popup
-        const locationName = 
-          (event.category === 'travel' && event.departure?.location?.name) ? 
-            event.departure.location.name : 
-          (event.category === 'accommodation' && event.checkIn?.location?.name) ?
-            (event.placeName || event.checkIn.location.name) :
-            (event.location?.name || '');
-            
-        const city = 
-          (event.category === 'travel' && event.departure?.location?.city) ? 
-            event.departure.location.city : 
-          (event.category === 'accommodation' && event.checkIn?.location?.city) ?
-            event.checkIn.location.city :
-            (event.location?.city || '');
-            
-        const country = 
-          (event.category === 'travel' && event.departure?.location?.country) ? 
-            event.departure.location.country : 
-          (event.category === 'accommodation' && event.checkIn?.location?.country) ?
-            event.checkIn.location.country :
-            (event.location?.country || '');
-            
-        // Create popup content
-        const popupContent = `
-          <div style="padding:4px 0;">
-            <h3 style="font-weight:bold;margin-bottom:6px;font-size:16px;">${event.title}</h3>
-            <p style="margin-bottom:4px;font-weight:500;">${locationName}</p>
-            ${city && country ? 
-              `<p style="margin-bottom:8px;font-size:13px;">${city}, ${country}</p>` : ''}
-            
-            <div style="display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
-              <span style="font-size:12px;color:#666;text-transform:capitalize;padding:2px 6px;background:#f5f5f5;border-radius:4px;margin-right:8px;">
-                ${event.category} / ${event.type}
-              </span>
-              
-              ${event.start ? `
-              <span style="font-size:12px;color:#666;">
-                ${new Date(event.start).toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>` : ''}
-            </div>
-          </div>
-        `;
-        
-        // Create and show the popup only when flying is complete
-        map.current.once('moveend', () => {
-          // Create popup after the animation is complete
-          popupRef.current = new mapboxgl.Popup({ 
-            offset: 25,
-            closeButton: false,
-            maxWidth: '300px',
-            className: 'event-focus-popup' // Add a custom class to identify this popup
-          })
-            .setLngLat(coordinates as [number, number])
-            .setHTML(popupContent)
-            .addTo(map.current!);
-        });
-      }
+    if (!isVisible || !mapInitialized || !map.current || loading || error) {
+      return;
     }
-  }, [focusedEventId, loading, error, events]);
+
+    if (!focusedEventId) {
+      closeCurrentPopup();
+      return;
+    }
+
+    const targetEvent = navigableEvents.find(e => e.id === focusedEventId);
+
+    if (!targetEvent) {
+      closeCurrentPopup();
+      return;
+    }
+
+    let coordinates: [number, number] | null = null;
+    if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
+      coordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
+    } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
+      coordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
+    } else if (targetEvent.location?.geolocation) {
+      coordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
+    }
+
+    if (!coordinates) {
+      closeCurrentPopup();
+      return;
+    }
+
+    closeCurrentPopup();
+    setIsFlying(true);
+
+    map.current.flyTo({
+      center: coordinates,
+      zoom: 14,
+      speed: 2.0,
+      curve: 1.2,
+      essential: true
+    });
+
+    const onMoveEnd = () => {
+      setIsFlying(false);
+      if (focusedEventId === targetEvent.id) {
+        showPopupForEvent(targetEvent, coordinates as [number, number]);
+      }
+    };
+    
+    map.current.once('moveend', onMoveEnd);
+
+    return () => {
+      if (map.current) {
+        map.current.off('moveend', onMoveEnd);
+      }
+      setIsFlying(false);
+    };
+
+  }, [focusedEventId, navigableEvents, map, loading, error, closeCurrentPopup, showPopupForEvent]);
+
   
   // Function to navigate to the next event
   const goToNextEvent = () => {
-    if (sortedEvents.length === 0) return;
+    if (navigableEvents.length === 0) return;
     
-    let eventToNavigateTo: Event;
+    const nextIndex = (currentEventIndex === null || currentEventIndex >= navigableEvents.length - 1) 
+      ? 0 
+      : currentEventIndex + 1;
     
-    if (currentEventIndex === null) {
-      // Start at the first event
-      setCurrentEventIndex(0);
-      eventToNavigateTo = sortedEvents[0];
-    } else {
-      // Go to the next event
-      const nextIndex = (currentEventIndex + 1) % sortedEvents.length;
-      setCurrentEventIndex(nextIndex);
-      eventToNavigateTo = sortedEvents[nextIndex];
+    const nextEvent = navigableEvents[nextIndex];
+    if (nextEvent && nextEvent.id) {
+      setFocusedEventId(nextEvent.id);
     }
-    
-    // Update the focused event ID in the context
-    if (eventToNavigateTo && eventToNavigateTo.id) {
-      setFocusedEventId(eventToNavigateTo.id);
-    }
-    
-    // Navigate to the selected event
-    navigateToEvent(eventToNavigateTo);
   };
   
   // Function to navigate to the previous event
   const goToPrevEvent = () => {
-    if (sortedEvents.length === 0) return;
-    
-    let eventToNavigateTo: Event;
-    
-    if (currentEventIndex === null) {
-      // Start at the last event
-      setCurrentEventIndex(sortedEvents.length - 1);
-      eventToNavigateTo = sortedEvents[sortedEvents.length - 1];
-    } else {
-      // Go to the previous event
-      const prevIndex = (currentEventIndex - 1 + sortedEvents.length) % sortedEvents.length;
-      setCurrentEventIndex(prevIndex);
-      eventToNavigateTo = sortedEvents[prevIndex];
+    if (navigableEvents.length === 0) return;
+
+    const prevIndex = (currentEventIndex === null || currentEventIndex <= 0)
+      ? navigableEvents.length - 1
+      : currentEventIndex - 1;
+      
+    const prevEvent = navigableEvents[prevIndex];
+    if (prevEvent && prevEvent.id) {
+      setFocusedEventId(prevEvent.id);
     }
-    
-    // Update the focused event ID in the context
-    if (eventToNavigateTo && eventToNavigateTo.id) {
-      setFocusedEventId(eventToNavigateTo.id);
-    }
-    
-    // Navigate to the selected event
-    navigateToEvent(eventToNavigateTo);
   };
   
-  // Helper function to navigate to an event
-  const navigateToEvent = (event: Event) => {
-    if (!map.current) return;
-    
-    let coordinates: [number, number] | null = null;
-    
-    // Extract coordinates based on event category
-    if (event.category === 'travel' && event.departure?.location?.geolocation) {
-      coordinates = [
-        event.departure.location.geolocation.lng,
-        event.departure.location.geolocation.lat
-      ];
-    } else if (event.category === 'accommodation' && event.checkIn?.location?.geolocation) {
-      coordinates = [
-        event.checkIn.location.geolocation.lng,
-        event.checkIn.location.geolocation.lat
-      ];
-    } else if (event.location?.geolocation) {
-      coordinates = [
-        event.location.geolocation.lng,
-        event.location.geolocation.lat
-      ];
-    }
-    
-    if (coordinates) {
-      // Close any existing popup
-      if (popupRef.current) {
-        popupRef.current.remove();
-      }
-      
-      // Fly to the event location with smooth animation
-      map.current.flyTo({
-        center: coordinates,
-        zoom: 14,
-        speed: 2.0, // Faster for smoother experience
-        curve: 1.5, // Natural curve
-        essential: true
-      });
-      
-      // Create HTML content for the popup
-      const locationName = 
-        (event.category === 'travel' && event.departure?.location?.name) ? 
-          event.departure.location.name : 
-        (event.category === 'accommodation' && event.checkIn?.location?.name) ?
-          (event.placeName || event.checkIn.location.name) :
-          (event.location?.name || '');
-          
-      const city = 
-        (event.category === 'travel' && event.departure?.location?.city) ? 
-          event.departure.location.city : 
-        (event.category === 'accommodation' && event.checkIn?.location?.city) ?
-          event.checkIn.location.city :
-          (event.location?.city || '');
-            
-      const country = 
-        (event.category === 'travel' && event.departure?.location?.country) ? 
-          event.departure.location.country : 
-        (event.category === 'accommodation' && event.checkIn?.location?.country) ?
-          event.checkIn.location.country :
-          (event.location?.country || '');
-      
-      // Create popup content
-      const popupContent = `
-        <div style="padding:4px 0;">
-          <h3 style="font-weight:bold;margin-bottom:6px;font-size:16px;">${event.title}</h3>
-          <p style="margin-bottom:4px;font-weight:500;">${locationName}</p>
-          ${city && country ? 
-            `<p style="margin-bottom:8px;font-size:13px;">${city}, ${country}</p>` : ''}
-          
-          <div style="display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
-            <span style="font-size:12px;color:#666;text-transform:capitalize;padding:2px 6px;background:#f5f5f5;border-radius:4px;margin-right:8px;">
-              ${event.category} / ${event.type}
-            </span>
-            
-            ${event.start ? `
-            <span style="font-size:12px;color:#666;">
-              ${new Date(event.start).toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>` : ''}
-          </div>
-        </div>
-      `;
-      
-      // Create and show the popup only when flying is complete
-      map.current.once('moveend', () => {
-        // Create popup after the animation is complete
-        popupRef.current = new mapboxgl.Popup({ 
-          offset: 25,
-          closeButton: false,
-          maxWidth: '300px',
-          className: 'event-focus-popup' // Add a custom class to identify this popup
-        })
-          .setLngLat(coordinates as [number, number])
-          .setHTML(popupContent)
-          .addTo(map.current!);
-      });
-    }
-  };
-
   // Function to preload all necessary sprites
   const preloadSprites = () => {
     if (!map.current) return;
@@ -905,38 +764,149 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
     }
   };
 
-  // Function to refresh all coordinates
+  // Effect for automatic geocoding of events missing coordinates (Scenario 1)
+  useEffect(() => {
+    if (!isVisible || !mapInitialized || !map.current) return;
+
+    const autoGeocodeEvents = async () => {
+      if (!tripId || !events || events.length === 0) {
+        return;
+      }
+
+      // Determine if geocoding is needed (forceUpdate = false logic)
+      const eventsMissingCoords = events.filter(event => {
+        if (event.category === 'travel') {
+          // Travel events: check departure primarily for map display, can extend to arrival if needed
+          return !event.departure?.location?.geolocation;
+        } else if (event.category === 'accommodation') {
+          return !event.checkIn?.location?.geolocation;
+        } else if (event.category === 'experience' || event.category === 'meal') {
+          return !event.location?.geolocation;
+        }
+        return false; // Default for unknown categories or events not needing map display
+      });
+
+      if (eventsMissingCoords.length > 0) {
+        console.log(`[MapView] ${eventsMissingCoords.length} events require initial automatic geocoding.`);
+        setIsAutoGeocoding(true);
+        try {
+          await enrichAndSaveEventCoordinates(tripId, events, false);
+          toast.success(`Successfully geocoded ${eventsMissingCoords.length} locations.`);
+        } catch (error) {
+          console.error("[MapView] Error during automatic geocoding:", error);
+          toast.error("Failed to automatically geocode some locations.");
+        } finally {
+          setIsAutoGeocoding(false);
+        }
+      } else {
+        console.log("[MapView] Automatic geocoding skipped, all relevant events have coordinates.");
+      }
+    };
+
+    autoGeocodeEvents();
+  }, [tripId, events]);
+
+  // Cooldown logic
+  const checkRefreshCooldown = useCallback(async (currentUserId?: string) => {
+    if (!currentUserId) {
+      setIsRefreshOnCooldown(false);
+      setCooldownEndTime(null);
+      setCooldownRemaining('');
+      return false;
+    }
+
+    const lastRefresh = await getUserLastRefreshTimestamp(currentUserId);
+    if (lastRefresh) {
+      const now = Date.now();
+      const endTime = lastRefresh + REFRESH_COOLDOWN_PERIOD;
+      if (now < endTime) {
+        setIsRefreshOnCooldown(true);
+        setCooldownEndTime(endTime);
+        return true;
+      }
+    }
+    setIsRefreshOnCooldown(false);
+    setCooldownEndTime(null);
+    setCooldownRemaining('');
+    return false;
+  }, []);
+
+  useEffect(() => {
+    if (isVisible && mapInitialized && user?.uid) {
+      checkRefreshCooldown(user.uid);
+    }
+  }, [isVisible, mapInitialized, user, checkRefreshCooldown]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    if (isRefreshOnCooldown && cooldownEndTime) {
+      const updateRemaining = () => {
+        const now = Date.now();
+        const remainingMs = Math.max(0, cooldownEndTime - now);
+        if (remainingMs === 0) {
+          setIsRefreshOnCooldown(false);
+          setCooldownEndTime(null);
+          setCooldownRemaining('');
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        setCooldownRemaining(`${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`);
+      };
+      updateRemaining(); // Initial call
+      intervalId = setInterval(updateRemaining, 1000);
+    } else {
+      setCooldownRemaining('');
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isRefreshOnCooldown, cooldownEndTime]);
+
+  // Function to refresh all coordinates (Scenario 2 - Refresh Button)
   const refreshCoordinates = async () => {
-    if (onRefreshCoordinates) {
-      // Use the function passed from Itinerary
-      await onRefreshCoordinates();
+    if (!user || !user.uid) {
+      toast.error("You must be signed in to refresh coordinates.");
       return;
     }
-    
-    // Fallback to local implementation
     if (!tripId) {
-      toast.error("No trip ID available");
+      toast.error("No trip ID available for refreshing coordinates.");
+      return;
+    }
+
+    const isOnCooldown = await checkRefreshCooldown(user.uid);
+    if (isOnCooldown && cooldownEndTime) {
+      const now = Date.now();
+      const remainingMs = Math.max(0, cooldownEndTime - now);
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      toast.error(`Please wait ${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s before refreshing again.`);
       return;
     }
     
+    console.log("[MapView] Refresh button clicked, forcing coordinate update for all events.");
     setIsRefreshing(true);
     try {
-      // Force update coordinates
-      const updatedEvents = await enrichAndSaveEventCoordinates(tripId, events, true);
-      toast.success(`Updated coordinates for ${updatedEvents.length} events`);
+      const locallyUpdatedEvents = await enrichAndSaveEventCoordinates(tripId, events, true);
       
-      // Reload map after a short delay
-      setTimeout(() => {
-        // Reset the map to fit all markers
-        if (map.current) {
-          // Re-initialize the map to reflect the updated events
-          initializeMap();
-        }
-        setIsRefreshing(false);
-      }, 500);
+      // Update the TripContext (and underlying store) immediately.
+      setTripEvents(locallyUpdatedEvents);
+      
+      toast.success(`Coordinates refreshed for ${locallyUpdatedEvents.length} events.`);
+      
+      if (map.current) {
+        addMarkersToMap();
+      }
+
     } catch (error) {
-      console.error("Error refreshing coordinates:", error);
-      toast.error("Failed to refresh coordinates");
+      console.error("[MapView] Error refreshing coordinates:", error);
+      toast.error("Failed to refresh coordinates for all locations.");
+    } finally {
+      await updateUserLastRefreshTimestamp(user.uid);
+      await checkRefreshCooldown(user.uid); 
       setIsRefreshing(false);
     }
   };
@@ -970,10 +940,9 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
   }
 
   return (
-    <div className={`relative h-[400px] overflow-hidden rounded-lg border ${className}`}>
+    <div className={`relative overflow-hidden rounded-lg border ${className}`}>
       <div ref={mapContainer} className="w-full h-full rounded-lg map-container">
-        {/* Navigation controls - placed inside the map container to be part of fullscreen */}
-        {!loading && sortedEvents.length > 0 && (
+        {!loading && navigableEvents.length > 0 && (
           <div className="map-navigation-controls absolute bottom-10 right-4 z-50 flex space-x-2">
             <Button 
               variant="secondary" 
@@ -989,40 +958,20 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
               variant="secondary"
               size="icon"
               onClick={() => {
-                // Reset map to show all markers
                 if (map.current) {
-                  // Get all features from the events source
                   const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
                   const data = source._data as GeoJSON.FeatureCollection<Point>;
                   
                   if (data && data.features && data.features.length > 0) {
-                    // Extract coordinates from features
                     const coordinates = data.features.map(f => f.geometry.coordinates as [number, number]);
-                    
-                    // Calculate bounds
                     const bounds = coordinates.reduce(
                       (acc, coord) => acc.extend(coord as mapboxgl.LngLatLike),
                       new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
                     );
-                    
-                    // Fit map to bounds
-                    map.current.fitBounds(bounds, {
-                      padding: 50,
-                      maxZoom: 13,
-                      duration: 1000
-                    });
+                    map.current.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
                   }
                   
-                  // Close any open popup
-                  if (popupRef.current) {
-                    popupRef.current.remove();
-                    popupRef.current = null;
-                  }
-                  
-                  // Reset current event index
-                  setCurrentEventIndex(null);
-                  
-                  // Clear focused event in the context
+                  closeCurrentPopup();
                   setFocusedEventId(null);
                 }
               }}
@@ -1046,21 +995,31 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", onRefreshCoord
               variant="secondary" 
               size="icon"
               onClick={refreshCoordinates}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isAutoGeocoding || isRefreshOnCooldown}
               className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50"
-              title="Refresh all coordinates"
+              title={
+                isRefreshOnCooldown 
+                  ? `Refresh on cooldown (${cooldownRemaining} remaining)` 
+                  : "Refresh all coordinates"
+              }
             >
-              <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-5 w-5 ${isRefreshing || isAutoGeocoding ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         )}
       </div>
       
-      {(loading || isRefreshing) && (
+      {(loading || isRefreshing || isAutoGeocoding) && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
           <div className="loading-spinner"></div>
           <span className="ml-2 text-sm font-medium">
-            {isRefreshing ? "Refreshing coordinates..." : "Loading map..."}
+            {isRefreshing 
+              ? "Refreshing all coordinates..." 
+              : isAutoGeocoding 
+                ? "Geocoding locations..."
+                : isFlying 
+                  ? "Moving to location..."
+                  : "Loading map..."}
           </span>
         </div>
       )}
