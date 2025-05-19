@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTripStore, Trip, Event, ExperienceEvent } from '../stores/tripStore';
 import { v4 as uuidv4 } from 'uuid';
+import { useUserStore } from '../stores/userStore';
+import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 
 import { EventEditor } from "@/components/EventEditor";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ export const NewTrip = () => {
   
   const navigate = useNavigate();
   const { addTrip } = useTripStore();
+  const { user } = useUserStore.getState();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -249,7 +252,7 @@ export const NewTrip = () => {
     const tripId = uuidv4();
     
     // Make sure all events have proper start/end times before saving
-    const normalizedEvents = editingEvents.map(event => {
+    let processedEvents = editingEvents.map(event => {
       // Create a copy of the event
       let updatedEvent = {...event};
       
@@ -350,6 +353,26 @@ export const NewTrip = () => {
       return updatedEvent;
     });
     
+    // If user is authenticated, geocode events before creating the trip
+    if (user) {
+      try {
+        console.log(`NewTrip: User authenticated, attempting to geocode ${processedEvents.length} events for trip ${tripId}`);
+        // Pass the tripId that will be assigned to newTrip.
+        // forceUpdate is false as these are new events.
+        processedEvents = await enrichAndSaveEventCoordinates(tripId, processedEvents, false);
+        const geocodedCount = processedEvents.filter(e => 
+          (e.location?.geolocation) || 
+          (e.category === 'travel' && e.departure?.location?.geolocation) ||
+          (e.category === 'accommodation' && e.checkIn?.location?.geolocation)
+        ).length;
+        console.log(`NewTrip: Geocoding complete, ${geocodedCount} events now have coordinates.`);
+      } catch (geoError) {
+        console.error('NewTrip: Error during geocoding events:', geoError);
+        toast.error('Could not geocode locations for some events. They can be geocoded later from the map view.');
+        // Continue with non-geocoded or partially geocoded events
+      }
+    }
+    
     // Process all uploaded documents
     const tripDocuments = documents.map(doc => ({
       id: doc.id,
@@ -365,7 +388,7 @@ export const NewTrip = () => {
       name,
       startDate,
       endDate,
-      events: normalizedEvents,
+      events: processedEvents,
       documents: tripDocuments
     };
     

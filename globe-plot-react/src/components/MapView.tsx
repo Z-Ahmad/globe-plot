@@ -25,6 +25,28 @@ const DEFAULT_CENTER = [-74.5, 40]; // Roughly center of US
 const DEFAULT_ZOOM = 1;
 const REFRESH_COOLDOWN_PERIOD = 2 * 60 * 1000; // 2 minutes in milliseconds
 
+// Helper to check if map is already reasonably focused on an event
+const isMapPositionedForEvent = (
+  mapInstance: mapboxgl.Map | null,
+  eventCoords: [number, number] | null,
+  targetZoom: number,
+  zoomThreshold = 0.5, // How close the zoom needs to be
+  distanceThreshold = 100 // How close the center needs to be (in meters)
+): boolean => {
+  if (!mapInstance || !eventCoords) return false;
+
+  const currentCenter = mapInstance.getCenter();
+  const currentZoom = mapInstance.getZoom();
+  const eventLngLat = new mapboxgl.LngLat(eventCoords[0], eventCoords[1]);
+
+  const distance = currentCenter.distanceTo(eventLngLat);
+  
+  return (
+    distance < distanceThreshold &&
+    Math.abs(currentZoom - targetZoom) < zoomThreshold
+  );
+};
+
 interface MapViewProps {
   className?: string;
   isVisible: boolean;
@@ -269,8 +291,25 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           const feature = e.features[0];
           if (!feature.properties || !feature.properties.id) return;
           
-          const eventId = feature.properties.id as string;
-          setFocusedEventId(eventId); // Let the main useEffect handle flyTo and popup
+          const clickedEventId = feature.properties.id as string;
+          const targetEvent = navigableEvents.find(evt => evt.id === clickedEventId);
+          if (!targetEvent) return;
+
+          let eventCoordinates: [number, number] | null = null;
+          if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
+            eventCoordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
+          } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
+            eventCoordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
+          } else if (targetEvent.location?.geolocation) {
+            eventCoordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
+          }
+
+          if (!eventCoordinates) return;
+
+          // Show popup immediately. showPopupForEvent handles closing any old one.
+          showPopupForEvent(targetEvent, eventCoordinates);
+          // Set focus, so the useEffect can handle map movement if necessary.
+          setFocusedEventId(clickedEventId); 
         });
         
         // Change cursor to pointer when hovering over marker
@@ -532,20 +571,22 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
   }, [events, loading, error, focusedEventId]);
 
   // MAIN Effect to fly to a specific event and show popup when focusEventId changes
+  // This effect is now primarily for map movement. Popup is handled by click or by this after move.
   useEffect(() => {
     if (!isVisible || !mapInitialized || !map.current || loading || error) {
       return;
     }
 
     if (!focusedEventId) {
+      // If focus is lost (e.g. programmatically), ensure popup is closed.
+      // Map view remains as is.
       closeCurrentPopup();
       return;
     }
 
     const targetEvent = navigableEvents.find(e => e.id === focusedEventId);
-
     if (!targetEvent) {
-      closeCurrentPopup();
+      closeCurrentPopup(); // Target event for focus is gone.
       return;
     }
 
@@ -559,38 +600,54 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
 
     if (!coordinates) {
-      closeCurrentPopup();
+      closeCurrentPopup(); // No coordinates for focused event.
       return;
     }
 
-    closeCurrentPopup();
-    setIsFlying(true);
+    const DESIRED_FOCUS_ZOOM = 14;
+    // Only fly if the map isn't already positioned for this event.
+    if (!isMapPositionedForEvent(map.current, coordinates, DESIRED_FOCUS_ZOOM)) {
+      setIsFlying(true);
+      map.current.flyTo({
+        center: coordinates as [number, number], // Cast as it's confirmed not null
+        zoom: DESIRED_FOCUS_ZOOM,
+        speed: 1.5, 
+        curve: 1,
+        essential: true
+      });
 
-    map.current.flyTo({
-      center: coordinates,
-      zoom: 14,
-      speed: 2.0,
-      curve: 1.2,
-      essential: true
-    });
+      const onMoveEnd = () => {
+        setIsFlying(false);
+        // After flying, if this is still the focused event, ensure its popup is shown.
+        // This handles cases where the click handler might not have opened it due to race conditions
+        // or if focus was set programmatically without an immediate click.
+        if (map.current && focusedEventId === targetEvent.id) {
+            // Defensive check: if a popup for this event isn't already open, show it.
+            // This handles the case where focus is set programmatically.
+            if (!popupRef.current || !popupRef.current.isOpen()) {
+                 showPopupForEvent(targetEvent, coordinates as [number, number]);
+            }
+        }
+      };
+      map.current.once('moveend', onMoveEnd);
 
-    const onMoveEnd = () => {
-      setIsFlying(false);
-      if (focusedEventId === targetEvent.id) {
-        showPopupForEvent(targetEvent, coordinates as [number, number]);
-      }
-    };
-    
-    map.current.once('moveend', onMoveEnd);
-
-    return () => {
-      if (map.current) {
-        map.current.off('moveend', onMoveEnd);
-      }
-      setIsFlying(false);
-    };
-
-  }, [focusedEventId, navigableEvents, map, loading, error, closeCurrentPopup, showPopupForEvent]);
+      return () => {
+        if (map.current) {
+          map.current.off('moveend', onMoveEnd);
+        }
+        setIsFlying(false);
+      };
+    } else {
+        // Map already positioned. Click handler would have shown popup.
+        // If focus set programmatically, and map already positioned, ensure popup.
+        if (map.current && focusedEventId === targetEvent.id) {
+            if (!popupRef.current || !popupRef.current.isOpen()) {
+                showPopupForEvent(targetEvent, coordinates as [number, number]);
+           }
+        }
+        setIsFlying(false); // Ensure this is reset if we don't fly
+    }
+  }, [focusedEventId, navigableEvents, map, loading, error, closeCurrentPopup, showPopupForEvent, isVisible, mapInitialized]);
 
   
   // Function to navigate to the next event
@@ -942,12 +999,13 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
   return (
     <div className={`relative overflow-hidden rounded-lg border ${className}`}>
       <div ref={mapContainer} className="w-full h-full rounded-lg map-container">
-        {!loading && navigableEvents.length > 0 && (
+        {!loading && events.length > 0 && (
           <div className="map-navigation-controls absolute bottom-10 right-4 z-50 flex space-x-2">
             <Button 
               variant="secondary" 
               size="icon" 
               onClick={goToPrevEvent}
+              disabled={navigableEvents.length === 0}
               className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
               title="Previous location"
             >
@@ -969,12 +1027,20 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
                       new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
                     );
                     map.current.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
+                  } else {
+                    // Fallback if no features with coordinates, e.g. fit to default or show a message
+                    map.current.flyTo({
+                      center: DEFAULT_CENTER as [number, number],
+                      zoom: DEFAULT_ZOOM,
+                      duration: 1000
+                    });
                   }
                   
                   closeCurrentPopup();
                   setFocusedEventId(null);
                 }
               }}
+              disabled={navigableEvents.length === 0}
               className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
               title="View all locations"
             >
@@ -985,6 +1051,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
               variant="secondary" 
               size="icon"
               onClick={goToNextEvent}
+              disabled={navigableEvents.length === 0}
               className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
               title="Next location"
             >
