@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import * as lookup from 'country-code-lookup';
+import { Country } from 'country-state-city';
 
 // Load environment variables
 dotenv.config();
@@ -26,31 +26,35 @@ const getCountryCode = (country?: string): string | undefined => {
     // Log the country name being looked up
     console.log(`Looking up country code for: "${country}"`);
     
-    // Try to look up the country by name
-    const result = lookup.byCountry(country) || lookup.byFips(country) || lookup.byIso(country);
+    // Check special cases first
+    const specialCases: Record<string, string> = {
+      'vatican city': 'VA',
+      'vatican': 'VA',
+      'holy see': 'VA',
+      'vatican city state': 'VA',
+      'vatican city state (holy see)': 'VA',
+      'palestine': 'PS',
+      'east timor': 'TL',
+      'timor-leste': 'TL'
+    };
     
-    if (result?.iso2) {
-      console.log(`Found country code for ${country}: ${result.iso2}`);
-      return result.iso2;
+    const normalized = country.toLowerCase().trim();
+    if (specialCases[normalized]) {
+      console.log(`Using special case mapping for ${country}: ${specialCases[normalized]}`);
+      return specialCases[normalized];
+    }
+    
+    // If no special case match, try the lookup using country-state-city
+    const result = Country.getAllCountries().find(c => 
+      c.name.toLowerCase() === normalized || 
+      c.isoCode.toLowerCase() === normalized
+    );
+    
+    if (result?.isoCode) {
+      console.log(`Found country code for ${country}: ${result.isoCode}`);
+      return result.isoCode;
     } else {
       console.warn(`No country code found for: "${country}"`);
-      
-      // Handle known edge cases via direct mapping
-      const specialCases: Record<string, string> = {
-        'vatican city': 'VA',
-        'vatican': 'VA',
-        'holy see': 'VA',
-        'palestine': 'PS',
-        'east timor': 'TL',
-        'timor-leste': 'TL'
-      };
-      
-      const normalized = country.toLowerCase().trim();
-      if (specialCases[normalized]) {
-        console.log(`Using special case mapping for ${country}: ${specialCases[normalized]}`);
-        return specialCases[normalized];
-      }
-      
       return undefined;
     }
   } catch (error) {
@@ -189,6 +193,7 @@ export const batchGeocodeController = async (req: Request, res: Response) => {
 
       // Convert country name to ISO 3166-1 alpha-2 code if provided
       const countryCode = getCountryCode(country);
+      console.log(`Geocoding location ${id}: Using country code ${countryCode} for country "${country}"`);
 
       try {
         // Call the Mapbox Search Box API
@@ -203,6 +208,13 @@ export const batchGeocodeController = async (req: Request, res: Response) => {
             }
           }
         );
+
+        // Log the API response for debugging
+        console.log(`Mapbox API response for ${id}:`, {
+          query: searchText,
+          countryCode,
+          result: response.data.features?.[0]?.properties
+        });
 
         // Extract the coordinates from the response
         if (response.data.features && response.data.features.length > 0) {
