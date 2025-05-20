@@ -137,4 +137,49 @@
   to {
     stroke-dashoffset: -12;
   }
+}
+
+/* Styles for the Event Popups (now HTML-based) */
+.event-details-popup .mapboxgl-popup-content {
+  /* background: transparent; */ /* Let event-popup-card handle background */
+  padding: 0; /* Remove default padding so our card's padding is the only one */
+  box-shadow: none; /* Remove default shadow, card handles its own */
+  border-radius: 8px; /* Match card's border-radius */
+}
+
+/* Tip of the popup */
+.event-details-popup .mapboxgl-popup-tip {
+  /* border-top-color: transparent !important; */ /* Re-evaluate if needed, depends on card bg */
+  /* If your card has a specific background color, you might want the tip to match it */
+  /* For example, if most cards are light: */
+  /* border-top-color: white; */ 
+  /* This needs to be dynamic or a sensible default if card colors vary a lot */
+}
+
+/* Styling the close button for React popups */
+.event-details-popup .mapboxgl-popup-close-button {
+  font-size: 1.5rem; /* Make the 'x' larger */
+  line-height: 1;
+  padding: 0.3rem 0.5rem; /* Adjust padding for better click area */
+  color: #555; /* A softer color for the 'x' */
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  width: 30px; /* Explicit width */
+  height: 30px; /* Explicit height */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 5px; /* Adjust position slightly */
+  right: 5px; /* Adjust position slightly */
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.event-details-popup .mapboxgl-popup-close-button:hover {
+  color: #000;
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Add hover effect for the clickable title in the HTML popup */
+.popup-event-title-button:hover {
+  text-decoration: underline;
 } 

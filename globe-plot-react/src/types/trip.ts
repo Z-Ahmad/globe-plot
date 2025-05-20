@@ -123,4 +123,6 @@ export interface EventStyle {
   bgColor: string; // Tailwind background color class
   borderColor: string; // Tailwind border color class
   hoverBgColor: string; // Tailwind hover background color class
+  cssColor?: string; // New: Actual CSS color value (e.g., 'var(--sky-700)')
+  cssBgColor?: string; // New: Actual CSS background-color value (e.g., 'var(--sky-50)')
 } 

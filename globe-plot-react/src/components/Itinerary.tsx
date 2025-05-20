@@ -405,6 +405,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
           <MapView 
             className="w-full h-full"
             isVisible={viewMode === 'map'}
+            onEditEventRequest={onEdit}
           />
         </div>
       </div>

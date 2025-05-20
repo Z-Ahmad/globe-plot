@@ -5,13 +5,17 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/styles/map.css';
 import { Event } from '@/types/trip';
 import { getEventStyle } from '@/styles/eventStyles';
-import { Button } from './ui/button';
-import { ArrowLeft, ArrowRight, Globe, Pin, RefreshCw } from 'lucide-react';
+// import { Button } from './ui/button'; // Button is used by MapInteractionControls, not directly here anymore
+// import { ArrowLeft, ArrowRight, Globe, RefreshCw } from 'lucide-react'; // Icons are used by MapInteractionControls
 import { useTripContext } from '@/context/TripContext';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import toast from 'react-hot-toast';
 import { useUserStore } from '@/stores/userStore';
 import { getUserLastRefreshTimestamp, updateUserLastRefreshTimestamp } from '@/lib/firebaseService';
+import { createRoot, Root } from 'react-dom/client';
+import { format } from 'date-fns';
+import { MapInteractionControls } from './MapInteractionControls'; // Import the new component
+import { EventPopupContent } from './EventPopupContent'; // Import the new component
 
 // You'll need to set your public Mapbox token in environment variables
 // For development, create a .env.local file with VITE_MAPBOX_TOKEN=your_token
@@ -47,12 +51,21 @@ const isMapPositionedForEvent = (
   );
 };
 
+// Interface for our popup with custom properties
+interface MapboxPopupWithListeners extends mapboxgl.Popup {
+  _associatedEventId?: string;
+  _customMapboxCloseListener?: () => void;
+  _customTitleClickListener?: (e: MouseEvent) => void;
+  _customTitleClickElement?: HTMLElement;
+}
+
 interface MapViewProps {
   className?: string;
   isVisible: boolean;
+  onEditEventRequest: (event: Event) => void;
 }
 
-export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) => {
+export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onEditEventRequest }) => {
   const { 
     events, 
     focusedEventId, 
@@ -63,11 +76,12 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
   const user = useUserStore((state) => state.user);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const popupRef = useRef<MapboxPopupWithListeners | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentEventIndex, setCurrentEventIndex] = useState<number | null>(null);
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const [activeNavigableEventIndex, setActiveNavigableEventIndex] = useState<number | null>(null);
   const [currentMapBounds, setCurrentMapBounds] = useState<mapboxgl.LngLatBounds | null>(null);
+  const [isInitialFitDone, setIsInitialFitDone] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAutoGeocoding, setIsAutoGeocoding] = useState(false);
   const [isFlying, setIsFlying] = useState(false);
@@ -76,76 +90,130 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState<string>('');
   
-  // Helper function to close the current popup
   const closeCurrentPopup = useCallback(() => {
     if (popupRef.current) {
-      popupRef.current.remove();
+      const popupToClose = popupRef.current;
       popupRef.current = null;
+
+      // Remove custom title click listener
+      if (popupToClose._customTitleClickListener && popupToClose._customTitleClickElement) {
+        popupToClose._customTitleClickElement.removeEventListener('click', popupToClose._customTitleClickListener);
+        popupToClose._customTitleClickElement = undefined;
+        popupToClose._customTitleClickListener = undefined;
+      }
+
+      // Remove Mapbox 'close' event listener 
+      if (popupToClose._customMapboxCloseListener) {
+        popupToClose.off('close', popupToClose._customMapboxCloseListener);
+        popupToClose._customMapboxCloseListener = undefined;
+      }
+      
+      popupToClose.remove();
     }
   }, []);
   
-  // Helper function to show a popup for a given event and coordinates
   const showPopupForEvent = useCallback((event: Event, coordinates: [number, number]) => {
-    if (!map.current) return;
+    if (!map.current || !event.id) return;
 
-    closeCurrentPopup(); // Ensure any old popup is gone first
+    closeCurrentPopup();
 
-    const locationName = 
-      (event.category === 'travel' && event.departure?.location?.name) ? 
-        event.departure.location.name : 
-      (event.category === 'accommodation' && event.checkIn?.location?.name) ?
-        (event.placeName || event.checkIn.location.name) :
-        (event.location?.name || '');
-        
-    const city = 
-      (event.category === 'travel' && event.departure?.location?.city) ? 
-        event.departure.location.city : 
-      (event.category === 'accommodation' && event.checkIn?.location?.city) ?
-        event.checkIn.location.city :
-        (event.location?.city || '');
-        
-    const country = 
-      (event.category === 'travel' && event.departure?.location?.country) ? 
-        event.departure.location.country : 
-      (event.category === 'accommodation' && event.checkIn?.location?.country) ?
-        event.checkIn.location.country :
-        (event.location?.country || '');
+    const style = getEventStyle(event);
+    // Use cssColor and cssBgColor from the style object for inline styling
+    const cssColor = style.cssColor || 'var(--gray-700)'; // Fallback to default gray
+    const cssBgColor = style.cssBgColor || 'var(--gray-50)'; // Fallback to default gray
 
-    const popupContent = `
-      <div style="padding:4px 0;">
-        <h3 style="font-weight:bold;margin-bottom:6px;font-size:16px;">${event.title}</h3>
-        <p style="margin-bottom:4px;font-weight:500;">${locationName}</p>
-        ${city && country ? 
-          `<p style="margin-bottom:8px;font-size:13px;">${city}, ${country}</p>` : ''}
-        <div style="display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
-          <span style="font-size:12px;color:#666;text-transform:capitalize;padding:2px 6px;background:#f5f5f5;border-radius:4px;margin-right:8px;">
-            ${event.category} / ${event.type}
-          </span>
-          ${event.start ? `
-          <span style="font-size:12px;color:#666;">
-            ${new Date(event.start).toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </span>` : ''}
+    let locationDisplay = event.location?.name || '';
+    if (!locationDisplay && event.location?.city) {
+      locationDisplay = event.location.city;
+      if (event.location.country) {
+        locationDisplay += `, ${event.location.country}`;
+      }
+    } else if (!locationDisplay && event.location?.country) {
+      locationDisplay = event.location.country;
+    }
+    if (event.category === 'travel') {
+      const departureName = event.departure?.location?.name || event.departure?.location?.city || 'N/A';
+      const arrivalName = event.arrival?.location?.name || event.arrival?.location?.city || 'N/A';
+      locationDisplay = `${departureName} → ${arrivalName}`;
+    } else if (event.category === 'accommodation') {
+      locationDisplay = event.placeName || event.checkIn?.location?.name || event.checkIn?.location?.city || 'N/A';
+    }
+
+    const startDateFormatted = event.start ? format(new Date(event.start), 'MMM d, yyyy, h:mm a') : '';
+    const endDateFormatted = event.start && event.end && event.end !== event.start ? format(new Date(event.end), 'h:mm a') : '';
+    
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
+    const popupHTML = `
+      <div class="event-popup-card" style="background-color: ${cssBgColor}; padding: 10px; border-radius: 8px; font-family: sans-serif; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: ${isMobile ? '90vw' : 'auto'}; min-width: ${isMobile ? 'none' : '260px'}; max-width: ${isMobile ? '280px' : '320px'};">
+        <div style="display: flex; align-items: flex-start; gap: 8px;"> 
+          <div style="flex-grow: 1; min-width: 0;">
+            <h3 
+              class="popup-event-title-button" 
+              style="font-weight: 600; font-size: 16px; margin-bottom: 4px; color: ${cssColor}; cursor: pointer;"
+              title="Edit this event"
+            >
+              ${event.title}
+            </h3>
+            ${locationDisplay ? `<p style="color: var(--gray-700); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${locationDisplay}">${locationDisplay}</p>` : ''}
+            <div style="font-size: 12px; color: var(--gray-600); line-height: 1.4;">
+              <p>
+                <span style="text-transform: capitalize; font-weight: 500; color: ${cssColor};">${event.category}</span> (${event.type})
+              </p>
+              ${startDateFormatted ? 
+                `<p>
+                  ${startDateFormatted}
+                  ${endDateFormatted ? ` - ${endDateFormatted}` : ''}
+                </p>` : ''}
+            </div>
+          </div>
         </div>
       </div>
     `;
+    
+    const newPopup = new mapboxgl.Popup({ 
+      closeButton: true, 
+      closeOnClick: true, 
+      offset: 25, 
+      className: 'event-details-popup',
+      maxWidth: '350px', // General upper limit for the popup instance
+      anchor: isMobile ? 'bottom' : undefined // Default anchor for desktop, 'bottom' for mobile
+    }) as MapboxPopupWithListeners;
 
-    popupRef.current = new mapboxgl.Popup({ 
-      offset: 25,
-      closeButton: false,
-      maxWidth: '300px',
-      className: 'event-focus-popup'
-    })
-      .setLngLat(coordinates)
-      .setHTML(popupContent)
-      .addTo(map.current!);
-  }, [map, closeCurrentPopup]);
+    newPopup.setLngLat(coordinates)
+      .setHTML(popupHTML)
+      .addTo(map.current);
 
-  // Store sorted events with dates (Ensure this list only contains events with valid coordinates for navigation)
+    newPopup._associatedEventId = event.id;
+
+    // Add click listener for the title AFTER popup is added and element exists
+    const popupElement = newPopup.getElement();
+    const titleElement = popupElement?.querySelector('.popup-event-title-button') as HTMLElement | null;
+
+    if (titleElement) {
+      const titleClickListener = (e: MouseEvent) => {
+        e.stopPropagation();
+        if (onEditEventRequest) {
+          onEditEventRequest(event);
+        }
+        setFocusedEventId(null); // Close popup
+      };
+      titleElement.addEventListener('click', titleClickListener);
+      newPopup._customTitleClickListener = titleClickListener;
+      newPopup._customTitleClickElement = titleElement;
+    }
+
+    const handleMapboxPopupClose = () => {
+      setFocusedEventId(null);
+      newPopup._customMapboxCloseListener = undefined; 
+    };
+
+    newPopup.on('close', handleMapboxPopupClose);
+    newPopup._customMapboxCloseListener = handleMapboxPopupClose;
+    
+    popupRef.current = newPopup;
+  }, [closeCurrentPopup, onEditEventRequest, setFocusedEventId, map]); // map added to deps
+
   const navigableEvents = useMemo(() => events
     .filter(event => {
       return (
@@ -159,23 +227,34 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
       return new Date(a.start).getTime() - new Date(b.start).getTime();
     }), [events]);
   
-  // Update the current event index when focusEventId changes (relative to navigableEvents)
+  // Effect to manage the activeNavigableEventIndex based on focusedEventId and available navigableEvents
   useEffect(() => {
-    if (focusedEventId && navigableEvents.length > 0) {
+    if (navigableEvents.length === 0) {
+      setActiveNavigableEventIndex(null); // No navigable events, no index
+      return;
+    }
+
+    if (focusedEventId) {
       const index = navigableEvents.findIndex(event => event.id === focusedEventId);
       if (index >= 0) {
-        setCurrentEventIndex(index);
+        setActiveNavigableEventIndex(index); // Event is focused and navigable, update index
       } else {
-        setCurrentEventIndex(null);
+        // focusedEventId is set, but the event isn't in navigableEvents (e.g. lost coords / filtered out)
+        // Keep activeNavigableEventIndex as is, unless it's now out of bounds for the new navigableEvents list.
+        if (activeNavigableEventIndex !== null && activeNavigableEventIndex >= navigableEvents.length) {
+          setActiveNavigableEventIndex(null); // Was out of bounds, reset
+        }
       }
-    } else if (!focusedEventId) {
-      setCurrentEventIndex(null);
+    } else {
+      // focusedEventId is null (popup closed). activeNavigableEventIndex STAYS AS IS.
+      // However, if navigableEvents changed making the current index invalid, reset it.
+      if (activeNavigableEventIndex !== null && activeNavigableEventIndex >= navigableEvents.length) {
+        setActiveNavigableEventIndex(null); // Index became out of bounds, reset
+      }
     }
-  }, [focusedEventId, navigableEvents]);
+  }, [focusedEventId, navigableEvents]); // activeNavigableEventIndex is NOT in deps, it's what this effect SETS.
 
-  // Function to reload the map if needed
   const initializeMap = () => {
-    // Clean up existing map first
     if (map.current) {
       map.current.remove();
       map.current = null;
@@ -183,48 +262,40 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     
     if (!mapContainer.current) return;
     
-    // Check if Mapbox token is available
     if (!MAPBOX_TOKEN) {
       setError('Mapbox API token is missing. Please set the VITE_MAPBOX_TOKEN environment variable.');
       setLoading(false);
       return;
     }
 
-    // Set the Mapbox access token
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
     try {
       setLoading(true);
       
-      // Initialize the map with the custom style that contains our sprites
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: CUSTOM_STYLE_URL, // Using our custom style with sprites
+        style: CUSTOM_STYLE_URL,
         center: DEFAULT_CENTER as [number, number],
         zoom: DEFAULT_ZOOM,
         attributionControl: true,
-        maxZoom: 17, // Allow higher zoom for detail
-        minZoom: 1, // Minimum zoom level
+        maxZoom: 17,
+        minZoom: 1,
         localIdeographFontFamily: "'Noto Sans', 'Noto Sans CJK SC', sans-serif",
-        fadeDuration: 100, // Faster fade for smoother transitions
-        renderWorldCopies: true, // Better experience when zooming out
+        fadeDuration: 100,
+        renderWorldCopies: true,
       });
 
-      // Add navigation controls (zoom, rotate)
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       
-      // Add fullscreen control
       map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
-      // Wait for map to load before adding markers
       map.current.on('load', () => {
         console.log('Map style loaded');
         
-        // Check available images for debugging
         const availableImages = map.current?.listImages() || [];
         console.log(`Map loaded with ${availableImages.length} built-in sprites`);
         
-        // Add a source for route lines
         map.current!.addSource('routes', {
           type: 'geojson',
           data: {
@@ -233,7 +304,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           }
         });
         
-        // Add a source for event markers
         map.current!.addSource('events', {
           type: 'geojson',
           data: {
@@ -242,7 +312,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           }
         });
         
-        // Add a layer for route lines
         map.current!.addLayer({
           id: 'routes',
           type: 'line',
@@ -259,7 +328,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
               'accommodation', '#7e22ce',
               'experience', '#047857',
               'meal', '#c2410c',
-              '#374151' // default
+              '#374151'
             ],
             'line-width': 2,
             'line-opacity': 0.7,
@@ -267,14 +336,11 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           }
         });
         
-        // Add a layer for event markers using sprite images
         map.current!.addLayer({
           id: 'event-markers',
           type: 'symbol',
           source: 'events',
           layout: {
-            // Using direct sprite names without the 'styled-' prefix
-            // Use the spriteId property which matches our sprite naming format
             'icon-image': ['get', 'spriteId'],
             'icon-size': 1,
             'icon-allow-overlap': true,
@@ -283,77 +349,51 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           }
         });
         
-        // Add click event to show popups when clicking on markers
         map.current!.on('click', 'event-markers', (e) => {
-          if (isFlying) return; // Don't process clicks if map is animating
+          if (isFlying) return;
 
           if (!e.features || e.features.length === 0) return;
           const feature = e.features[0];
           if (!feature.properties || !feature.properties.id) return;
           
           const clickedEventId = feature.properties.id as string;
-          const targetEvent = navigableEvents.find(evt => evt.id === clickedEventId);
-          if (!targetEvent) return;
-
-          let eventCoordinates: [number, number] | null = null;
-          if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
-            eventCoordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
-          } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
-            eventCoordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
-          } else if (targetEvent.location?.geolocation) {
-            eventCoordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
-          }
-
-          if (!eventCoordinates) return;
-
-          // Show popup immediately. showPopupForEvent handles closing any old one.
-          showPopupForEvent(targetEvent, eventCoordinates);
-          // Set focus, so the useEffect can handle map movement if necessary.
           setFocusedEventId(clickedEventId); 
         });
         
-        // Change cursor to pointer when hovering over marker
         map.current!.on('mouseenter', 'event-markers', () => {
           if (map.current) {
             map.current.getCanvas().style.cursor = 'pointer';
           }
         });
         
-        // Change cursor back when not hovering over marker
         map.current!.on('mouseleave', 'event-markers', () => {
           if (map.current) {
             map.current.getCanvas().style.cursor = '';
           }
         });
 
-        // Handle missing sprites - at this point map.current is guaranteed to exist
         map.current!.on('styleimagemissing', (e) => {
-          const id = e.id; // missing image id
+          const id = e.id;
           console.log(`Loading missing sprite: ${id}`);
           
-          // Try to load the sprite from our local SVGs folder
           fetch(`/svgs/${id}.svg`)
             .then(response => {
               if (!response.ok) throw new Error(`Failed to load SVG: ${response.status}`);
               return response.text();
             })
             .then(svgText => {
-              // Create an image from the SVG
               const img = new Image();
               img.onload = () => {
                 if (!map.current) return;
                 
-                // Create a canvas to draw the image
                 const canvas = document.createElement('canvas');
                 canvas.width = 34;
                 canvas.height = 34;
                 const ctx = canvas.getContext('2d');
                 
                 if (ctx) {
-                  // Draw the image on the canvas
                   ctx.drawImage(img, 0, 0, 34, 34);
                   
-                  // Add the image to the map
                   const imageData = ctx.getImageData(0, 0, 34, 34);
                   map.current.addImage(id, { 
                     width: 34, 
@@ -363,7 +403,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
                 }
               };
               
-              // Create a data URL from the SVG
               img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
             })
             .catch(error => {
@@ -376,10 +415,8 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         
         setLoading(false);
         
-        // Add markers immediately after the map is loaded
         addMarkersToMap();
         
-        // Preload all necessary sprites
         preloadSprites();
       });
     } catch (error) {
@@ -389,27 +426,22 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   };
   
-  // Function to add markers to the map
   const addMarkersToMap = () => {
     if (!map.current || loading || error) return;
     
     console.log('Adding markers to map...');
     
-    // Store valid coordinates for bounds calculation
     const validCoordinates: [number, number][] = [];
     const validEvents: { id: string; coordinates: [number, number]; category: string }[] = [];
 
-    // Create GeoJSON features for each event
     const features: Feature<Point>[] = [];
     
-    // Add markers for each event with coordinates
     events.forEach(event => {
       let coordinates: [number, number] | null = null;
       let locationName = '';
       let city = '';
       let country = '';
       
-      // Extract coordinates and name based on event category
       if (event.category === 'travel' && event.departure?.location?.geolocation) {
         coordinates = [
           event.departure.location.geolocation.lng,
@@ -436,9 +468,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         country = event.location.country || '';
       }
 
-      // If we have coordinates, add a GeoJSON feature
       if (coordinates && coordinates[0] && coordinates[1]) {
-        // Valid coordinates for bounds calculation
         validCoordinates.push(coordinates);
         validEvents.push({
           id: event.id,
@@ -446,7 +476,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
           category: event.category
         });
 
-        // Create GeoJSON feature for this event
         features.push({
           type: 'Feature',
           id: event.id,
@@ -455,8 +484,8 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
             title: event.title,
             category: event.category,
             type: event.type,
-            sprite: `${event.category}/${event.type}`, // Full sprite path for matching
-            spriteId: `styled-${event.category}-${event.type}`, // Matches styled- prefix in Mapbox Studio
+            sprite: `${event.category}/${event.type}`,
+            spriteId: `styled-${event.category}-${event.type}`,
             locationName: locationName,
             city: city,
             country: country,
@@ -471,7 +500,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
       }
     });
 
-    // Update the events source with our GeoJSON features
     if (map.current.getSource('events')) {
       (map.current.getSource('events') as mapboxgl.GeoJSONSource).setData({
         type: 'FeatureCollection',
@@ -479,9 +507,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
       });
     }
 
-    // Draw route lines between events
     if (validEvents.length > 1 && map.current) {
-      // Filter out events with valid chronological order
       const sortedEvents = validEvents
         .map(event => ({ 
           ...event, 
@@ -490,7 +516,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         .filter(event => event.start)
         .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
       
-      // Create features for the route lines
       const lineFeatures: Feature<LineString>[] = [];
       
       for (let i = 0; i < sortedEvents.length - 1; i++) {
@@ -509,7 +534,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         } as Feature<LineString>);
       }
       
-      // Update the routes source
       if (map.current.getSource('routes')) {
         (map.current.getSource('routes') as mapboxgl.GeoJSONSource).setData({
           type: 'FeatureCollection',
@@ -518,8 +542,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
       }
     }
 
-    // Fit map to bounds if we have coordinates and we're not focusing on a specific event
-    if (validCoordinates.length > 0 && !focusedEventId) {
+    if (validCoordinates.length > 0 && !isInitialFitDone) {
       const bounds = validCoordinates.reduce(
         (bounds, coord) => bounds.extend(coord as mapboxgl.LngLatLike),
         new mapboxgl.LngLatBounds(validCoordinates[0], validCoordinates[0])
@@ -530,10 +553,10 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         maxZoom: 13,
         duration: 1000
       });
+      setIsInitialFitDone(true);
     }
   };
   
-  // Initialize map on component mount if visible, or when it becomes visible for the first time
   useEffect(() => {
     if (isVisible && !mapInitialized && mapContainer.current) {
       initializeMap();
@@ -541,10 +564,8 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   }, [isVisible, mapInitialized, initializeMap]);
 
-  // Effect to handle map resizing when visibility changes
   useEffect(() => {
     if (isVisible && map.current) {
-      // Delay resize slightly to ensure container is fully visible and sized
       const timer = setTimeout(() => {
         map.current?.resize();
       }, 0);
@@ -552,16 +573,13 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   }, [isVisible, map]);
 
-  // Initial focus handling - when map first loads and we already have a focusedEventId
   useEffect(() => {
-    if (!loading && !error && map.current && focusedEventId && navigableEvents.length > 0 && currentEventIndex !== null) {
+    if (!loading && !error && map.current && focusedEventId && navigableEvents.length > 0 && activeNavigableEventIndex !== null) {
     }
-  }, [loading, error, focusedEventId, navigableEvents, currentEventIndex, map]);
+  }, [loading, error, focusedEventId, navigableEvents, activeNavigableEventIndex, map]);
   
-  // Add markers and routes when events change or map loads
   useEffect(() => {
     if (map.current && !loading && !error) {
-      // Small delay to ensure map is fully loaded
       const timer = setTimeout(() => {
         addMarkersToMap();
       }, 500);
@@ -570,46 +588,56 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   }, [events, loading, error, focusedEventId]);
 
-  // MAIN Effect to fly to a specific event and show popup when focusEventId changes
-  // This effect is now primarily for map movement. Popup is handled by click or by this after move.
   useEffect(() => {
     if (!isVisible || !mapInitialized || !map.current || loading || error) {
       return;
     }
 
     if (!focusedEventId) {
-      // If focus is lost (e.g. programmatically), ensure popup is closed.
-      // Map view remains as is.
       closeCurrentPopup();
       return;
     }
 
-    const targetEvent = navigableEvents.find(e => e.id === focusedEventId);
+    const targetEvent = events.find(e => e.id === focusedEventId);
+
     if (!targetEvent) {
-      closeCurrentPopup(); // Target event for focus is gone.
+      closeCurrentPopup();
       return;
     }
 
-    let coordinates: [number, number] | null = null;
+    let currentEventCoordinates: [number, number] | null = null;
     if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
-      coordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
+      currentEventCoordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
     } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
-      coordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
+      currentEventCoordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
     } else if (targetEvent.location?.geolocation) {
-      coordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
+      currentEventCoordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
     }
 
-    if (!coordinates) {
-      closeCurrentPopup(); // No coordinates for focused event.
+    if (!currentEventCoordinates) {
+      closeCurrentPopup();
       return;
     }
 
+    if (
+      popupRef.current &&
+      popupRef.current.isOpen() &&
+      popupRef.current._associatedEventId === focusedEventId
+    ) {
+      const popupLngLat = popupRef.current.getLngLat();
+      if (popupLngLat.lng === currentEventCoordinates[0] && popupLngLat.lat === currentEventCoordinates[1]) {
+        return;
+      }
+      closeCurrentPopup(); 
+    } else if (popupRef.current && popupRef.current.isOpen()) {
+      closeCurrentPopup();
+    }
+    
     const DESIRED_FOCUS_ZOOM = 14;
-    // Only fly if the map isn't already positioned for this event.
-    if (!isMapPositionedForEvent(map.current, coordinates, DESIRED_FOCUS_ZOOM)) {
+    if (!isMapPositionedForEvent(map.current, currentEventCoordinates, DESIRED_FOCUS_ZOOM)) {
       setIsFlying(true);
       map.current.flyTo({
-        center: coordinates as [number, number], // Cast as it's confirmed not null
+        center: currentEventCoordinates as [number, number],
         zoom: DESIRED_FOCUS_ZOOM,
         speed: 1.5, 
         curve: 1,
@@ -618,15 +646,10 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
 
       const onMoveEnd = () => {
         setIsFlying(false);
-        // After flying, if this is still the focused event, ensure its popup is shown.
-        // This handles cases where the click handler might not have opened it due to race conditions
-        // or if focus was set programmatically without an immediate click.
         if (map.current && focusedEventId === targetEvent.id) {
-            // Defensive check: if a popup for this event isn't already open, show it.
-            // This handles the case where focus is set programmatically.
-            if (!popupRef.current || !popupRef.current.isOpen()) {
-                 showPopupForEvent(targetEvent, coordinates as [number, number]);
-            }
+          if (!popupRef.current || !popupRef.current.isOpen() || popupRef.current._associatedEventId !== targetEvent.id) {
+            showPopupForEvent(targetEvent, currentEventCoordinates as [number, number]);
+          }
         }
       };
       map.current.once('moveend', onMoveEnd);
@@ -638,39 +661,50 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         setIsFlying(false);
       };
     } else {
-        // Map already positioned. Click handler would have shown popup.
-        // If focus set programmatically, and map already positioned, ensure popup.
-        if (map.current && focusedEventId === targetEvent.id) {
-            if (!popupRef.current || !popupRef.current.isOpen()) {
-                showPopupForEvent(targetEvent, coordinates as [number, number]);
-           }
-        }
-        setIsFlying(false); // Ensure this is reset if we don't fly
+      setIsFlying(false); 
+      if (!popupRef.current || !popupRef.current.isOpen() || popupRef.current._associatedEventId !== targetEvent.id) {
+         showPopupForEvent(targetEvent, currentEventCoordinates as [number, number]);
+      }
     }
-  }, [focusedEventId, navigableEvents, map, loading, error, closeCurrentPopup, showPopupForEvent, isVisible, mapInitialized]);
+  }, [
+    focusedEventId, 
+    events,
+    isVisible, 
+    mapInitialized, 
+    map, 
+    loading, 
+    error, 
+    closeCurrentPopup, 
+    showPopupForEvent,
+    setFocusedEventId
+  ]);
 
-  
-  // Function to navigate to the next event
   const goToNextEvent = () => {
     if (navigableEvents.length === 0) return;
     
-    const nextIndex = (currentEventIndex === null || currentEventIndex >= navigableEvents.length - 1) 
-      ? 0 
-      : currentEventIndex + 1;
+    let nextIndex;
+    if (activeNavigableEventIndex === null) {
+      nextIndex = 0; // If no current navigation point, start from the beginning
+    } else {
+      nextIndex = (activeNavigableEventIndex + 1) % navigableEvents.length;
+    }
     
     const nextEvent = navigableEvents[nextIndex];
     if (nextEvent && nextEvent.id) {
+      // Setting focusedEventId will trigger the useEffect above to update activeNavigableEventIndex
       setFocusedEventId(nextEvent.id);
     }
   };
   
-  // Function to navigate to the previous event
   const goToPrevEvent = () => {
     if (navigableEvents.length === 0) return;
 
-    const prevIndex = (currentEventIndex === null || currentEventIndex <= 0)
-      ? navigableEvents.length - 1
-      : currentEventIndex - 1;
+    let prevIndex;
+    if (activeNavigableEventIndex === null) {
+      prevIndex = navigableEvents.length - 1; // If no current navigation point, go to the end
+    } else {
+      prevIndex = (activeNavigableEventIndex - 1 + navigableEvents.length) % navigableEvents.length;
+    }
       
     const prevEvent = navigableEvents[prevIndex];
     if (prevEvent && prevEvent.id) {
@@ -678,34 +712,27 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   };
   
-  // Function to preload all necessary sprites
   const preloadSprites = () => {
     if (!map.current) return;
     
-    // List of all possible sprite combinations we might need
     const sprites = [
-      // Travel category sprites
       'styled-travel-flight',
       'styled-travel-train',
       'styled-travel-car',
       'styled-travel-boat',
       'styled-travel-bus',
       'styled-travel-other',
-      // Accommodation category sprites
       'styled-accommodation-hotel',
       'styled-accommodation-hostel',
       'styled-accommodation-airbnb',
       'styled-accommodation-other',
-      // Experience category sprites
       'styled-experience-activity',
       'styled-experience-tour',
       'styled-experience-museum',
       'styled-experience-concert',
       'styled-experience-other',
-      // Meal category sprites
       'styled-meal-restaurant',
       'styled-meal-other',
-      // Category fallbacks
       'styled-travel',
       'styled-accommodation',
       'styled-experience',
@@ -713,11 +740,9 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
       'styled-default'
     ];
     
-    // Check which sprites are already loaded
     const existingImages = map.current.listImages();
     const missingSprites = sprites.filter(sprite => !existingImages.includes(sprite));
     
-    // If no sprites are missing, we're done
     if (missingSprites.length === 0) {
       console.log('All sprites already loaded in the map');
       return;
@@ -725,31 +750,25 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     
     console.log(`Loading ${missingSprites.length} custom map sprites`);
     
-    // Load each missing sprite from local SVGs
     missingSprites.forEach(sprite => {
-      // Load the sprite from SVG file in public/svgs directory
       fetch(`/svgs/${sprite}.svg`)
         .then(response => {
           if (!response.ok) throw new Error(`Failed to load SVG: ${response.status}`);
           return response.text();
         })
         .then(svgText => {
-          // Create an image from the SVG
           const img = new Image();
           img.onload = () => {
             if (!map.current) return;
             
-            // Create a canvas to draw the image
             const canvas = document.createElement('canvas');
             canvas.width = 34;
             canvas.height = 34;
             const ctx = canvas.getContext('2d');
             
             if (ctx) {
-              // Draw the image on the canvas
               ctx.drawImage(img, 0, 0, 34, 34);
               
-              // Add the image to the map
               const imageData = ctx.getImageData(0, 0, 34, 34);
               map.current.addImage(sprite, { 
                 width: 34, 
@@ -759,7 +778,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
             }
           };
           
-          // Create a data URL from the SVG
           img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
         })
         .catch(error => {
@@ -769,14 +787,11 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     });
   };
   
-  // Function to create a fallback circle for a specific sprite ID
   const createFallbackCircle = (id: string) => {
     if (!map.current) return;
     
-    // Don't recreate existing images
     if (map.current.hasImage(id)) return;
     
-    // Create a fallback colored circle as a canvas
     const size = 24;
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -784,33 +799,30 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     const ctx = canvas.getContext('2d');
     
     if (ctx) {
-      // Draw a circle with category-based color
       ctx.beginPath();
       ctx.arc(size/2, size/2, size/2 - 2, 0, Math.PI * 2);
       
-      // Set fill color based on category
       if (id.includes('travel')) {
-        ctx.fillStyle = '#e0f2fe'; // Light blue
-        ctx.strokeStyle = '#0369a1'; // Darker blue
+        ctx.fillStyle = '#e0f2fe';
+        ctx.strokeStyle = '#0369a1';
       } else if (id.includes('accommodation')) {
-        ctx.fillStyle = '#fae8ff'; // Light purple
-        ctx.strokeStyle = '#be123c'; // Red/purple
+        ctx.fillStyle = '#fae8ff';
+        ctx.strokeStyle = '#be123c';
       } else if (id.includes('experience')) {
-        ctx.fillStyle = '#ecfdf5'; // Light green
-        ctx.strokeStyle = '#15803d'; // Dark green
+        ctx.fillStyle = '#ecfdf5';
+        ctx.strokeStyle = '#15803d';
       } else if (id.includes('meal')) {
-        ctx.fillStyle = '#ffedd5'; // Light orange
-        ctx.strokeStyle = '#ea580c'; // Dark orange
+        ctx.fillStyle = '#ffedd5';
+        ctx.strokeStyle = '#ea580c';
       } else {
-        ctx.fillStyle = '#f9fafb'; // Light gray
-        ctx.strokeStyle = '#374151'; // Dark gray
+        ctx.fillStyle = '#f9fafb';
+        ctx.strokeStyle = '#374151';
       }
       
       ctx.fill();
       ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Add the image to the map
       const imageData = ctx.getImageData(0, 0, size, size);
       map.current.addImage(id, { 
         width: size, 
@@ -821,7 +833,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     }
   };
 
-  // Effect for automatic geocoding of events missing coordinates (Scenario 1)
   useEffect(() => {
     if (!isVisible || !mapInitialized || !map.current) return;
 
@@ -830,17 +841,15 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         return;
       }
 
-      // Determine if geocoding is needed (forceUpdate = false logic)
       const eventsMissingCoords = events.filter(event => {
         if (event.category === 'travel') {
-          // Travel events: check departure primarily for map display, can extend to arrival if needed
           return !event.departure?.location?.geolocation;
         } else if (event.category === 'accommodation') {
           return !event.checkIn?.location?.geolocation;
         } else if (event.category === 'experience' || event.category === 'meal') {
           return !event.location?.geolocation;
         }
-        return false; // Default for unknown categories or events not needing map display
+        return false;
       });
 
       if (eventsMissingCoords.length > 0) {
@@ -863,7 +872,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     autoGeocodeEvents();
   }, [tripId, events]);
 
-  // Cooldown logic
   const checkRefreshCooldown = useCallback(async (currentUserId?: string) => {
     if (!currentUserId) {
       setIsRefreshOnCooldown(false);
@@ -912,7 +920,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
         const seconds = totalSeconds % 60;
         setCooldownRemaining(`${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`);
       };
-      updateRemaining(); // Initial call
+      updateRemaining();
       intervalId = setInterval(updateRemaining, 1000);
     } else {
       setCooldownRemaining('');
@@ -922,7 +930,6 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     };
   }, [isRefreshOnCooldown, cooldownEndTime]);
 
-  // Function to refresh all coordinates (Scenario 2 - Refresh Button)
   const refreshCoordinates = async () => {
     if (!user || !user.uid) {
       toast.error("You must be signed in to refresh coordinates.");
@@ -949,13 +956,21 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     try {
       const locallyUpdatedEvents = await enrichAndSaveEventCoordinates(tripId, events, true);
       
-      // Update the TripContext (and underlying store) immediately.
       setTripEvents(locallyUpdatedEvents);
-      
       toast.success(`Coordinates refreshed for ${locallyUpdatedEvents.length} events.`);
-      
+
       if (map.current) {
-        addMarkersToMap();
+        addMarkersToMap(); 
+      }
+
+      if (focusedEventId) {
+        const stillFocusedEvent = locallyUpdatedEvents.find(e => e.id === focusedEventId);
+        if (!stillFocusedEvent || 
+            (!(stillFocusedEvent.location?.geolocation) && 
+             !(stillFocusedEvent.category === 'travel' && stillFocusedEvent.departure?.location?.geolocation) && 
+             !(stillFocusedEvent.category === 'accommodation' && stillFocusedEvent.checkIn?.location?.geolocation)) ) {
+          setFocusedEventId(null);
+        }
       }
 
     } catch (error) {
@@ -1000,79 +1015,57 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible }) =
     <div className={`relative overflow-hidden rounded-lg border ${className}`}>
       <div ref={mapContainer} className="w-full h-full rounded-lg map-container">
         {!loading && events.length > 0 && (
-          <div className="map-navigation-controls absolute bottom-10 right-4 z-50 flex space-x-2">
-            <Button 
-              variant="secondary" 
-              size="icon" 
-              onClick={goToPrevEvent}
-              disabled={navigableEvents.length === 0}
-              className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
-              title="Previous location"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => {
-                if (map.current) {
-                  const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
-                  const data = source._data as GeoJSON.FeatureCollection<Point>;
-                  
-                  if (data && data.features && data.features.length > 0) {
-                    const coordinates = data.features.map(f => f.geometry.coordinates as [number, number]);
-                    const bounds = coordinates.reduce(
-                      (acc, coord) => acc.extend(coord as mapboxgl.LngLatLike),
-                      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
-                    );
-                    map.current.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
-                  } else {
-                    // Fallback if no features with coordinates, e.g. fit to default or show a message
+          <MapInteractionControls 
+            onPrevEvent={goToPrevEvent}
+            onNextEvent={goToNextEvent}
+            onViewAllLocations={() => {
+              if (map.current) {
+                closeCurrentPopup();
+                setFocusedEventId(null);
+
+                const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
+                if (source && typeof source.setData === 'function') {
+                    const data = source._data as GeoJSON.FeatureCollection<Point>;
+                    if (data && data.features && data.features.length > 0) {
+                        const coordinates = data.features
+                            .map(f => f.geometry && f.geometry.type === 'Point' ? f.geometry.coordinates as [number, number] : null)
+                            .filter(c => c !== null) as [number, number][];
+                        
+                        if (coordinates.length > 0) {
+                            const bounds = coordinates.reduce(
+                                (acc, coord) => acc.extend(coord as mapboxgl.LngLatLike),
+                                new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+                            );
+                            map.current.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 1000 });
+                        } else {
+                            map.current.flyTo({
+                                center: DEFAULT_CENTER as [number, number],
+                                zoom: DEFAULT_ZOOM,
+                                duration: 1000
+                            });
+                        }
+                    } else {
+                        map.current.flyTo({
+                            center: DEFAULT_CENTER as [number, number],
+                            zoom: DEFAULT_ZOOM,
+                            duration: 1000
+                        });
+                    }
+                } else {
                     map.current.flyTo({
-                      center: DEFAULT_CENTER as [number, number],
-                      zoom: DEFAULT_ZOOM,
-                      duration: 1000
+                        center: DEFAULT_CENTER as [number, number],
+                        zoom: DEFAULT_ZOOM,
+                        duration: 1000
                     });
-                  }
-                  
-                  closeCurrentPopup();
-                  setFocusedEventId(null);
                 }
-              }}
-              disabled={navigableEvents.length === 0}
-              className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
-              title="View all locations"
-            >
-              <Globe className="h-5 w-5" />
-            </Button>
-            
-            <Button 
-              variant="secondary" 
-              size="icon"
-              onClick={goToNextEvent}
-              disabled={navigableEvents.length === 0}
-              className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
-              title="Next location"
-            >
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-            
-            <Button 
-              variant="secondary" 
-              size="icon"
-              onClick={refreshCoordinates}
-              disabled={isRefreshing || isAutoGeocoding || isRefreshOnCooldown}
-              className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50"
-              title={
-                isRefreshOnCooldown 
-                  ? `Refresh on cooldown (${cooldownRemaining} remaining)` 
-                  : "Refresh all coordinates"
               }
-            >
-              <RefreshCw className={`h-5 w-5 ${isRefreshing || isAutoGeocoding ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+            }}
+            onRefreshCoordinates={refreshCoordinates}
+            isNavigationDisabled={navigableEvents.length === 0}
+            isRefreshing={isRefreshing || isAutoGeocoding}
+            isRefreshOnCooldown={isRefreshOnCooldown}
+            cooldownRemaining={cooldownRemaining}
+          />
         )}
       </div>
       
