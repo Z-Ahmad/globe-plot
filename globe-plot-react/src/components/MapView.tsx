@@ -112,6 +112,57 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
     }
   }, []);
   
+  // Helper function to check if an event is part of a cluster (has other events nearby)
+  const isEventInCluster = useCallback((eventId: string): boolean => {
+    if (!map.current || !map.current.isStyleLoaded()) return false;
+    
+    const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
+    if (!source) return false;
+    
+    const data = source._data as GeoJSON.FeatureCollection<Point>;
+    if (!data || !data.features) return false;
+    
+    // Find the target event's coordinates
+    const targetFeature = data.features.find(f => f.properties?.id === eventId);
+    if (!targetFeature || targetFeature.geometry.type !== 'Point') return false;
+    
+    const targetCoords = targetFeature.geometry.coordinates as [number, number];
+    
+    // Check if there are other events within a small radius (indicating clustering)
+    const nearbyEvents = data.features.filter(f => {
+      if (f.properties?.id === eventId || f.geometry.type !== 'Point') return false;
+      
+      const coords = f.geometry.coordinates as [number, number];
+      const distance = Math.sqrt(
+        Math.pow(coords[0] - targetCoords[0], 2) + 
+        Math.pow(coords[1] - targetCoords[1], 2)
+      );
+      
+      // If distance is less than our offset radius * 2, it's likely clustered
+      return distance < 0.0002; // Slightly larger than our offset radius
+    });
+    
+    return nearbyEvents.length > 0;
+  }, []);
+
+  // Helper function to get the actual marker coordinates for an event
+  const getMarkerCoordinatesForEvent = useCallback((eventId: string): [number, number] | null => {
+    if (!map.current || !map.current.isStyleLoaded()) return null;
+    
+    const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
+    if (!source) return null;
+    
+    // Get the feature data from the source
+    const data = source._data as GeoJSON.FeatureCollection<Point>;
+    if (!data || !data.features) return null;
+    
+    // Find the feature for this event
+    const feature = data.features.find(f => f.properties?.id === eventId);
+    if (!feature || feature.geometry.type !== 'Point') return null;
+    
+    return feature.geometry.coordinates as [number, number];
+  }, []);
+
   const showPopupForEvent = useCallback((event: Event, coordinates: [number, number]) => {
     if (!map.current || !event.id) return;
 
@@ -204,7 +255,11 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
     }
 
     const handleMapboxPopupClose = () => {
-      setFocusedEventId(null);
+      // Only clear focusedEventId if this popup is still the current one
+      // This prevents interference when switching between events
+      if (popupRef.current === newPopup) {
+        setFocusedEventId(null);
+      }
       newPopup._customMapboxCloseListener = undefined; 
     };
 
@@ -463,6 +518,15 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
 
     const features: Feature<Point>[] = [];
     
+    // First pass: collect all events with their base coordinates
+    const eventsWithCoords: Array<{
+      event: Event;
+      baseCoordinates: [number, number];
+      locationName: string;
+      city: string;
+      country: string;
+    }> = [];
+    
     events.forEach(event => {
       let coordinates: [number, number] | null = null;
       let locationName = '';
@@ -496,33 +560,102 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       }
 
       if (coordinates && coordinates[0] && coordinates[1]) {
+        eventsWithCoords.push({
+          event,
+          baseCoordinates: coordinates,
+          locationName,
+          city,
+          country
+        });
+      }
+    });
+
+    // Group events by coordinates (rounded to avoid floating point issues)
+    const coordinateGroups = new Map<string, typeof eventsWithCoords>();
+    
+    eventsWithCoords.forEach(item => {
+      const coordKey = `${item.baseCoordinates[0].toFixed(6)},${item.baseCoordinates[1].toFixed(6)}`;
+      if (!coordinateGroups.has(coordKey)) {
+        coordinateGroups.set(coordKey, []);
+      }
+      coordinateGroups.get(coordKey)!.push(item);
+    });
+
+    // Second pass: create markers with smart positioning
+    coordinateGroups.forEach((groupItems) => {
+      if (groupItems.length === 1) {
+        // Single event - use original coordinates
+        const item = groupItems[0];
+        const coordinates = item.baseCoordinates;
+        
         validCoordinates.push(coordinates);
         validEvents.push({
-          id: event.id,
+          id: item.event.id,
           coordinates: coordinates,
-          category: event.category
+          category: item.event.category
         });
 
         features.push({
           type: 'Feature',
-          id: event.id,
+          id: item.event.id,
           properties: {
-            id: event.id,
-            title: event.title,
-            category: event.category,
-            type: event.type,
-            sprite: `${event.category}/${event.type}`,
-            spriteId: `styled-${event.category}-${event.type}`,
-            locationName: locationName,
-            city: city,
-            country: country,
-            start: event.start,
-            end: event.end
+            id: item.event.id,
+            title: item.event.title,
+            category: item.event.category,
+            type: item.event.type,
+            sprite: `${item.event.category}/${item.event.type}`,
+            spriteId: `styled-${item.event.category}-${item.event.type}`,
+            locationName: item.locationName,
+            city: item.city,
+            country: item.country,
+            start: item.event.start,
+            end: item.event.end
           },
           geometry: {
             type: 'Point',
             coordinates: coordinates
           }
+        });
+      } else {
+        // Multiple events - spread them in a small circle
+        const baseCoords = groupItems[0].baseCoordinates;
+        const offsetRadius = 0.0001; // Very small offset in degrees (~11 meters)
+        
+        groupItems.forEach((item, index) => {
+          // Calculate offset position in a circle
+          const angle = (index * 2 * Math.PI) / groupItems.length;
+          const offsetLng = baseCoords[0] + (offsetRadius * Math.cos(angle));
+          const offsetLat = baseCoords[1] + (offsetRadius * Math.sin(angle));
+          const offsetCoordinates: [number, number] = [offsetLng, offsetLat];
+          
+          validCoordinates.push(offsetCoordinates);
+          validEvents.push({
+            id: item.event.id,
+            coordinates: offsetCoordinates,
+            category: item.event.category
+          });
+
+          features.push({
+            type: 'Feature',
+            id: item.event.id,
+            properties: {
+              id: item.event.id,
+              title: item.event.title,
+              category: item.event.category,
+              type: item.event.type,
+              sprite: `${item.event.category}/${item.event.type}`,
+              spriteId: `styled-${item.event.category}-${item.event.type}`,
+              locationName: item.locationName,
+              city: item.city,
+              country: item.country,
+              start: item.event.start,
+              end: item.event.end
+            },
+            geometry: {
+              type: 'Point',
+              coordinates: offsetCoordinates
+            }
+          });
         });
       }
     });
@@ -616,7 +749,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
   }, [events, loading, error]);
 
   useEffect(() => {
-    if (!isVisible || !mapInitialized || !map.current || loading || error) {
+    if (!isVisible || !mapInitialized || !map.current) {
       return;
     }
 
@@ -632,39 +765,64 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       return;
     }
 
-    let currentEventCoordinates: [number, number] | null = null;
-    if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
-      currentEventCoordinates = [targetEvent.departure.location.geolocation.lng, targetEvent.departure.location.geolocation.lat];
-    } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
-      currentEventCoordinates = [targetEvent.checkIn.location.geolocation.lng, targetEvent.checkIn.location.geolocation.lat];
-    } else if (targetEvent.location?.geolocation) {
-      currentEventCoordinates = [targetEvent.location.geolocation.lng, targetEvent.location.geolocation.lat];
+    // Get the actual marker coordinates (which may be offset due to clustering)
+    const currentEventCoordinates = getMarkerCoordinatesForEvent(focusedEventId);
+
+    // Fall back to original event coordinates if marker coordinates aren't available yet
+    let coordinatesToUse: [number, number] | null = currentEventCoordinates;
+    
+    if (!coordinatesToUse) {
+      // Extract original coordinates from the event
+      if (targetEvent.category === 'travel' && targetEvent.departure?.location?.geolocation) {
+        coordinatesToUse = [
+          targetEvent.departure.location.geolocation.lng,
+          targetEvent.departure.location.geolocation.lat
+        ];
+      } else if (targetEvent.category === 'accommodation' && targetEvent.checkIn?.location?.geolocation) {
+        coordinatesToUse = [
+          targetEvent.checkIn.location.geolocation.lng,
+          targetEvent.checkIn.location.geolocation.lat
+        ];
+      } else if (targetEvent.location?.geolocation) {
+        coordinatesToUse = [
+          targetEvent.location.geolocation.lng,
+          targetEvent.location.geolocation.lat
+        ];
+      }
     }
 
-    if (!currentEventCoordinates) {
+    if (!coordinatesToUse) {
       closeCurrentPopup();
       return;
     }
 
-    if (
-      popupRef.current &&
-      popupRef.current.isOpen() &&
-      popupRef.current._associatedEventId === focusedEventId
-    ) {
-      const popupLngLat = popupRef.current.getLngLat();
-      if (popupLngLat.lng === currentEventCoordinates[0] && popupLngLat.lat === currentEventCoordinates[1]) {
-        return;
+    // Check if this event is part of a cluster to determine appropriate zoom level
+    // Only do cluster detection if we have the actual marker coordinates
+    const isInCluster = currentEventCoordinates ? isEventInCluster(focusedEventId) : false;
+    const DESIRED_FOCUS_ZOOM = isInCluster ? 18 : 14; // Higher zoom for clustered events
+
+    // Check if we need to close an existing popup for a different event
+    if (popupRef.current && popupRef.current.isOpen()) {
+      if (popupRef.current._associatedEventId !== focusedEventId) {
+        // Different event - close the current popup
+        closeCurrentPopup();
+      } else {
+        // Same event - check if coordinates match
+        const popupLngLat = popupRef.current.getLngLat();
+        if (popupLngLat.lng === coordinatesToUse[0] && popupLngLat.lat === coordinatesToUse[1]) {
+          // Same event, same coordinates - nothing to do
+          return;
+        } else {
+          // Same event but different coordinates (shouldn't happen, but handle it)
+          closeCurrentPopup();
+        }
       }
-      closeCurrentPopup(); 
-    } else if (popupRef.current && popupRef.current.isOpen()) {
-      closeCurrentPopup();
     }
     
-    const DESIRED_FOCUS_ZOOM = 14;
-    if (!isMapPositionedForEvent(map.current, currentEventCoordinates, DESIRED_FOCUS_ZOOM)) {
+    if (!isMapPositionedForEvent(map.current, coordinatesToUse, DESIRED_FOCUS_ZOOM)) {
       setIsFlying(true);
       map.current.flyTo({
-        center: currentEventCoordinates as [number, number],
+        center: coordinatesToUse as [number, number],
         zoom: DESIRED_FOCUS_ZOOM,
         speed: 1.5, 
         curve: 1,
@@ -674,9 +832,8 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       const onMoveEnd = () => {
         setIsFlying(false);
         if (map.current && focusedEventId === targetEvent.id) {
-          if (!popupRef.current || !popupRef.current.isOpen() || popupRef.current._associatedEventId !== targetEvent.id) {
-            showPopupForEvent(targetEvent, currentEventCoordinates as [number, number]);
-          }
+          // Always show popup after map movement, regardless of current popup state
+          showPopupForEvent(targetEvent, coordinatesToUse as [number, number]);
         }
       };
       map.current.once('moveend', onMoveEnd);
@@ -689,9 +846,13 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       };
     } else {
       setIsFlying(false); 
-      if (!popupRef.current || !popupRef.current.isOpen() || popupRef.current._associatedEventId !== targetEvent.id) {
-         showPopupForEvent(targetEvent, currentEventCoordinates as [number, number]);
-      }
+      // Map is already positioned correctly - show popup immediately
+      // Use a small timeout to ensure any previous popup close operations have completed
+      setTimeout(() => {
+        if (focusedEventId === targetEvent.id) {
+          showPopupForEvent(targetEvent, coordinatesToUse as [number, number]);
+        }
+      }, 10);
     }
   }, [
     focusedEventId, 
@@ -703,7 +864,10 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
     error, 
     closeCurrentPopup, 
     showPopupForEvent,
-    setFocusedEventId
+    setFocusedEventId,
+    getMarkerCoordinatesForEvent,
+    isEventInCluster,
+    isMapPositionedForEvent
   ]);
 
   const goToNextEvent = () => {
