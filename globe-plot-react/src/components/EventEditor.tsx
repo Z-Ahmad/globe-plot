@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Info, Loader, Map } from 'lucide-react';
-import { geocodeLocation } from '@/lib/mapboxService';
+import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
 import { CountryDropdown } from './CountryDropdown';
 import { focusEventOnMap } from '@/context/TripContext';
 
@@ -64,17 +64,17 @@ interface EventFormProps {
   setEditingEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   containerStyle?: string; // Optional style for the container
   onClose?: () => void; // Add onClose prop
+  onSave?: (updatedEvent: Event) => void; // Add onSave prop
 }
 
 const EventForm: React.FC<EventFormProps> = ({
   editingEvent,
   setEditingEvent,
   onClose,
+  onSave,
 }) => {
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const user = useUserStore((state) => state.user);
-  const isAuthenticated = !!user;
-  const { tripId, setFocusedEventId } = useTripContext();
+  const { setFocusedEventId, events } = useTripContext();
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -193,152 +193,67 @@ const EventForm: React.FC<EventFormProps> = ({
   // Get available types for the current category
   const availableTypes = getTypesForCategory(editingEvent.category);
 
-  // Function to get the current location data based on event type
-  const getCurrentLocationData = () => {
-    if (editingEvent.category === 'travel') {
-      return {
-        name: editingEvent.departure?.location?.name || '',
-        city: editingEvent.departure?.location?.city || '',
-        country: editingEvent.departure?.location?.country || '',
-      };
-    } else if (editingEvent.category === 'accommodation') {
-      return {
-        name: editingEvent.checkIn?.location?.name || '',
-        city: editingEvent.checkIn?.location?.city || '',
-        country: editingEvent.checkIn?.location?.country || '',
-      };
-    } else {
-      return {
-        name: editingEvent.location?.name || '',
-        city: editingEvent.location?.city || '',
-        country: editingEvent.location?.country || '',
-      };
-    }
-  };
-
   // Function to view the event on the map
   const handleViewOnMap = async () => {
-    // Check if we have coordinates already
+    // Check if event already has coordinates
     const hasCoordinates = !!(
       (editingEvent.category === 'travel' && editingEvent.departure?.location?.geolocation) ||
       (editingEvent.category === 'accommodation' && editingEvent.checkIn?.location?.geolocation) ||
       (editingEvent.location?.geolocation)
     );
-    
-    // If we don't have coordinates, get them first
-    if (!hasCoordinates) {
-      // Check if we have enough location data to get coordinates
-      const locationData = getCurrentLocationData();
-      if (!locationData.city && !locationData.country && !locationData.name) {
-        toast.error('Please enter a location name, city, or country first');
-        return;
-      }
-      
-      // Check if user is authenticated
-      if (!isAuthenticated) {
-        toast.error('Please sign in to use location services');
-        return;
-      }
-      
-      setIsGeocoding(true);
-      try {
-        // Determine the location type based on event category
-        let locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location';
-        
-        if (editingEvent.category === 'travel') {
-          locationType = 'departure.location';
-        } else if (editingEvent.category === 'accommodation') {
-          locationType = 'checkIn.location';
-        } else {
-          locationType = 'location';
-        }
-        
-        // Check if this is a temporary event (UUID format) that hasn't been saved to Firestore yet
-        const isTemporaryEvent = editingEvent.id && editingEvent.id.includes('-');
-        
-        const result = await geocodeLocation(
-          locationData, 
-          editingEvent.id, 
-          tripId || undefined, 
-          locationType
-        );
-        
-        if (result) {
-          // Update the event with coordinates and potentially improved location data
-          if (editingEvent.category === 'travel') {
-            setEditingEvent({
-              ...editingEvent,
-              departure: {
-                ...editingEvent.departure,
-                location: {
-                  ...(editingEvent.departure?.location || {}),
-                  geolocation: {
-                    lat: result.lat,
-                    lng: result.lng
-                  },
-                  // Update city/country if they were missing
-                  city: editingEvent.departure?.location?.city || result.city,
-                  country: editingEvent.departure?.location?.country || result.country,
-                }
-              }
-            });
-          } else if (editingEvent.category === 'accommodation') {
-            setEditingEvent({
-              ...editingEvent,
-              checkIn: {
-                ...editingEvent.checkIn,
-                location: {
-                  ...(editingEvent.checkIn?.location || {}),
-                  geolocation: {
-                    lat: result.lat,
-                    lng: result.lng
-                  },
-                  city: editingEvent.checkIn?.location?.city || result.city,
-                  country: editingEvent.checkIn?.location?.country || result.country,
-                }
-              }
-            });
-          } else {
-            setEditingEvent({
-              ...editingEvent,
-              location: {
-                ...(editingEvent.location || {}),
-                geolocation: {
-                  lat: result.lat,
-                  lng: result.lng
-                },
-                city: editingEvent.location?.city || result.city,
-                country: editingEvent.location?.country || result.country,
-              }
-            });
-          }
-          
-          toast.success('Location coordinates found');
-        } else {
-          toast.error('Could not find coordinates for this location');
-          return; // Exit early if we can't find coordinates
-        }
-      } catch (error) {
-        console.error('Error finding coordinates:', error);
-        toast.error('Error finding coordinates');
-        return; // Exit early if there's an error
-      } finally {
-        setIsGeocoding(false);
-      }
-    }
-    
-    // Set the focused event in the trip context
-    if (editingEvent.id) {
-      // Focus the event on the map
+
+    if (hasCoordinates) {
+      // Event already has coordinates, just focus on map
       setFocusedEventId(editingEvent.id);
-      
-      // Use the context bridge to focus and switch to map view
       focusEventOnMap(editingEvent.id);
       
       // Close the dialog if onClose prop is provided
       if (onClose) {
         onClose();
       }
+      return;
+    }
+
+    // Event doesn't have coordinates, need to geocode first
+    setIsGeocoding(true);
+    try {
+      // Create a wrapper function that updates both local state and calls onSave
+      const updateEventWrapper = async (updatedEvent: Event) => {
+        // Update local state for immediate UI feedback
+        setEditingEvent(updatedEvent);
+        
+        // Save the event if onSave is available
+        if (onSave) {
+          await onSave(updatedEvent);
+        }
+      };
+
+      const result = await geocodeEventForMap(editingEvent, updateEventWrapper);
+      
+      if (result.success && result.event) {
+        toast.success('Location coordinates found!');
+        
+        // Wait for the event to be updated in the context before focusing
+        await waitForEventUpdateAndFocus(
+          result.event.id,
+          events,
+          setFocusedEventId,
+          focusEventOnMap,
+          2000
+        );
+        
+        // Close the dialog if onClose prop is provided
+        if (onClose) {
+          onClose();
+        }
+      } else {
+        toast.error(result.error || 'Could not find coordinates for this location');
+      }
+    } catch (error) {
+      console.error('Error geocoding event:', error);
+      toast.error('Failed to find location coordinates');
+    } finally {
+      setIsGeocoding(false);
     }
   };
 
@@ -1238,6 +1153,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             editingEvent={editingEvent} 
             setEditingEvent={setEditingEvent}
             onClose={onClose}
+            onSave={onSave}
           />
           
           <DialogFooter>
@@ -1272,6 +1188,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               editingEvent={editingEvent} 
               setEditingEvent={setEditingEvent}
               onClose={onClose}
+              onSave={onSave}
             />
           </div>
           

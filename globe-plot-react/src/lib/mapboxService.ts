@@ -547,4 +547,198 @@ function hasCoordinatesInFirestore(event: Event, locationType: string): boolean 
   
   // No coordinates found
   return false;
+}
+
+/**
+ * Geocodes a single event's location and updates the event with coordinates
+ * Used by EventCard's "View on Map" functionality
+ */
+export async function geocodeEventForMap(
+  event: Event,
+  updateEventCallback: (updatedEvent: Event) => Promise<void>
+): Promise<{ success: boolean; event?: Event; error?: string }> {
+  try {
+    // Check if event already has coordinates
+    const hasCoordinates = !!(
+      (event.category === 'travel' && event.departure?.location?.geolocation) ||
+      (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
+      (event.location?.geolocation)
+    );
+
+    if (hasCoordinates) {
+      return { success: true, event };
+    }
+
+    // Get the location data to geocode based on event category
+    let locationToGeocode: Partial<Location>;
+    let locationType: 'location' | 'departure.location' | 'arrival.location' | 'checkIn.location' | 'checkOut.location';
+
+    if (event.category === 'travel') {
+      if (!event.departure?.location) {
+        return { 
+          success: false, 
+          error: 'Travel event is missing departure location information.' 
+        };
+      }
+      locationToGeocode = event.departure.location;
+      locationType = 'departure.location';
+    } else if (event.category === 'accommodation') {
+      if (!event.checkIn?.location) {
+        return { 
+          success: false, 
+          error: 'Accommodation event is missing check-in location information.' 
+        };
+      }
+      locationToGeocode = event.checkIn.location;
+      locationType = 'checkIn.location';
+    } else {
+      if (!event.location) {
+        return { 
+          success: false, 
+          error: 'Event is missing location information.' 
+        };
+      }
+      locationToGeocode = event.location;
+      locationType = 'location';
+    }
+
+    // Check if we have enough location data to geocode
+    if (!locationToGeocode.city && !locationToGeocode.country && !locationToGeocode.name) {
+      return { 
+        success: false, 
+        error: 'Insufficient location data. Please add a location name, city, or country first.' 
+      };
+    }
+
+    // Call the geocoding API
+    const result = await geocodeLocation(
+      locationToGeocode,
+      event.id,
+      undefined, // tripId not needed for this use case
+      locationType
+    );
+
+    if (!result) {
+      return { 
+        success: false, 
+        error: 'Could not find coordinates for this location. Please check the location details.' 
+      };
+    }
+
+    // Create updated event with coordinates
+    let updatedEvent: Event = { ...event };
+
+    if (event.category === 'travel') {
+      const travelEvent = updatedEvent as TravelEvent;
+      updatedEvent = {
+        ...travelEvent,
+        departure: {
+          ...travelEvent.departure,
+          location: {
+            ...travelEvent.departure.location,
+            geolocation: {
+              lat: result.lat,
+              lng: result.lng
+            },
+            city: travelEvent.departure.location.city || result.city,
+            country: travelEvent.departure.location.country || result.country,
+          }
+        }
+      } as TravelEvent;
+    } else if (event.category === 'accommodation') {
+      const accommodationEvent = updatedEvent as AccommodationEvent;
+      updatedEvent = {
+        ...accommodationEvent,
+        checkIn: {
+          ...accommodationEvent.checkIn,
+          location: {
+            ...accommodationEvent.checkIn.location,
+            geolocation: {
+              lat: result.lat,
+              lng: result.lng
+            },
+            city: accommodationEvent.checkIn.location.city || result.city,
+            country: accommodationEvent.checkIn.location.country || result.country,
+          }
+        }
+      } as AccommodationEvent;
+    } else {
+      // Experience or Meal events
+      updatedEvent = {
+        ...updatedEvent,
+        location: {
+          ...updatedEvent.location,
+          geolocation: {
+            lat: result.lat,
+            lng: result.lng
+          },
+          city: updatedEvent.location.city || result.city,
+          country: updatedEvent.location.country || result.country,
+        }
+      };
+    }
+
+    // Update the event using the provided callback
+    await updateEventCallback(updatedEvent);
+
+    return { success: true, event: updatedEvent };
+
+  } catch (error) {
+    console.error('Error geocoding event for map:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'An error occurred while finding coordinates' 
+    };
+  }
+}
+
+/**
+ * Waits for an event to be updated with coordinates in the events array and then focuses on it
+ * This ensures the map has the updated event data before trying to zoom to it
+ */
+export async function waitForEventUpdateAndFocus(
+  eventId: string,
+  events: Event[],
+  setFocusedEventId: (id: string | null) => void,
+  focusEventOnMap: (id: string) => void,
+  maxWaitTime: number = 2000
+): Promise<void> {
+  const startTime = Date.now();
+  
+  const checkForUpdatedEvent = () => {
+    const event = events.find(e => e.id === eventId);
+    
+    if (event) {
+      // Check if the event has coordinates
+      const hasCoordinates = !!(
+        (event.category === 'travel' && event.departure?.location?.geolocation) ||
+        (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
+        (event.location?.geolocation)
+      );
+      
+      if (hasCoordinates) {
+        // Event has coordinates, focus on it
+        console.log(`[waitForEventUpdateAndFocus] Event found with coordinates after ${Date.now() - startTime}ms, focusing on map`);
+        
+        // Set focused event first, which will trigger the MapView effect to update activeNavigableEventIndex
+        setFocusedEventId(eventId);
+        
+        // Then trigger the map focus
+        focusEventOnMap(eventId);
+        return;
+      }
+    }
+    
+    // If we haven't found the updated event yet and haven't exceeded max wait time, try again
+    if (Date.now() - startTime < maxWaitTime) {
+      setTimeout(checkForUpdatedEvent, 50);
+    } else {
+      // Fallback: focus anyway after max wait time
+      console.warn(`[waitForEventUpdateAndFocus] Timeout waiting for event update after ${maxWaitTime}ms, focusing anyway`);
+      setFocusedEventId(eventId);
+      focusEventOnMap(eventId);
+    }
+  };
+  
+  checkForUpdatedEvent();
 } 

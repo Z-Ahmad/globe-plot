@@ -214,18 +214,31 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
     popupRef.current = newPopup;
   }, [closeCurrentPopup, onEditEventRequest, setFocusedEventId, map]); // map added to deps
 
-  const navigableEvents = useMemo(() => events
-    .filter(event => {
-      return (
-        (event.category === 'travel' && event.departure?.location?.geolocation) ||
-        (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
-        (event.location?.geolocation)
-      );
-    })
-    .sort((a, b) => {
-      if (!a.start || !b.start) return 0;
-      return new Date(a.start).getTime() - new Date(b.start).getTime();
-    }), [events]);
+  const navigableEvents = useMemo(() => {
+    const filtered = events
+      .filter(event => {
+        return (
+          (event.category === 'travel' && event.departure?.location?.geolocation) ||
+          (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
+          (event.location?.geolocation)
+        );
+      })
+      .sort((a, b) => {
+        if (!a.start || !b.start) return 0;
+        return new Date(a.start).getTime() - new Date(b.start).getTime();
+      });
+    
+    // Only log when the number of navigable events changes significantly
+    if (filtered.length !== events.filter(e => 
+      (e.category === 'travel' && e.departure?.location?.geolocation) ||
+      (e.category === 'accommodation' && e.checkIn?.location?.geolocation) ||
+      (e.location?.geolocation)
+    ).length) {
+      console.log(`[MapView] navigableEvents updated: ${filtered.length} events with coordinates`);
+    }
+    
+    return filtered;
+  }, [events]);
   
   // Effect to manage the activeNavigableEventIndex based on focusedEventId and available navigableEvents
   useEffect(() => {
@@ -246,10 +259,24 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
         }
       }
     } else {
-      // focusedEventId is null (popup closed). activeNavigableEventIndex STAYS AS IS.
-      // However, if navigableEvents changed making the current index invalid, reset it.
-      if (activeNavigableEventIndex !== null && activeNavigableEventIndex >= navigableEvents.length) {
-        setActiveNavigableEventIndex(null); // Index became out of bounds, reset
+      // focusedEventId is null (popup closed). 
+      // Check if activeNavigableEventIndex is still valid for the current navigableEvents array
+      if (activeNavigableEventIndex !== null) {
+        if (activeNavigableEventIndex >= navigableEvents.length) {
+          // Index is out of bounds, reset to null
+          setActiveNavigableEventIndex(null);
+        } else {
+          // Index is still valid, but let's verify the event at that index still exists
+          // This handles cases where the navigableEvents array changed due to new events being geocoded
+          const eventAtIndex = navigableEvents[activeNavigableEventIndex];
+          if (!eventAtIndex) {
+            // Event at index doesn't exist, reset
+            console.warn(`[MapView] No event found at activeNavigableEventIndex ${activeNavigableEventIndex}, resetting to null`);
+            setActiveNavigableEventIndex(null);
+          }
+          // If event exists at the index, keep the current activeNavigableEventIndex
+          // This maintains navigation state even when new events are added
+        }
       }
     }
   }, [focusedEventId, navigableEvents]); // activeNavigableEventIndex is NOT in deps, it's what this effect SETS.
@@ -586,7 +613,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       
       return () => clearTimeout(timer);
     }
-  }, [events, loading, error, focusedEventId]);
+  }, [events, loading, error]);
 
   useEffect(() => {
     if (!isVisible || !mapInitialized || !map.current || loading || error) {

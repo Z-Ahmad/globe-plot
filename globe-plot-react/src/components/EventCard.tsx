@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Event, AccommodationEvent, TravelEvent } from '@/types/trip';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '@/styles/eventStyles';
-import { MoreHorizontal, Map, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Map, Pencil, Trash2, Loader } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -20,6 +20,10 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
+import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
+import { useTripContext } from '@/context/TripContext';
+import { focusEventOnMap } from '@/context/TripContext';
+import toast from 'react-hot-toast';
 
 interface EventCardProps {
   event: Event;
@@ -56,6 +60,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const { updateEvent, setFocusedEventId, events } = useTripContext();
   const { icon: Icon, color, bgColor, borderColor, hoverBgColor } = getEventStyle(event);
 
   const handleDelete = async () => {
@@ -71,6 +77,72 @@ export const EventCard: React.FC<EventCardProps> = ({
       } finally {
         setIsDeleting(false);
       }
+    }
+  };
+
+  const handleViewOnMap = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Check if event already has coordinates
+    const hasCoordinates = !!(
+      (event.category === 'travel' && event.departure?.location?.geolocation) ||
+      (event.category === 'accommodation' && event.checkIn?.location?.geolocation) ||
+      (event.location?.geolocation)
+    );
+
+    if (hasCoordinates) {
+      // Event already has coordinates, just focus on map
+      if (onViewOnMap) {
+        onViewOnMap(event.id);
+      } else {
+        // Fallback to context-based approach
+        setFocusedEventId(event.id);
+        focusEventOnMap(event.id);
+      }
+      return;
+    }
+
+    // Event doesn't have coordinates, need to geocode first
+    setIsGeocoding(true);
+    try {
+      // Create a wrapper function that matches the expected signature
+      const updateEventWrapper = async (updatedEvent: Event) => {
+        await updateEvent(updatedEvent.id, updatedEvent);
+      };
+
+      const result = await geocodeEventForMap(event, updateEventWrapper);
+      
+      if (result.success && result.event) {
+        toast.success('Location coordinates found!');
+        
+        // Wait for the event to be updated in the context before focusing
+        if (onViewOnMap) {
+          await waitForEventUpdateAndFocus(
+            result.event.id,
+            events,
+            setFocusedEventId,
+            focusEventOnMap,
+            2000
+          );
+          onViewOnMap(result.event.id);
+        } else {
+          // Fallback to context-based approach
+          await waitForEventUpdateAndFocus(
+            result.event.id,
+            events,
+            setFocusedEventId,
+            focusEventOnMap,
+            2000
+          );
+        }
+      } else {
+        toast.error(result.error || 'Could not find coordinates for this location');
+      }
+    } catch (error) {
+      console.error('Error geocoding event:', error);
+      toast.error('Failed to find location coordinates');
+    } finally {
+      setIsGeocoding(false);
     }
   };
 
@@ -107,12 +179,16 @@ export const EventCard: React.FC<EventCardProps> = ({
                   )}
                   
                   {onViewOnMap && (
-                    <DropdownMenuItem onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      onViewOnMap(event.id);
-                    }}>
-                      <Map className="mr-2 h-4 w-4" />
-                      <span>View on Map</span>
+                    <DropdownMenuItem 
+                      onClick={handleViewOnMap}
+                      disabled={isGeocoding}
+                    >
+                      {isGeocoding ? (
+                        <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Map className="mr-2 h-4 w-4" />
+                      )}
+                      <span>{isGeocoding ? 'Finding location...' : 'View on Map'}</span>
                     </DropdownMenuItem>
                   )}
                   
