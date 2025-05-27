@@ -261,6 +261,31 @@ const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Eve
   const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
   const [expandedCities, setExpandedCities] = useState<Record<string, string[]>>({});
   const { events } = useTripContext();
+  const [countryFlags, setCountryFlags] = useState<Record<string, string>>({});
+  const API_URL = import.meta.env.VITE_API_URL;
+  useEffect(() => {
+    const fetchCountryFlags = async () => {
+      try {
+        // Assuming your API is served from the same origin or you have a proxy setup
+        // Adjust '/api/countries' if your actual endpoint is different
+        const response = await fetch(`${API_URL}countries`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch country flags: ${response.statusText}`);
+        }
+        const countriesData: Array<{ name: string; code: string; flag: string; phonecode: string }> = await response.json();
+        const flagsMap: Record<string, string> = {};
+        countriesData.forEach(country => {
+          flagsMap[country.name] = country.flag;
+        });
+        setCountryFlags(flagsMap);
+      } catch (error) {
+        console.error("Error fetching country flags:", error);
+        // Optionally, set an error state or show a toast
+      }
+    };
+
+    fetchCountryFlags();
+  }, []); // Empty dependency array to run once on mount
 
   // Group and sort events for sidebar
   const groupedSorted = useMemo(() => 
@@ -334,7 +359,10 @@ const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Eve
           {groupedSorted.map(([country, cities]) => (
             <AccordionItem key={country} value={country} className="border-b border-border last:border-0">
               <AccordionTrigger className="font-semibold text-base py-3 hover:bg-muted/40 transition-colors px-2 rounded-md">
-                {country}
+                <div className="flex items-center gap-2">
+                  {countryFlags[country] && <span className="text-lg">{countryFlags[country]}</span>}
+                  <span>{country}</span>
+                </div>
               </AccordionTrigger>
               <AccordionContent className="pb-1">
                 <Accordion 
@@ -666,6 +694,7 @@ export const TripView = () => {
   const { id } = useParams<{ id: string }>();
   const { trips, updateTrip } = useTripStore();
   const trip = trips.find(trip => trip.id === id);
+
   
   // Check and normalize events on component mount
   useEffect(() => {

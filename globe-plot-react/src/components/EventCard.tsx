@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event } from '@/types/trip';
+import { Event, AccommodationEvent, TravelEvent } from '@/types/trip';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '@/styles/eventStyles';
 import { MoreHorizontal, Map, Pencil, Trash2 } from 'lucide-react';
@@ -33,7 +33,17 @@ const formatTime = (dateStr: string) => {
   try {
     return format(parseISO(dateStr), 'h:mm a');
   } catch {
-    return '';
+    return ''; // Return empty string or some placeholder for invalid dates
+  }
+};
+
+// New helper for formatting date as "MMM d"
+const formatDisplayDate = (dateStr: string | undefined) => {
+  if (!dateStr) return '';
+  try {
+    return format(parseISO(dateStr), 'MMM d');
+  } catch {
+    return 'Invalid Date';
   }
 };
 
@@ -123,24 +133,51 @@ export const EventCard: React.FC<EventCardProps> = ({
             </div>
             
             <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground mt-1">
-              <span>{formatTime(event.start)}</span>
-              {event.end && (
+              {event.category === 'accommodation' ? (
+                (() => {
+                  const accommodationEvent = event as AccommodationEvent;
+                  const checkInDisplay = formatDisplayDate(accommodationEvent.checkIn?.date);
+                  const checkOutDisplay = formatDisplayDate(accommodationEvent.checkOut?.date);
+
+                  if (checkInDisplay && checkOutDisplay) {
+                    if (checkInDisplay === checkOutDisplay) {
+                      return <span>{checkInDisplay}</span>;
+                    }
+                    return <span>{checkInDisplay} - {checkOutDisplay}</span>;
+                  } else if (checkInDisplay) {
+                    // Fallback if only check-in is available, though both should be for Accomm.
+                    return <span>Check-in: {checkInDisplay}</span>;
+                  }
+                  return <span>Date not available</span>;
+                })()
+              ) : (
                 <>
-                  <span>-</span>
-                  <span>{formatTime(event.end)}</span>
+                  <span>{formatTime(event.start)}</span>
+                  {event.end && formatTime(event.start) !== formatTime(event.end) && (
+                    <>
+                      <span className="mx-1">-</span>
+                      <span>{formatTime(event.end)}</span>
+                    </>
+                  )}
                 </>
               )}
             </div>
             
             <div className="mt-2 text-sm">
-              {/* Location display based on event type */}
-              {event.category === 'travel' && (
+              {event.category === 'travel' ? (
                 <div className="flex items-center text-muted-foreground">
-                  {event.departure?.location?.name} → {event.arrival?.location?.name}
+                  <span>{(event as TravelEvent).departure?.location?.name || (event as TravelEvent).departure?.location?.city || 'N/A'}</span>
+                  <span className="mx-1">→</span>
+                  <span>{(event as TravelEvent).arrival?.location?.name || (event as TravelEvent).arrival?.location?.city || 'N/A'}</span>
                 </div>
-              )}
-              
-              {event.category !== 'travel' && (
+              ) : event.category === 'accommodation' ? (
+                <div className="text-muted-foreground">
+                  {(event as AccommodationEvent).placeName || 
+                   (event as AccommodationEvent).checkIn?.location?.name || 
+                   (event as AccommodationEvent).checkIn?.location?.city || 
+                   'No location specified'}
+                </div>
+              ) : ( /* For Experience and Meal events */
                 <div className="text-muted-foreground">
                   {event.location?.name || event.location?.city || 'No location specified'}
                 </div>
