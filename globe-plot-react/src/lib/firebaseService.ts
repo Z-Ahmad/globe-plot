@@ -17,7 +17,13 @@ import {
   Timestamp,
   writeBatch
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { 
+  ref as storageRef, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
+import { auth, db, storage } from './firebase';
 import { Trip } from '@/types/trip';
 
 // Auth Functions
@@ -213,7 +219,7 @@ export const deleteTrip = async (tripId: string): Promise<void> => {
       console.log(`Deleted event ${eventDoc.id}`);
     }
     
-    // Find and delete related documents - include userId in query for proper permissions
+    // Find and delete related documents - use the proper deleteDocument function
     const docsRef = collection(db, 'documents');
     const docsQuery = query(
       docsRef, 
@@ -224,9 +230,15 @@ export const deleteTrip = async (tripId: string): Promise<void> => {
     
     console.log(`Found ${docsSnapshot.docs.length} documents to delete`);
     
+    // Use the deleteDocument function which handles both Firestore AND Storage cleanup
     for (const docSnapshot of docsSnapshot.docs) {
-      await deleteDoc(docSnapshot.ref);
-      console.log(`Deleted document ${docSnapshot.id}`);
+      try {
+        console.log(`Deleting document ${docSnapshot.id} (includes Storage file)`);
+        await deleteDocument(docSnapshot.id); // This handles both Firestore + Storage
+      } catch (e) {
+        console.error(`Failed to delete document ${docSnapshot.id}:`, e);
+        // Continue with other deletions
+      }
     }
     
   } catch (error) {
@@ -411,5 +423,305 @@ export const updateUserLastRefreshTimestamp = async (userId: string): Promise<vo
     console.error('Error setting/updating user last refresh timestamp:', error);
     // Depending on requirements, you might want to re-throw or handle differently
     // For now, just logging the error.
+  }
+}; 
+
+// Document storage functions
+export interface DocumentMetadata {
+  id: string;
+  name: string;
+  type: 'pdf' | 'email' | 'image';
+  url: string;
+  size: number;
+  uploadedAt: Timestamp;
+  tripId: string;
+  userId: string;
+  associatedEvents: string[]; // Array of event IDs that were extracted from this document
+}
+
+/**
+ * Uploads a document file to Firebase Storage and saves metadata to Firestore
+ */
+export const uploadDocument = async (
+  file: File, 
+  tripId: string, 
+  associatedEventIds: string[] = []
+): Promise<DocumentMetadata> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    // Create a unique file name to avoid conflicts
+    const fileExtension = file.name.split('.').pop();
+    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExtension}`;
+    const filePath = `documents/${userId}/${tripId}/${uniqueFileName}`;
+
+    // Upload file to Firebase Storage
+    const fileRef = storageRef(storage, filePath);
+    const uploadResult = await uploadBytes(fileRef, file);
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+
+    // Create document metadata
+    const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const documentMetadata: DocumentMetadata = {
+      id: documentId,
+      name: file.name,
+      type: determineDocumentType(file),
+      url: downloadURL,
+      size: file.size,
+      uploadedAt: Timestamp.now(),
+      tripId,
+      userId,
+      associatedEvents: associatedEventIds
+    };
+
+    // Save metadata to Firestore
+    const docRef = doc(db, 'documents', documentId);
+    await setDoc(docRef, documentMetadata);
+
+    console.log(`Document uploaded successfully: ${documentId}`);
+    return documentMetadata;
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    throw error;
+  }
+};
+
+/**
+ * Updates the associated events for a document
+ */
+export const updateDocumentAssociatedEvents = async (
+  documentId: string, 
+  eventIds: string[]
+): Promise<void> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const docRef = doc(db, 'documents', documentId);
+    const docSnapshot = await getDoc(docRef);
+    
+    if (!docSnapshot.exists()) {
+      throw new Error('Document not found');
+    }
+
+    // Verify ownership
+    if (docSnapshot.data().userId !== userId) {
+      throw new Error('Not authorized to update this document');
+    }
+
+    await updateDoc(docRef, {
+      associatedEvents: eventIds,
+      updatedAt: Timestamp.now()
+    });
+
+    console.log(`Updated associated events for document ${documentId}`);
+  } catch (error) {
+    console.error('Error updating document associated events:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets all documents for a specific trip
+ */
+export const getTripDocuments = async (tripId: string): Promise<DocumentMetadata[]> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const documentsRef = collection(db, 'documents');
+    const q = query(
+      documentsRef, 
+      where('tripId', '==', tripId),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as DocumentMetadata);
+  } catch (error) {
+    console.error('Error getting trip documents:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets documents associated with a specific event
+ */
+export const getEventDocuments = async (eventId: string): Promise<DocumentMetadata[]> => {
+  try {
+    const userId = getCurrentUser()?.uid;
+    if (!userId) {
+      console.log('getEventDocuments: User not authenticated');
+      throw new Error('User not authenticated');
+    }
+
+    console.log('getEventDocuments: Searching for documents with eventId:', eventId, 'userId:', userId);
+
+    const documentsRef = collection(db, 'documents');
+    const q = query(
+      documentsRef,
+      where('associatedEvents', 'array-contains', eventId),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    console.log('getEventDocuments: Query returned', querySnapshot.size, 'documents');
+    
+    const documents = querySnapshot.docs.map(doc => {
+      const data = doc.data() as DocumentMetadata;
+      console.log('getEventDocuments: Found document:', {
+        id: data.id,
+        name: data.name,
+        associatedEvents: data.associatedEvents
+      });
+      return data;
+    });
+    
+    console.log('getEventDocuments: Returning', documents.length, 'documents for eventId:', eventId);
+    return documents;
+  } catch (error) {
+    console.error('getEventDocuments: Error getting event documents:', error);
+    return []; // Return empty array instead of throwing, as this is often not critical
+  }
+};
+
+/**
+ * Deletes a document from both Storage and Firestore
+ */
+export const deleteDocument = async (documentId: string): Promise<void> => {
+  try {
+    console.log(`deleteDocument: Starting deletion for document ${documentId}`);
+
+    const userId = getCurrentUser()?.uid;
+    if (!userId) {
+      console.error('deleteDocument: User not authenticated');
+      throw new Error('User not authenticated');
+    }
+
+    console.log(`deleteDocument: User authenticated: ${userId}`);
+
+    // Get document metadata
+    const docRef = doc(db, 'documents', documentId);
+    console.log(`deleteDocument: Getting document metadata for ${documentId}`);
+    
+    const docSnapshot = await getDoc(docRef);
+    
+    if (!docSnapshot.exists()) {
+      console.log(`deleteDocument: Document ${documentId} not found in Firestore`);
+      throw new Error('Document not found');
+    }
+
+    const docData = docSnapshot.data() as DocumentMetadata;
+    console.log(`deleteDocument: Found document metadata:`, {
+      id: docData.id,
+      name: docData.name,
+      url: docData.url,
+      tripId: docData.tripId,
+      userId: docData.userId
+    });
+    
+    // Verify ownership
+    if (docData.userId !== userId) {
+      console.error(`deleteDocument: Not authorized. Document userId: ${docData.userId}, Current userId: ${userId}`);
+      throw new Error('Not authorized to delete this document');
+    }
+
+    console.log(`deleteDocument: Authorization verified, proceeding with deletion`);
+
+    // Delete file from Storage
+    try {
+      console.log(`deleteDocument: Starting Storage file deletion for URL: ${docData.url}`);
+      
+      // Validate URL format
+      if (!docData.url || typeof docData.url !== 'string') {
+        throw new Error('Invalid or missing document URL');
+      }
+
+      // Extract the file path from the download URL
+      // URL format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{filePath}?alt=media&token=...
+      // We need to extract and decode the filePath part
+      let url;
+      try {
+        url = new URL(docData.url);
+      } catch (urlError) {
+        throw new Error(`Invalid URL format: ${docData.url}`);
+      }
+
+      console.log(`deleteDocument: Parsed URL - hostname: ${url.hostname}, pathname: ${url.pathname}`);
+      
+      const pathParts = url.pathname.split('/o/');
+      if (pathParts.length < 2) {
+        throw new Error(`Invalid storage URL format - missing /o/ in path: ${url.pathname}`);
+      }
+      
+      // The file path is after '/o/' and before '?'
+      const encodedPath = pathParts[1].split('?')[0];
+      console.log(`deleteDocument: Encoded path: ${encodedPath}`);
+      
+      if (!encodedPath) {
+        throw new Error('Empty file path after URL parsing');
+      }
+
+      const filePath = decodeURIComponent(encodedPath);
+      console.log(`deleteDocument: Decoded file path: ${filePath}`);
+      
+      if (!filePath) {
+        throw new Error('Empty file path after decoding');
+      }
+
+      const fileRef = storageRef(storage, filePath);
+      console.log(`deleteDocument: Created storage reference for path: ${filePath}`);
+      
+      await deleteObject(fileRef);
+      console.log(`deleteDocument: Successfully deleted file from storage: ${filePath}`);
+    } catch (storageError) {
+      console.warn('deleteDocument: Could not delete file from storage:', storageError);
+      console.warn('deleteDocument: Storage error details:', {
+        name: (storageError as any)?.name,
+        message: (storageError as any)?.message,
+        code: (storageError as any)?.code
+      });
+      // Continue with Firestore deletion even if Storage deletion fails
+    }
+
+    // Delete metadata from Firestore
+    console.log(`deleteDocument: Starting Firestore metadata deletion for ${documentId}`);
+    await deleteDoc(docRef);
+    console.log(`deleteDocument: Successfully deleted metadata from Firestore: ${documentId}`);
+
+    console.log(`deleteDocument: Document deleted successfully: ${documentId}`);
+  } catch (error) {
+    console.error('deleteDocument: Error deleting document:', error);
+    console.error('deleteDocument: Error details:', {
+      name: (error as any)?.name,
+      message: (error as any)?.message,
+      code: (error as any)?.code,
+      stack: (error as any)?.stack
+    });
+    throw error;
+  }
+};
+
+/**
+ * Helper function to determine document type based on file
+ */
+const determineDocumentType = (file: File): 'pdf' | 'email' | 'image' => {
+  const mimeType = file.type.toLowerCase();
+  
+  if (mimeType.includes('pdf')) {
+    return 'pdf';
+  } else if (mimeType.includes('message') || mimeType.includes('eml') || mimeType.includes('email')) {
+    return 'email';
+  } else {
+    return 'image';
   }
 }; 

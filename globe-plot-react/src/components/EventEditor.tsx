@@ -1,7 +1,8 @@
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, ChangeEvent, useEffect } from 'react';
 import { Event, EventCategory } from '@/stores/tripStore';
 import { useUserStore } from '@/stores/userStore';
 import { useTripContext } from '@/context/TripContext';
+import { getEventDocuments, DocumentMetadata } from '@/lib/firebaseService';
 import toast from 'react-hot-toast';
 import {
   Dialog,
@@ -46,10 +47,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Info, Loader, Map } from 'lucide-react';
+import { Info, Loader, Map, FileText, ExternalLink, Calendar } from 'lucide-react';
 import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
 import { CountryDropdown } from './CountryDropdown';
 import { focusEventOnMap } from '@/context/TripContext';
+import { format } from 'date-fns';
 
 interface EventEditorProps {
   event: Event | null;
@@ -74,7 +76,38 @@ const EventForm: React.FC<EventFormProps> = ({
   onSave,
 }) => {
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [associatedDocuments, setAssociatedDocuments] = useState<DocumentMetadata[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const { setFocusedEventId, events } = useTripContext();
+  const user = useUserStore((state) => state.user);
+
+  // Load associated documents when event changes
+  useEffect(() => {
+    const loadAssociatedDocuments = async () => {
+      if (!editingEvent.id || !user) {
+        console.log('EventEditor: Skipping document load - no event ID or user', { 
+          eventId: editingEvent.id, 
+          userId: user?.uid 
+        });
+        return;
+      }
+      
+      console.log('EventEditor: Loading documents for event', editingEvent.id);
+      setLoadingDocuments(true);
+      try {
+        const docs = await getEventDocuments(editingEvent.id);
+        console.log('EventEditor: Found documents:', docs);
+        setAssociatedDocuments(docs);
+      } catch (error) {
+        console.error('EventEditor: Error loading associated documents:', error);
+        // Don't show toast error as this is often not critical
+      } finally {
+        setLoadingDocuments(false);
+      }
+    };
+
+    loadAssociatedDocuments();
+  }, [editingEvent.id, user]);
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -259,6 +292,57 @@ const EventForm: React.FC<EventFormProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Associated Documents Section - show at the top if there are any */}
+      {user && (associatedDocuments.length > 0 || loadingDocuments) && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Associated Documents</Label>
+          {loadingDocuments ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader className="h-4 w-4 animate-spin" />
+              <span>Loading documents...</span>
+            </div>
+          ) : associatedDocuments.length > 0 ? (
+            <div className="space-y-2">
+              {associatedDocuments.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-md border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <FileText className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium truncate max-w-[200px]" title={doc.name}>
+                        {doc.name}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>
+                          Uploaded {format(doc.uploadedAt.toDate(), 'MMM d, yyyy')}
+                        </span>
+                        <span>•</span>
+                        <span>{(doc.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(doc.url, '_blank')}
+                    className="flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="hidden sm:inline">View</span>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="title">Title</Label>

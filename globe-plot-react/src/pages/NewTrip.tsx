@@ -4,6 +4,7 @@ import { useTripStore, Trip, Event, ExperienceEvent } from '../stores/tripStore'
 import { v4 as uuidv4 } from 'uuid';
 import { useUserStore } from '../stores/userStore';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
+import { uploadDocument, updateDocumentAssociatedEvents, DocumentMetadata } from '@/lib/firebaseService';
 
 import { EventEditor } from "@/components/EventEditor";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface DocumentItem {
   status: 'pending' | 'processing' | 'completed' | 'error';
   error?: string;
   events: any[];
+  documentMetadata?: DocumentMetadata;
 }
 
 type FormStep = 'trip-details' | 'document-upload' | 'event-review';
@@ -373,23 +375,14 @@ export const NewTrip = () => {
       }
     }
     
-    // Process all uploaded documents
-    const tripDocuments = documents.map(doc => ({
-      id: doc.id,
-      name: doc.file.name,
-      type: determineDocumentType(doc.file),
-      url: URL.createObjectURL(doc.file),
-      associatedEvents: [] as string[]
-    }));
-    
-    // Create new trip with edited events
+    // Create new trip with edited events (documents will be uploaded after trip creation)
     const newTrip: Trip = {
       id: tripId,
       name,
       startDate,
       endDate,
       events: processedEvents,
-      documents: tripDocuments
+      documents: [] // Documents will be uploaded after trip creation
     };
     
     // Custom toast styling for trip creation
@@ -407,6 +400,67 @@ export const NewTrip = () => {
         try {
           // Add trip to store (which will now handle both local storage and Firestore)
           await addTrip(newTrip);
+          
+          // Upload documents AFTER trip creation with final Firestore IDs
+          if (user && documents.length > 0) {
+            console.log('NewTrip: Uploading documents with final Firestore IDs...');
+            
+            // Get the trip with final Firestore IDs from the store
+            const { trips } = useTripStore.getState();
+            const createdTrip = trips.find(t => t.name === name && t.startDate === startDate);
+            
+            if (createdTrip) {
+              console.log('NewTrip: Found created trip with final IDs:', createdTrip.id);
+              
+              for (const doc of documents) {
+                if (doc.status === 'completed') {
+                  try {
+                    console.log('NewTrip: Processing document:', doc.file.name, 'with extracted events:', doc.events);
+                    
+                    // Find corresponding events in the created trip using the final Firestore IDs
+                    const eventIdsFromThisDoc = doc.events
+                      .map(docEvent => {
+                        // Find the event in the created trip by matching properties
+                        const matchingEvent = createdTrip.events.find(e => 
+                          e.title === docEvent.title && 
+                          e.category === docEvent.category &&
+                          e.start === docEvent.start
+                        );
+                        console.log('NewTrip: Matching event for doc event:', {
+                          docEvent: { title: docEvent.title, category: docEvent.category, start: docEvent.start },
+                          foundMatch: !!matchingEvent,
+                          matchingEventId: matchingEvent?.id
+                        });
+                        return matchingEvent?.id;
+                      })
+                      .filter(id => id) as string[];
+                      
+                    console.log(`NewTrip: Document ${doc.file.name} will be associated with final event IDs:`, eventIdsFromThisDoc);
+                    
+                    // Upload document to Firebase Storage with final trip and event IDs
+                    const documentMetadata = await uploadDocument(doc.file, createdTrip.id, eventIdsFromThisDoc);
+                    
+                    console.log(`NewTrip: Successfully uploaded document:`, {
+                      name: documentMetadata.name,
+                      id: documentMetadata.id,
+                      tripId: documentMetadata.tripId,
+                      associatedEvents: documentMetadata.associatedEvents
+                    });
+                    
+                  } catch (error) {
+                    console.error('NewTrip: Error uploading document:', error);
+                    // Continue with other documents
+                  }
+                }
+              }
+              
+              if (documents.filter(d => d.status === 'completed').length > 0) {
+                toast.success(`Documents uploaded successfully!`);
+              }
+            } else {
+              console.warn('NewTrip: Could not find created trip for document upload');
+            }
+          }
           
           // If successful, navigate to dashboard after a short delay
           setTimeout(() => {
@@ -434,19 +488,6 @@ export const NewTrip = () => {
         },
       }
     );
-  };
-
-  // Helper function to determine document type
-  const determineDocumentType = (file: File): "pdf" | "email" | "image" => {
-    const mimeType = file.type.toLowerCase();
-    
-    if (mimeType.includes('pdf')) {
-      return 'pdf';
-    } else if (mimeType.includes('message') || mimeType.includes('eml') || mimeType.includes('email')) {
-      return 'email';
-    } else {
-      return 'image';
-    }
   };
 
   // Count total events across all documents

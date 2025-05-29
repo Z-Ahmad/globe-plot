@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useUserStore } from './userStore';
+import { deleteDocument } from '../lib/firebaseService';
 
 // Re-export types for backward compatibility
 export * from '../types/trip';
@@ -71,7 +72,7 @@ export const useTripStore = create<TripState>()(
           const q = query(tripsRef, where('userId', '==', user.uid));
           const tripSnapshot = await getDocs(q);
           
-          // For each trip, fetch its events and documents
+          // For each trip, fetch its events only (documents are now handled separately)
           const trips = await Promise.all(
             tripSnapshot.docs.map(async (tripDoc) => {
               const tripData = tripDoc.data();
@@ -97,19 +98,11 @@ export const useTripStore = create<TripState>()(
                 } as Event;
               });
               
-              // Fetch documents for this trip
-              const documentsQuery = query(collection(db, 'documents'), 
-                where('tripId', '==', tripId),
-                where('userId', '==', user.uid)
-              );
-              const documentSnapshot = await getDocs(documentsQuery);
+              // Documents are now handled separately via firebaseService functions
+              // Set empty array to maintain compatibility with Trip interface
+              const documents: Document[] = [];
               
-              const documents = documentSnapshot.docs.map(doc => ({
-                ...doc.data(),
-                id: doc.id,
-              })) as Document[];
-              
-              // Return the complete trip object with events and documents
+              // Return the complete trip object with events
               return {
                 ...tripData,
                 id: tripId,
@@ -119,7 +112,7 @@ export const useTripStore = create<TripState>()(
                 endDate: tripData.endDate instanceof Timestamp ? 
                   tripData.endDate.toDate().toISOString() : tripData.endDate,
                 events: events,
-                documents: documents,
+                documents: documents, // Empty array since documents are stored separately
               } as Trip;
             })
           );
@@ -356,13 +349,24 @@ export const useTripStore = create<TripState>()(
             const documentSnapshot = await getDocs(documentsQuery);
             console.log(`Found ${documentSnapshot.size} documents to delete for trip ${id}`);
             
-            // Delete documents
+            // Delete documents using the proper deleteDocument function
             for (const docSnapshot of documentSnapshot.docs) {
               try {
-                console.log(`Deleting document ${docSnapshot.id}`);
-                await deleteDoc(docSnapshot.ref);
+                console.log(`Deleting document ${docSnapshot.id} (includes Storage file)`);
+                console.log(`Document data:`, docSnapshot.data());
+                await deleteDocument(docSnapshot.id); // This handles both Firestore + Storage
+                console.log(`Successfully completed deletion of document ${docSnapshot.id}`);
               } catch (e) {
                 console.error(`Failed to delete document ${docSnapshot.id}:`, e);
+                // Log more details about the error
+                if (e && typeof e === 'object') {
+                  console.error('Error details:', {
+                    name: (e as any).name,
+                    message: (e as any).message,
+                    code: (e as any).code,
+                    stack: (e as any).stack
+                  });
+                }
                 // Continue with other deletions
               }
             }
