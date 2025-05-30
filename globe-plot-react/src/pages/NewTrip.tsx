@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useUserStore } from '../stores/userStore';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import { uploadDocument, updateDocumentAssociatedEvents, DocumentMetadata } from '@/lib/firebaseService';
+import { apiPost } from '@/lib/apiClient';
 
 import { EventEditor } from "@/components/EventEditor";
 import { Button } from "@/components/ui/button";
@@ -64,18 +65,18 @@ export const NewTrip = () => {
     setDocuments(prev => prev.filter(doc => doc.id !== id));
   };
 
-  const handleProcessAllDocuments = async () => {
+  const processDocuments = async () => {
+    if (documents.length === 0) return;
+    
     setIsProcessing(true);
     setProcessingProgress(0);
     
     const pendingDocs = documents.filter(doc => doc.status === 'pending');
-    let processedDocs = [...documents];
+    let processedDocs = [...documents]; // Work with a local copy
     
     for (let i = 0; i < pendingDocs.length; i++) {
-      const docId = pendingDocs[i].id;
-      const documentToProcess = processedDocs.find(doc => doc.id === docId);
-      
-      if (!documentToProcess) continue;
+      const documentToProcess = pendingDocs[i];
+      const docId = documentToProcess.id;
       
       // Update status to processing
       processedDocs = processedDocs.map(doc => 
@@ -84,37 +85,32 @@ export const NewTrip = () => {
       setDocuments(processedDocs);
       
       try {
-        // First, upload the document
+        // First, upload the document using the new API client
         const formData = new FormData();
         formData.append('document', documentToProcess.file);
 
-        const uploadResponse = await fetch(`${API_URL}documents/upload`, {
-          method: 'POST',
-          body: formData,
+        const uploadResponse = await apiPost('documents/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
 
-        if (!uploadResponse.ok) {
+        if (uploadResponse.status !== 200) {
           throw new Error('Failed to upload document');
         }
 
-        const uploadResult = await uploadResponse.json();
+        const uploadResult = uploadResponse.data;
         
-        // Then, parse the text with Mistral
-        const parseResponse = await fetch(`${API_URL}documents/parse-mistral`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            text: uploadResult.text 
-          }),
+        // Then, parse the text with Mistral using the new API client
+        const parseResponse = await apiPost('documents/parse-mistral', { 
+          text: uploadResult.text 
         });
 
-        if (!parseResponse.ok) {
+        if (parseResponse.status !== 200) {
           throw new Error('Failed to parse document');
         }
 
-        const parsedData = await parseResponse.json();
+        const parsedData = parseResponse.data;
         const newEvents = parsedData.events || [];
         
         // Update our local copy of processed docs
@@ -138,6 +134,7 @@ export const NewTrip = () => {
       } catch (error) {
         console.error('Error processing document:', error);
         // Update document with error status
+        // Note: Rate limiting errors (429) are already handled by the API client with toast messages
         processedDocs = processedDocs.map(doc => 
           doc.id === docId 
             ? { 
@@ -717,7 +714,7 @@ export const NewTrip = () => {
         
         {documents.length > 0 && pendingCount > 0 ? (
           <Button 
-            onClick={handleProcessAllDocuments}
+            onClick={processDocuments}
             disabled={isProcessing || hasProcessingDocuments}
             className="gap-2"
           >

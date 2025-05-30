@@ -1,9 +1,9 @@
-import { Event, Location, TravelEvent, AccommodationEvent } from "@/types/trip";
-import axios from 'axios';
+import { Event, Location, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from "@/types/trip";
 import { updateEventCoordinates, batchUpdateEventCoordinates } from './firebaseService';
+import { apiPost } from './apiClient';
 
 // API base URL - adjust based on your configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/';
 
 /**
  * Interface for geocoding response
@@ -60,7 +60,7 @@ export async function geocodeLocation(location: Partial<Location>, eventId?: str
   }
 
   try {
-    const response = await axios.post(`${API_BASE_URL}geocode`, {
+    const response = await apiPost('geocode', {
       name: location.name,
       city: location.city,
       country: location.country
@@ -104,7 +104,7 @@ export async function geocodeLocation(location: Partial<Location>, eventId?: str
 }
 
 /**
- * Batch geocode multiple locations
+ * Batch geocode multiple locations via API
  */
 export async function batchGeocodeLocations(locations: Array<{
   id: string;
@@ -142,7 +142,8 @@ export async function batchGeocodeLocations(locations: Array<{
         return [];
     }
 
-    const response = await axios.post(`${API_BASE_URL}geocode/batch`, requestData);
+    // Use the new API client that handles 429 errors automatically
+    const response = await apiPost('geocode/batch', requestData);
 
     if (response.status === 200 && Array.isArray(response.data)) {
       // Return the results from the API directly.
@@ -155,6 +156,7 @@ export async function batchGeocodeLocations(locations: Array<{
   } catch (error) {
     console.error("Error batch geocoding locations:", error);
     // Return an error for each location in the batch if the entire call fails.
+    // Note: 429 errors are already handled by the API client with toast messages
     return locations.map(({ id }) => ({ id, error: 'Batch geocoding API call failed' }));
   }
 }

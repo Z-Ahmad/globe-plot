@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/tabs";
 import { TripProvider, useTripContext } from '@/context/TripContext';
 import { toast } from 'react-hot-toast';
+import { apiGet } from '@/lib/apiClient';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -262,30 +263,55 @@ const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Eve
   const [expandedCities, setExpandedCities] = useState<Record<string, string[]>>({});
   const { events } = useTripContext();
   const [countryFlags, setCountryFlags] = useState<Record<string, string>>({});
-  const API_URL = import.meta.env.VITE_API_URL;
+  
   useEffect(() => {
     const fetchCountryFlags = async () => {
       try {
-        // Assuming your API is served from the same origin or you have a proxy setup
-        // Adjust '/api/countries' if your actual endpoint is different
-        const response = await fetch(`${API_URL}countries`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch country flags: ${response.statusText}`);
+        // Check cache first (cache for 24 hours)
+        const cachedKey = 'countries-cache';
+        const cachedTimestampKey = 'countries-cache-timestamp';
+        const cached = localStorage.getItem(cachedKey);
+        const cacheTimestamp = localStorage.getItem(cachedTimestampKey);
+        
+        const now = Date.now();
+        const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity;
+        const cacheValidDuration = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (cached && cacheAge < cacheValidDuration) {
+          console.log('Using cached countries data for flags');
+          const cachedCountries = JSON.parse(cached);
+          const flagsMap: Record<string, string> = {};
+          cachedCountries.forEach((country: any) => {
+            flagsMap[country.name] = country.flag;
+          });
+          setCountryFlags(flagsMap);
+          return;
         }
-        const countriesData: Array<{ name: string; code: string; flag: string; phonecode: string }> = await response.json();
-        const flagsMap: Record<string, string> = {};
-        countriesData.forEach(country => {
-          flagsMap[country.name] = country.flag;
-        });
-        setCountryFlags(flagsMap);
+        
+        // Use the new API client that handles 429 errors automatically
+        const response = await apiGet<Array<{ name: string; code: string; flag: string; phonecode: string }>>('countries');
+        
+        if (response.status === 200 && Array.isArray(response.data)) {
+          const flagsMap: Record<string, string> = {};
+          response.data.forEach(country => {
+            flagsMap[country.name] = country.flag;
+          });
+          setCountryFlags(flagsMap);
+          
+          // Cache the results
+          localStorage.setItem(cachedKey, JSON.stringify(response.data));
+          localStorage.setItem(cachedTimestampKey, now.toString());
+          console.log('Cached countries data for flags for 24 hours');
+        }
       } catch (error) {
         console.error("Error fetching country flags:", error);
-        // Optionally, set an error state or show a toast
+        // Note: Rate limiting errors (429) are already handled by the API client with toast messages
+        // Optionally, set an error state or show a toast for other errors
       }
     };
 
     fetchCountryFlags();
-  }, []); // Empty dependency array to run once on mount
+  }, []);
 
   // Group and sort events for sidebar
   const groupedSorted = useMemo(() => 
@@ -436,7 +462,7 @@ const ItinerarySection = React.memo(({
   const { trip } = useTripContext();
 
   return (
-    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
+    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full">
       <div className="mb-4 flex items-center gap-2">
         <ListTodo className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-semibold">Itinerary</h2>

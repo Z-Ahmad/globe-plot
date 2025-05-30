@@ -17,6 +17,7 @@ import {
 
 // utils
 import { cn } from "@/lib/utils";
+import { apiGet } from "@/lib/apiClient";
 
 // assets
 import { ChevronDown, CheckIcon, Globe, Loader2 } from "lucide-react";
@@ -68,30 +69,52 @@ const CountryDropdownComponent = (
   // Fetch countries from our API
   useEffect(() => {
     const fetchCountries = async () => {
-      if (!API_URL) return;
-      
-      setIsLoading(true);
-      setError(null);
-      
       try {
-        const response = await fetch(`${API_URL}countries`);
+        setIsLoading(true);
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch countries');
+        // Check cache first (cache for 24 hours)
+        const cachedKey = 'countries-cache';
+        const cachedTimestampKey = 'countries-cache-timestamp';
+        const cached = localStorage.getItem(cachedKey);
+        const cacheTimestamp = localStorage.getItem(cachedTimestampKey);
+        
+        const now = Date.now();
+        const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity;
+        const cacheValidDuration = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (cached && cacheAge < cacheValidDuration) {
+          console.log('Using cached countries data');
+          const cachedCountries = JSON.parse(cached);
+          const sortedCountries = cachedCountries.sort((a: Country, b: Country) => a.name.localeCompare(b.name));
+          setCountries(sortedCountries);
+          setIsLoading(false);
+          return;
         }
         
-        const data = await response.json();
-        setCountries(data);
-      } catch (err) {
-        console.error('Error fetching countries:', err);
-        setError('Failed to load countries');
+        // Use the new API client that handles 429 errors automatically
+        const response = await apiGet<Array<{ name: string; code: string; flag: string; phonecode: string }>>('countries');
+        
+        if (response.status === 200 && Array.isArray(response.data)) {
+          const sortedCountries = response.data.sort((a: Country, b: Country) => a.name.localeCompare(b.name));
+          setCountries(sortedCountries);
+          
+          // Cache the results
+          localStorage.setItem(cachedKey, JSON.stringify(response.data));
+          localStorage.setItem(cachedTimestampKey, now.toString());
+          console.log('Cached countries data for 24 hours');
+        }
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+        // Note: Rate limiting errors (429) are already handled by the API client with toast messages
+        // Set empty array as fallback for other errors
+        setCountries([]);
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchCountries();
-  }, [API_URL]);
+  }, []);
 
   // Track the current value from props so we can use it to find the country by name
   useEffect(() => {
