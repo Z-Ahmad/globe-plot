@@ -702,7 +702,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       }
     }
 
-    if (validCoordinates.length > 0 && !isInitialFitDone) {
+    if (validCoordinates.length > 0 && !isInitialFitDone && !focusedEventId) {
       const bounds = validCoordinates.reduce(
         (bounds, coord) => bounds.extend(coord as mapboxgl.LngLatLike),
         new mapboxgl.LngLatBounds(validCoordinates[0], validCoordinates[0])
@@ -713,6 +713,9 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
         maxZoom: 13,
         duration: 1000
       });
+      setIsInitialFitDone(true);
+    } else if (validCoordinates.length > 0 && !isInitialFitDone && focusedEventId) {
+      // If there's a focused event, skip initial fit but mark as done to prevent future conflicts
       setIsInitialFitDone(true);
     }
   };
@@ -746,7 +749,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       
       return () => clearTimeout(timer);
     }
-  }, [events, loading, error]);
+  }, [events, loading, error, focusedEventId]);
 
   useEffect(() => {
     if (!isVisible || !mapInitialized || !map.current) {

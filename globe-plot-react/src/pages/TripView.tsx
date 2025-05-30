@@ -593,6 +593,14 @@ const TripContent = () => {
     emptyState 
   } = useEventHandlers();
 
+  // Helper function to determine if the current event is new
+  const isNewEvent = useMemo(() => {
+    if (!currentEditingEvent) return false;
+    // Check if this is a new event (doesn't have an ID or ID includes hyphens which means it's a client-generated UUID)
+    const hasValidId = currentEditingEvent.id && typeof currentEditingEvent.id === 'string' && currentEditingEvent.id.trim() !== '';
+    return !hasValidId || (hasValidId && currentEditingEvent.id.includes('-'));
+  }, [currentEditingEvent]);
+
   if (!trip) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -710,6 +718,8 @@ const TripContent = () => {
         isOpen={showEventEditor}
         onClose={handleCloseEventEditor}
         onSave={handleSaveEventEdit}
+        showViewOnMap={!isNewEvent}
+        shouldFetchDocuments={true}
       />
     </div>
   );

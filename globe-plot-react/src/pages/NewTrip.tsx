@@ -451,9 +451,7 @@ export const NewTrip = () => {
                 }
               }
               
-              if (documents.filter(d => d.status === 'completed').length > 0) {
-                toast.success(`Documents uploaded successfully!`);
-              }
+              
             } else {
               console.warn('NewTrip: Could not find created trip for document upload');
             }
@@ -855,6 +853,8 @@ export const NewTrip = () => {
           isOpen={showEventEditor}
           onClose={() => setShowEventEditor(false)}
           onSave={handleSaveEventEdit}
+          showViewOnMap={false}
+          shouldFetchDocuments={false}
         />
       </main>
     </TripProvider>

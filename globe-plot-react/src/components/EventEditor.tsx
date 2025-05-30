@@ -58,6 +58,8 @@ interface EventEditorProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedEvent: Event) => void;
+  showViewOnMap?: boolean; // New prop to control "View on Map" button visibility
+  shouldFetchDocuments?: boolean; // New prop to control whether to fetch documents from Firebase
 }
 
 // Shared event form component to reduce duplication
@@ -67,6 +69,8 @@ interface EventFormProps {
   containerStyle?: string; // Optional style for the container
   onClose?: () => void; // Add onClose prop
   onSave?: (updatedEvent: Event) => void; // Add onSave prop
+  showViewOnMap?: boolean; // New prop to control "View on Map" button visibility
+  shouldFetchDocuments?: boolean; // New prop to control whether to fetch documents from Firebase
 }
 
 const EventForm: React.FC<EventFormProps> = ({
@@ -74,6 +78,8 @@ const EventForm: React.FC<EventFormProps> = ({
   setEditingEvent,
   onClose,
   onSave,
+  showViewOnMap = true, // Default to true for backward compatibility
+  shouldFetchDocuments = true, // Default to true for backward compatibility
 }) => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [associatedDocuments, setAssociatedDocuments] = useState<DocumentMetadata[]>([]);
@@ -84,30 +90,34 @@ const EventForm: React.FC<EventFormProps> = ({
   // Load associated documents when event changes
   useEffect(() => {
     const loadAssociatedDocuments = async () => {
-      if (!editingEvent.id || !user) {
-        console.log('EventEditor: Skipping document load - no event ID or user', { 
-          eventId: editingEvent.id, 
-          userId: user?.uid 
-        });
+      // Don't fetch documents if shouldFetchDocuments is false (e.g., during trip creation)
+      if (!shouldFetchDocuments) {
+        console.log('EventEditor: Skipping document fetch - shouldFetchDocuments is false');
+        setAssociatedDocuments([]);
         return;
       }
-      
-      console.log('EventEditor: Loading documents for event', editingEvent.id);
+
+      if (!editingEvent?.id) {
+        setAssociatedDocuments([]);
+        return;
+      }
+
       setLoadingDocuments(true);
       try {
+        console.log('EventEditor: Loading documents for event:', editingEvent.id);
         const docs = await getEventDocuments(editingEvent.id);
-        console.log('EventEditor: Found documents:', docs);
+        console.log('EventEditor: Loaded documents:', docs);
         setAssociatedDocuments(docs);
       } catch (error) {
         console.error('EventEditor: Error loading associated documents:', error);
-        // Don't show toast error as this is often not critical
+        setAssociatedDocuments([]);
       } finally {
         setLoadingDocuments(false);
       }
     };
 
     loadAssociatedDocuments();
-  }, [editingEvent.id, user]);
+  }, [editingEvent.id, shouldFetchDocuments]);
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -228,6 +238,11 @@ const EventForm: React.FC<EventFormProps> = ({
 
   // Function to view the event on the map
   const handleViewOnMap = async () => {
+    // Don't proceed if showViewOnMap is false (shouldn't happen due to conditional rendering, but safety check)
+    if (!showViewOnMap) {
+      return;
+    }
+
     // Check if event already has coordinates
     const hasCoordinates = !!(
       (editingEvent.category === 'travel' && editingEvent.departure?.location?.geolocation) ||
@@ -266,14 +281,9 @@ const EventForm: React.FC<EventFormProps> = ({
       if (result.success && result.event) {
         toast.success('Location coordinates found!');
         
-        // Wait for the event to be updated in the context before focusing
-        await waitForEventUpdateAndFocus(
-          result.event.id,
-          events,
-          setFocusedEventId,
-          focusEventOnMap,
-          2000
-        );
+        // Set the focused event and switch to map view
+        setFocusedEventId(result.event.id);
+        focusEventOnMap(result.event.id);
         
         // Close the dialog if onClose prop is provided
         if (onClose) {
@@ -346,26 +356,28 @@ const EventForm: React.FC<EventFormProps> = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="title">Title</Label>
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="sm"
-            onClick={handleViewOnMap}
-            disabled={isGeocoding}
-            className="flex items-center gap-2"
-          >
-            {isGeocoding ? (
-              <>
-                <Loader className="h-3 w-3 animate-spin" />
-                <span>Finding location...</span>
-              </>
-            ) : (
-              <>
-                <Map className="h-3 w-3" />
-                <span>View on Map</span>
-              </>
-            )}
-          </Button>
+          {showViewOnMap && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm"
+              onClick={handleViewOnMap}
+              disabled={isGeocoding}
+              className="flex items-center gap-2"
+            >
+              {isGeocoding ? (
+                <>
+                  <Loader className="h-3 w-3 animate-spin" />
+                  <span>Finding location...</span>
+                </>
+              ) : (
+                <>
+                  <Map className="h-3 w-3" />
+                  <span>View on Map</span>
+                </>
+              )}
+            </Button>
+          )}
         </div>
         <Input 
           id="title"
@@ -1080,6 +1092,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   isOpen,
   onClose,
   onSave,
+  showViewOnMap = true, // Default to true for backward compatibility
+  shouldFetchDocuments = true, // Default to true for backward compatibility
 }) => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(event);
   const isDesktop = useMediaQuery('(min-width: 768px)');
@@ -1238,6 +1252,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
             setEditingEvent={setEditingEvent}
             onClose={onClose}
             onSave={onSave}
+            showViewOnMap={showViewOnMap}
+            shouldFetchDocuments={shouldFetchDocuments}
           />
           
           <DialogFooter>
@@ -1273,6 +1289,8 @@ export const EventEditor: React.FC<EventEditorProps> = ({
               setEditingEvent={setEditingEvent}
               onClose={onClose}
               onSave={onSave}
+              showViewOnMap={showViewOnMap}
+              shouldFetchDocuments={shouldFetchDocuments}
             />
           </div>
           
