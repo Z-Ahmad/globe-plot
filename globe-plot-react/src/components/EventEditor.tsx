@@ -302,69 +302,11 @@ const EventForm: React.FC<EventFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Associated Documents Section - show at the top if there are any */}
-      {user && (associatedDocuments.length > 0 || loadingDocuments) && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Associated Documents</Label>
-          {loadingDocuments ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader className="h-4 w-4 animate-spin" />
-              <span>Loading documents...</span>
-            </div>
-          ) : associatedDocuments.length > 0 ? (
-            <div className="space-y-2">
-              {associatedDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-md border"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <FileText className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium truncate max-w-[200px]" title={doc.name}>
-                        {doc.name}
-                      </span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          Uploaded {format(doc.uploadedAt.toDate(), 'MMM d, yyyy')}
-                        </span>
-                        <span>•</span>
-                        <span>{(doc.size / 1024).toFixed(1)} KB</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(doc.url, '_blank')}
-                    className="flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="hidden sm:inline">View</span>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
-
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="title">Title</Label>
           {showViewOnMap && (
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm"
-              onClick={handleViewOnMap}
-              disabled={isGeocoding}
-              className="flex items-center gap-2"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={handleViewOnMap} disabled={isGeocoding} className="flex items-center gap-2">
               {isGeocoding ? (
                 <>
                   <Loader className="h-3 w-3 animate-spin" />
@@ -379,11 +321,7 @@ const EventForm: React.FC<EventFormProps> = ({
             </Button>
           )}
         </div>
-        <Input 
-          id="title"
-          value={editingEvent.title} 
-          onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })} 
-        />
+        <Input id="title" value={editingEvent.title} onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })} />
       </div>
 
       {/* Category and Type selectors in a 2-column grid on all screen sizes */}
@@ -586,16 +524,16 @@ const EventForm: React.FC<EventFormProps> = ({
       </div>
 
       {/* Display coordinates if they exist */}
-      {((editingEvent.category === 'travel' && editingEvent.departure?.location?.geolocation) ||
-        (editingEvent.category === 'accommodation' && editingEvent.checkIn?.location?.geolocation) ||
-        (editingEvent.location?.geolocation)) && (
+      {((editingEvent.category === "travel" && editingEvent.departure?.location?.geolocation) ||
+        (editingEvent.category === "accommodation" && editingEvent.checkIn?.location?.geolocation) ||
+        editingEvent.location?.geolocation) && (
         <div className="text-xs text-muted-foreground">
-          Coordinates found: {editingEvent.category === 'travel' 
+          Coordinates found:{" "}
+          {editingEvent.category === "travel"
             ? `${editingEvent.departure?.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.departure?.location?.geolocation?.lng.toFixed(6)}`
-            : editingEvent.category === 'accommodation' 
-              ? `${editingEvent.checkIn?.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.checkIn?.location?.geolocation?.lng.toFixed(6)}`
-              : `${editingEvent.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.location?.geolocation?.lng.toFixed(6)}`
-          }
+            : editingEvent.category === "accommodation"
+            ? `${editingEvent.checkIn?.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.checkIn?.location?.geolocation?.lng.toFixed(6)}`
+            : `${editingEvent.location?.geolocation?.lat.toFixed(6)}, ${editingEvent.location?.geolocation?.lng.toFixed(6)}`}
         </div>
       )}
 
@@ -719,18 +657,14 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="airline">Airline</Label>
-                <Input 
-                  id="airline"
-                  value={editingEvent.airline || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, airline: e.target.value })} 
-                />
+                <Input id="airline" value={editingEvent.airline || ""} onChange={(e) => setEditingEvent({ ...editingEvent, airline: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="flight-number">Flight Number</Label>
-                <Input 
+                <Input
                   id="flight-number"
-                  value={editingEvent.flightNumber || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, flightNumber: e.target.value })} 
+                  value={editingEvent.flightNumber || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, flightNumber: e.target.value })}
                 />
               </div>
             </div>
@@ -741,19 +675,15 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="seat">Seat</Label>
-                <Input 
-                  id="seat"
-                  value={editingEvent.seat || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} 
-                />
+                <Input id="seat" value={editingEvent.seat || ""} onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class">Class</Label>
-                <Input 
+                <Input
                   id="class"
                   placeholder="Economy, Business, First, etc."
-                  value={editingEvent.class || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} 
+                  value={editingEvent.class || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })}
                 />
               </div>
             </div>
@@ -764,19 +694,15 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="train-number">Train Number</Label>
-                <Input 
+                <Input
                   id="train-number"
-                  value={editingEvent.trainNumber || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, trainNumber: e.target.value })} 
+                  value={editingEvent.trainNumber || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, trainNumber: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="seat">Seat</Label>
-                <Input 
-                  id="seat"
-                  value={editingEvent.seat || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} 
-                />
+                <Input id="seat" value={editingEvent.seat || ""} onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} />
               </div>
             </div>
           )}
@@ -786,19 +712,11 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="car">Car/Coach</Label>
-                <Input 
-                  id="car"
-                  value={editingEvent.car || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, car: e.target.value })} 
-                />
+                <Input id="car" value={editingEvent.car || ""} onChange={(e) => setEditingEvent({ ...editingEvent, car: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class">Class</Label>
-                <Input 
-                  id="class"
-                  value={editingEvent.class || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} 
-                />
+                <Input id="class" value={editingEvent.class || ""} onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} />
               </div>
             </div>
           )}
@@ -807,10 +725,10 @@ const EventForm: React.FC<EventFormProps> = ({
           {(editingEvent.type === "flight" || editingEvent.type === "train" || editingEvent.type === "bus") && (
             <div className="space-y-2">
               <Label htmlFor="booking-reference">Booking Reference</Label>
-              <Input 
+              <Input
                 id="booking-reference"
-                value={editingEvent.bookingReference || ""} 
-                onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })} 
+                value={editingEvent.bookingReference || ""}
+                onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })}
               />
             </div>
           )}
@@ -820,19 +738,11 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="seat">Seat</Label>
-                <Input 
-                  id="seat"
-                  value={editingEvent.seat || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} 
-                />
+                <Input id="seat" value={editingEvent.seat || ""} onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class">Class</Label>
-                <Input 
-                  id="class"
-                  value={editingEvent.class || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} 
-                />
+                <Input id="class" value={editingEvent.class || ""} onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} />
               </div>
             </div>
           )}
@@ -842,19 +752,11 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cabin-seat">Cabin/Seat</Label>
-                <Input 
-                  id="cabin-seat"
-                  value={editingEvent.seat || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} 
-                />
+                <Input id="cabin-seat" value={editingEvent.seat || ""} onChange={(e) => setEditingEvent({ ...editingEvent, seat: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class">Class</Label>
-                <Input 
-                  id="class"
-                  value={editingEvent.class || ""} 
-                  onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} 
-                />
+                <Input id="class" value={editingEvent.class || ""} onChange={(e) => setEditingEvent({ ...editingEvent, class: e.target.value })} />
               </div>
             </div>
           )}
@@ -863,11 +765,11 @@ const EventForm: React.FC<EventFormProps> = ({
           {editingEvent.type === "car" && (
             <div className="space-y-2">
               <Label htmlFor="rental-vehicle-info">Rental/Vehicle Info</Label>
-              <Input 
+              <Input
                 id="rental-vehicle-info"
                 placeholder="E.g., Hertz Compact Car, Tesla Model 3, etc."
-                value={editingEvent.car || ""} 
-                onChange={(e) => setEditingEvent({ ...editingEvent, car: e.target.value })} 
+                value={editingEvent.car || ""}
+                onChange={(e) => setEditingEvent({ ...editingEvent, car: e.target.value })}
               />
             </div>
           )}
@@ -878,9 +780,9 @@ const EventForm: React.FC<EventFormProps> = ({
         <>
           <div className="space-y-2">
             <Label htmlFor="place-name">Place Name</Label>
-            <Input 
+            <Input
               id="place-name"
-              value={editingEvent.placeName || ""} 
+              value={editingEvent.placeName || ""}
               onChange={(e) => {
                 const newPlaceName = e.target.value;
                 // Update both placeName and all location name fields to stay in sync
@@ -892,7 +794,7 @@ const EventForm: React.FC<EventFormProps> = ({
                     ...(editingEvent.location || {}),
                     name: newPlaceName
                   },
-                  // Update check-in location name 
+                  // Update check-in location name
                   checkIn: {
                     ...editingEvent.checkIn,
                     location: {
@@ -909,7 +811,7 @@ const EventForm: React.FC<EventFormProps> = ({
                     }
                   }
                 });
-              }} 
+              }}
             />
           </div>
 
@@ -956,10 +858,10 @@ const EventForm: React.FC<EventFormProps> = ({
           {(editingEvent.type === "hotel" || editingEvent.type === "hostel") && (
             <div className="space-y-2">
               <Label htmlFor="room-number">Room Number</Label>
-              <Input 
+              <Input
                 id="room-number"
-                value={editingEvent.roomNumber || ""} 
-                onChange={(e) => setEditingEvent({ ...editingEvent, roomNumber: e.target.value })} 
+                value={editingEvent.roomNumber || ""}
+                onChange={(e) => setEditingEvent({ ...editingEvent, roomNumber: e.target.value })}
               />
             </div>
           )}
@@ -967,10 +869,10 @@ const EventForm: React.FC<EventFormProps> = ({
           {/* Booking reference for accommodation */}
           <div className="space-y-2">
             <Label htmlFor="booking-reference">Booking Reference</Label>
-            <Input 
+            <Input
               id="booking-reference"
-              value={editingEvent.bookingReference || ""} 
-              onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })} 
+              value={editingEvent.bookingReference || ""}
+              onChange={(e) => setEditingEvent({ ...editingEvent, bookingReference: e.target.value })}
               placeholder="Reservation/confirmation number"
             />
           </div>
@@ -988,7 +890,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 type="datetime-local"
                 value={(editingEvent as ExperienceEvent).startDate ? (editingEvent as ExperienceEvent).startDate.slice(0, 16) : ""}
                 onChange={(e) => {
-                  const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                  const updatedEvent = { ...(editingEvent as ExperienceEvent) } as ExperienceEvent;
                   updatedEvent.startDate = e.target.value;
                   updatedEvent.start = e.target.value;
                   setEditingEvent(updatedEvent);
@@ -1002,7 +904,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 type="datetime-local"
                 value={(editingEvent as ExperienceEvent).endDate ? (editingEvent as ExperienceEvent).endDate.slice(0, 16) : ""}
                 onChange={(e) => {
-                  const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                  const updatedEvent = { ...(editingEvent as ExperienceEvent) } as ExperienceEvent;
                   updatedEvent.endDate = e.target.value;
                   updatedEvent.end = e.target.value;
                   setEditingEvent(updatedEvent);
@@ -1014,11 +916,11 @@ const EventForm: React.FC<EventFormProps> = ({
           {/* Booking reference field */}
           <div className="space-y-2">
             <Label htmlFor="booking-reference">Booking Reference</Label>
-            <Input 
+            <Input
               id="booking-reference"
               value={(editingEvent as ExperienceEvent).bookingReference || ""}
               onChange={(e) => {
-                const updatedEvent = { ...editingEvent as ExperienceEvent } as ExperienceEvent;
+                const updatedEvent = { ...(editingEvent as ExperienceEvent) } as ExperienceEvent;
                 updatedEvent.bookingReference = e.target.value;
                 setEditingEvent(updatedEvent);
               }}
@@ -1036,21 +938,20 @@ const EventForm: React.FC<EventFormProps> = ({
             <Input
               id="date"
               type="datetime-local"
-              value={(editingEvent as MealEvent).date ? 
-                    (editingEvent as MealEvent).date.slice(0, 16) : ""}
+              value={(editingEvent as MealEvent).date ? (editingEvent as MealEvent).date.slice(0, 16) : ""}
               onChange={(e) => {
                 // Convert to MealEvent and update
-                const updatedEvent = { 
-                  ...editingEvent as MealEvent,
+                const updatedEvent = {
+                  ...(editingEvent as MealEvent)
                 } as MealEvent;
-                
+
                 // Set date first to ensure it's defined
                 updatedEvent.date = e.target.value;
-                
+
                 // Update start/end as well for consistency
                 updatedEvent.start = e.target.value;
                 updatedEvent.end = e.target.value;
-                
+
                 setEditingEvent(updatedEvent);
               }}
             />
@@ -1064,7 +965,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 id="reservation-reference"
                 value={(editingEvent as MealEvent).reservationReference || ""}
                 onChange={(e) => {
-                  const updatedEvent = { ...editingEvent as MealEvent } as MealEvent;
+                  const updatedEvent = { ...(editingEvent as MealEvent) } as MealEvent;
                   updatedEvent.reservationReference = e.target.value;
                   setEditingEvent(updatedEvent);
                 }}
@@ -1083,6 +984,46 @@ const EventForm: React.FC<EventFormProps> = ({
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingEvent({ ...editingEvent, notes: e.target.value })}
         />
       </div>
+
+      {/* Associated Documents Section - show at the top if there are any */}
+      {user && (associatedDocuments.length > 0 || loadingDocuments) && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Associated Documents</Label>
+          {loadingDocuments ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader className="h-4 w-4 animate-spin" />
+              <span>Loading documents...</span>
+            </div>
+          ) : associatedDocuments.length > 0 ? (
+            <div className="space-y-2">
+              {associatedDocuments.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md border">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <FileText className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium truncate max-w-[200px]" title={doc.name}>
+                        {doc.name}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>Uploaded {format(doc.uploadedAt.toDate(), "MMM d, yyyy")}</span>
+                        <span>•</span>
+                        <span>{(doc.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => window.open(doc.url, "_blank")} className="flex items-center gap-1">
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="hidden sm:inline">View</span>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };
@@ -1119,9 +1060,6 @@ export const EventEditor: React.FC<EventEditorProps> = ({
         toast.error('Please enter a title for the event');
         return;
       }
-      
-      // Use current timestamp as fallback for dates
-      const currentISOString = new Date().toISOString();
       
       // Update the start/end time based on category
       if (updatedEvent.category === 'accommodation') {

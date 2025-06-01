@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
-import { ArrowLeft, ArrowRight, Globe, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RefreshCw, Scan } from 'lucide-react';
 
 interface MapInteractionControlsProps {
   onPrevEvent: () => void;
@@ -44,7 +44,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
         className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
         title="View all locations"
       >
-        <Globe className="h-5 w-5" />
+        <Scan className="h-5 w-5" />
       </Button>
       
       <Button 
