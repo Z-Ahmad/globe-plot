@@ -26,6 +26,7 @@ import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { v4 as uuidv4 } from 'uuid';
 import { Itinerary } from '@/components/Itinerary';
+import { EventList } from '@/components/EventList';
 import {
   Tabs,
   TabsContent,
@@ -35,6 +36,10 @@ import {
 import { TripProvider, useTripContext } from '@/context/TripContext';
 import { toast } from 'react-hot-toast';
 import { apiGet } from '@/lib/apiClient';
+import { DocumentUploadModal } from '@/components/DocumentUploadModal';
+import { uploadDocument, updateDocumentAssociatedEvents } from '@/lib/firebaseService';
+import { useUserStore } from '../stores/userStore';
+import { Loader2 } from 'lucide-react';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -451,12 +456,12 @@ LocationsSection.displayName = 'LocationsSection';
 const ItinerarySection = React.memo(({ 
   onEditEvent, 
   onDeleteEvent, 
-  onAddEvent,
+  onAddNew,
   emptyState 
 }: { 
   onEditEvent: (event: Event) => void;
   onDeleteEvent: (eventId: string) => void;
-  onAddEvent: (event: Event) => void;
+  onAddNew: () => void;
   emptyState: React.ReactNode;
 }) => {
   const { trip } = useTripContext();
@@ -471,7 +476,7 @@ const ItinerarySection = React.memo(({
       <Itinerary 
         onEdit={onEditEvent}
         onDelete={onDeleteEvent}
-        onAddNew={onAddEvent}
+        onAddNew={onAddNew}
         emptyState={emptyState}
         startDate={trip?.startDate}
         endDate={trip?.endDate}
@@ -484,9 +489,16 @@ ItinerarySection.displayName = 'ItinerarySection';
 
 // Custom hook to provide consistent handlers across components
 function useEventHandlers() {
-  const { updateEvent, addEvent, removeEvent } = useTripContext();
+  const { updateEvent, addEvent, removeEvent, tripId } = useTripContext();
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
+  const [showDocumentUploadModal, setShowDocumentUploadModal] = useState(false);
+  const [pendingExtractedEvents, setPendingExtractedEvents] = useState<Event[]>([]);
+  const [pendingDocumentFile, setPendingDocumentFile] = useState<File | null>(null);
+  const [showMultiEventReview, setShowMultiEventReview] = useState(false);
+  const [reviewingEvents, setReviewingEvents] = useState<Event[]>([]);
+  const [isSavingMultipleEvents, setIsSavingMultipleEvents] = useState(false);
+  const user = useUserStore((state) => state.user);
 
   // Handlers for event actions - move these to callbacks
   const handleEditEvent = useCallback((event: Event) => {
@@ -500,9 +512,45 @@ function useEventHandlers() {
       const isNewEvent = !updatedEvent.id || (updatedEvent.id && updatedEvent.id.includes('-'));
       
       if (isNewEvent) {
-        // Use addEvent from context
+        // Check if we're in multi-event review mode
+        if (showMultiEventReview) {
+          // Update the event in the reviewing list
+          setReviewingEvents(prev => 
+            prev.map(e => e.id === updatedEvent.id ? updatedEvent : e)
+          );
+          setShowEventEditor(false);
+          setCurrentEditingEvent(null);
+          return;
+        }
+        
+        // Single event flow - add to trip and upload document
         await addEvent(updatedEvent);
         console.log(`Added new event "${updatedEvent.title}"`);
+        toast.success(`Event "${updatedEvent.title}" added to your trip!`);
+        
+        // If we have a pending document file, upload it and associate with the new event
+        if (pendingDocumentFile && user && tripId) {
+          try {
+            // Upload the document directly with the event ID we have
+            setTimeout(async () => {
+              try {
+                console.log('Uploading document for newly created event:', updatedEvent.id);
+                await uploadDocument(pendingDocumentFile, tripId, [updatedEvent.id]);
+                // toast.success('Document uploaded and associated with event');
+              } catch (docError) {
+                console.error('Error uploading document:', docError);
+                toast.error('Event saved but failed to upload document');
+              }
+              
+              // Clean up pending state
+              setPendingDocumentFile(null);
+              setPendingExtractedEvents([]);
+            }, 100); // Small delay to ensure context is updated
+          } catch (docError) {
+            console.error('Error in document upload flow:', docError);
+            // Event was still saved, so don't show error for event saving
+          }
+        }
       } else {
         // Update existing event using context
         await updateEvent(updatedEvent.id, updatedEvent);
@@ -511,30 +559,189 @@ function useEventHandlers() {
       
       setShowEventEditor(false);
       setCurrentEditingEvent(null);
+      
+      // Clean up any pending document state if not a new event and not in review mode
+      if (!isNewEvent && !showMultiEventReview) {
+        setPendingDocumentFile(null);
+        setPendingExtractedEvents([]);
+      }
     } catch (error) {
       console.error('Error saving event:', error);
       toast.error('Failed to save event: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
-  }, [addEvent, updateEvent]);
+  }, [addEvent, updateEvent, pendingDocumentFile, user, tripId, showMultiEventReview]);
 
   const handleCloseEventEditor = useCallback(() => {
     setShowEventEditor(false);
     setCurrentEditingEvent(null);
-  }, []);
+    // Don't clean up pending document state if we're in multi-event review mode
+    if (!showMultiEventReview) {
+      setPendingDocumentFile(null);
+      setPendingExtractedEvents([]);
+    }
+  }, [showMultiEventReview]);
 
   const handleDeleteEvent = useCallback(async (eventId: string) => {
     try {
-      await removeEvent(eventId);
+      if (showMultiEventReview) {
+        // Remove from reviewing events list
+        setReviewingEvents(prev => prev.filter(e => e.id !== eventId));
+      } else {
+        // Delete from trip
+        await removeEvent(eventId);
+      }
     } catch (error) {
       console.error('Error deleting event:', error);
       // Could add error handling UI here
     }
-  }, [removeEvent]);
+  }, [removeEvent, showMultiEventReview]);
 
-  // Create a new blank event
-  const createNewEvent = useCallback((event: Event) => {
-    setCurrentEditingEvent(event);
+  // Handle saving all events from multi-event review
+  const handleSaveAllReviewedEvents = useCallback(async () => {
+    if (reviewingEvents.length === 0) {
+      toast.error('No events to save');
+      return;
+    }
+
+    setIsSavingMultipleEvents(true);
+    
+    try {
+      // Save all events to the trip
+      const savedEventIds: string[] = [];
+      
+      for (const event of reviewingEvents) {
+        await addEvent(event);
+        savedEventIds.push(event.id);
+        console.log(`Added event "${event.title}" to trip`);
+      }
+      
+      // Upload the document and associate with all saved events
+      if (pendingDocumentFile && user && tripId && savedEventIds.length > 0) {
+        try {
+          await uploadDocument(pendingDocumentFile, tripId, savedEventIds);
+          console.log('Document uploaded and associated with events:', savedEventIds);
+        } catch (docError) {
+          console.error('Error uploading document:', docError);
+          toast.error('Events saved but failed to upload document');
+        }
+      }
+      
+      // Show success message
+      toast.success(`${reviewingEvents.length} event${reviewingEvents.length === 1 ? '' : 's'} added to your trip!`);
+      
+      // Clean up all state
+      setShowMultiEventReview(false);
+      setReviewingEvents([]);
+      setPendingDocumentFile(null);
+      setPendingExtractedEvents([]);
+      
+    } catch (error) {
+      console.error('Error saving multiple events:', error);
+      toast.error('Failed to save some events: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsSavingMultipleEvents(false);
+    }
+  }, [reviewingEvents, addEvent, pendingDocumentFile, user, tripId]);
+
+  // Handle canceling multi-event review
+  const handleCancelMultiEventReview = useCallback(() => {
+    setShowMultiEventReview(false);
+    setReviewingEvents([]);
+    setPendingDocumentFile(null);
+    setPendingExtractedEvents([]);
+  }, []);
+
+  // Handle when document processing is complete
+  const handleDocumentProcessingComplete = useCallback((extractedEvents: Event[], originalFile: File | null) => {
+    console.log('Document processing complete:', { extractedEvents, originalFile });
+    
+    // Close the document upload modal
+    setShowDocumentUploadModal(false);
+    
+    if (extractedEvents.length > 1) {
+      // Multiple events - show review interface
+      const eventsWithIds = extractedEvents.map(event => ({
+        ...event,
+        id: event.id || uuidv4() // Ensure all events have IDs
+      }));
+      
+      setReviewingEvents(eventsWithIds);
+      setPendingExtractedEvents(eventsWithIds);
+      setPendingDocumentFile(originalFile);
+      setShowMultiEventReview(true);
+      
+      toast.success(`${extractedEvents.length} events extracted. Review and edit them below, then save to add to your trip.`, {
+        duration: 5000,
+      });
+    } else if (extractedEvents.length === 1) {
+      // Single event - show event editor directly
+      const firstEvent = {
+        ...extractedEvents[0],
+        id: extractedEvents[0].id || uuidv4() // Ensure it has an ID
+      };
+      
+      setPendingExtractedEvents(extractedEvents);
+      setPendingDocumentFile(originalFile);
+      setCurrentEditingEvent(firstEvent);
+      setShowEventEditor(true);
+      
+      toast.success(`1 event extracted. Review and save to add to your trip.`, {
+        duration: 4000,
+      });
+    } else {
+      // No events extracted, create a blank event
+      const blankEvent: ExperienceEvent = {
+        id: uuidv4(),
+        category: 'experience',
+        type: 'activity',
+        title: 'New Event',
+        start: '',
+        startDate: '',
+        endDate: '',
+        location: {
+          name: '',
+          city: '',
+          country: ''
+        }
+      };
+      
+      setPendingDocumentFile(originalFile); // Still save the document even if no events extracted
+      setCurrentEditingEvent(blankEvent);
+      setShowEventEditor(true);
+      
+      if (originalFile) {
+        toast('No events found in document. Please fill in the details manually.', {
+          icon: 'ℹ️',
+          duration: 4000,
+        });
+      }
+    }
+  }, []);
+
+  // Create a new event for multi-event review
+  const createNewEventInReview = useCallback(() => {
+    const newEvent: ExperienceEvent = {
+      id: uuidv4(),
+      category: 'experience',
+      type: 'activity',
+      title: 'New Event',
+      start: '',
+      startDate: '',
+      endDate: '',
+      location: {
+        name: '',
+        city: '',
+        country: ''
+      }
+    };
+    
+    setCurrentEditingEvent(newEvent);
     setShowEventEditor(true);
+  }, []);
+
+  // Create a new event - now shows document upload modal first
+  const createNewEvent = useCallback(() => {
+    setShowDocumentUploadModal(true);
   }, []);
 
   // Empty state to display when there are no events
@@ -547,18 +754,7 @@ function useEventHandlers() {
       <p className="text-muted-foreground mb-6 max-w-md mx-auto">
         Add your first event to start planning your trip itinerary.
       </p>
-      <Button onClick={() => createNewEvent({
-        // Let Firebase generate the ID
-        category: 'experience',
-        type: 'activity',
-        title: 'New Event',
-        start: '',
-        location: {
-          name: '',
-          city: '',
-          country: ''
-        }
-      } as any)} className="flex items-center gap-2">
+      <Button onClick={createNewEvent} className="flex items-center gap-2">
         <MapPinPlusInside size={16} />
         <span>Add Your First Event</span>
       </Button>
@@ -568,11 +764,20 @@ function useEventHandlers() {
   return {
     currentEditingEvent,
     showEventEditor,
+    showDocumentUploadModal,
+    showMultiEventReview,
+    reviewingEvents,
+    isSavingMultipleEvents,
     handleEditEvent,
     handleSaveEventEdit,
     handleCloseEventEditor,
     handleDeleteEvent,
     createNewEvent,
+    createNewEventInReview,
+    handleDocumentProcessingComplete,
+    handleSaveAllReviewedEvents,
+    handleCancelMultiEventReview,
+    setShowDocumentUploadModal,
     emptyState
   };
 }
@@ -580,16 +785,25 @@ function useEventHandlers() {
 // Inner content component that uses TripContext
 const TripContent = () => {
   const navigate = useNavigate();
-  const { trip } = useTripContext();
+  const { trip, tripId } = useTripContext();
   const [activeTab, setActiveTab] = useState("itinerary");
   const { 
     currentEditingEvent, 
-    showEventEditor, 
+    showEventEditor,
+    showDocumentUploadModal,
+    showMultiEventReview,
+    reviewingEvents,
+    isSavingMultipleEvents,
     handleEditEvent,
     handleSaveEventEdit, 
     handleCloseEventEditor,
     handleDeleteEvent,
     createNewEvent,
+    createNewEventInReview,
+    handleDocumentProcessingComplete,
+    handleSaveAllReviewedEvents,
+    handleCancelMultiEventReview,
+    setShowDocumentUploadModal,
     emptyState 
   } = useEventHandlers();
 
@@ -635,18 +849,7 @@ const TripContent = () => {
             <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
           </p>
         </div>
-        <Button onClick={() => createNewEvent({
-          // Let Firebase generate the ID
-          category: 'experience',
-          type: 'activity',
-          title: 'New Event',
-          start: '',
-          location: {
-            name: '',
-            city: '',
-            country: ''
-          }
-        } as any)} className="flex items-center gap-2">
+        <Button onClick={createNewEvent} className="flex items-center gap-2">
           <MapPinPlusInside size={20} />
           <span>Add Event</span>
         </Button>
@@ -674,7 +877,7 @@ const TripContent = () => {
             <ItinerarySection 
               onEditEvent={handleEditEvent}
               onDeleteEvent={handleDeleteEvent}
-              onAddEvent={createNewEvent}
+              onAddNew={createNewEvent}
               emptyState={emptyState}
             />
           </TabsContent>
@@ -701,7 +904,7 @@ const TripContent = () => {
           <ItinerarySection 
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
-            onAddEvent={createNewEvent}
+            onAddNew={createNewEvent}
             emptyState={emptyState}
           />
         </div>
@@ -712,6 +915,14 @@ const TripContent = () => {
         </div>
       </div>
 
+      {/* Document Upload Modal */}
+      <DocumentUploadModal
+        isOpen={showDocumentUploadModal}
+        onClose={() => setShowDocumentUploadModal(false)}
+        onProcessingComplete={handleDocumentProcessingComplete}
+        tripId={tripId}
+      />
+
       {/* Event Editor Dialog */}
       <EventEditor
         event={currentEditingEvent}
@@ -721,6 +932,71 @@ const TripContent = () => {
         showViewOnMap={!isNewEvent}
         shouldFetchDocuments={true}
       />
+
+      {/* Multi-Event Review Modal */}
+      {showMultiEventReview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-background border border-border rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-semibold mb-2">Review Extracted Events</h2>
+              <p className="text-muted-foreground">
+                {reviewingEvents.length} events were found in your document. Review and edit them below, then save to add them to your trip.
+              </p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <EventList 
+                events={reviewingEvents}
+                onEdit={handleEditEvent}
+                onDelete={handleDeleteEvent}
+                onAddNew={createNewEventInReview}
+                hideAddButton={true}
+                emptyState={
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No events to review</p>
+                    <Button onClick={createNewEventInReview} className="flex items-center gap-2">
+                      <Plus size={16} />
+                      <span>Add Event</span>
+                    </Button>
+                  </div>
+                }
+              />
+            </div>
+            
+            <div className="p-6 border-t border-border flex justify-between items-center">
+              <Button 
+                variant="outline" 
+                onClick={handleCancelMultiEventReview}
+                disabled={isSavingMultipleEvents}
+              >
+                Cancel
+              </Button>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {reviewingEvents.length} event{reviewingEvents.length === 1 ? '' : 's'} ready to save
+                </span>
+                <Button 
+                  onClick={handleSaveAllReviewedEvents}
+                  disabled={isSavingMultipleEvents || reviewingEvents.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  {isSavingMultipleEvents ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Saving Events...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Save {reviewingEvents.length} Event{reviewingEvents.length === 1 ? '' : 's'}</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

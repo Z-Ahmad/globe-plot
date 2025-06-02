@@ -10,9 +10,10 @@ interface EventListProps {
   events: Event[];
   onEdit: (event: Event) => void;
   onDelete: (eventId: string) => void;
-  onAddNew: (event: Event) => void;
+  onAddNew: () => void;
   emptyState?: React.ReactNode;
   onViewOnMap?: (eventId: string) => void;
+  hideAddButton?: boolean;
 }
 
 export const EventList: React.FC<EventListProps> = ({ 
@@ -21,7 +22,8 @@ export const EventList: React.FC<EventListProps> = ({
   onDelete,
   onAddNew,
   emptyState,
-  onViewOnMap
+  onViewOnMap,
+  hideAddButton = false
 }) => {
   // Group events by date for display
   const eventsByDate = useMemo(() => {
@@ -90,28 +92,19 @@ export const EventList: React.FC<EventListProps> = ({
         </div>
       ))}
       
-      {/* Add new button */}
-      <div className="pt-4 pb-8 flex justify-center">
-        <Button 
-          variant="outline" 
-          onClick={() => onAddNew({
-            // Don't generate id - let Firebase do it
-            category: 'experience',
-            type: 'activity',
-            title: 'New Event',
-            start: '',
-            location: {
-              name: '',
-              city: '',
-              country: ''
-            }
-          } as any)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add New Event</span>
-        </Button>
-      </div>
+      {/* Add new button - only show if not hidden */}
+      {!hideAddButton && (
+        <div className="pt-4 pb-8 flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={onAddNew}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add New Event</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }; 

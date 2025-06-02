@@ -2,14 +2,11 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Event } from '@/types/trip';
 import { EventList } from './EventList';
 import { Button } from './ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Calendar, CalendarRange, Filter, List, Map, MapPin, Loader, LockIcon } from 'lucide-react';
+import { Calendar, List, Map, LockIcon } from 'lucide-react';
 import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getEventStyle } from '@/styles/eventStyles';
 import { useUserStore } from '@/stores/userStore';
-import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
-import toast from 'react-hot-toast';
 import { useTripContext } from '@/context/TripContext';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { MapView } from './MapView';
@@ -18,7 +15,7 @@ import { registerViewModeCallback, clearViewModeCallback } from '@/context/TripC
 interface ItineraryProps {
   onEdit: (event: Event) => void;
   onDelete: (eventId: string) => void;
-  onAddNew: (event: Event) => void;
+  onAddNew: () => void;
   emptyState?: React.ReactNode;
   startDate?: string;
   endDate?: string;

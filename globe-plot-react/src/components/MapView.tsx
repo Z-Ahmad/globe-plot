@@ -139,7 +139,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       );
       
       // If distance is less than our offset radius * 2, it's likely clustered
-      return distance < 0.0002; // Slightly larger than our offset radius
+      return distance < 0.0005; // Slightly larger than our offset radius
     });
     
     return nearbyEvents.length > 0;
