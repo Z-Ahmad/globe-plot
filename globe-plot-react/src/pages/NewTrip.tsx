@@ -6,10 +6,11 @@ import { useUserStore } from '../stores/userStore';
 import { enrichAndSaveEventCoordinates } from '@/lib/mapboxService';
 import { uploadDocument, updateDocumentAssociatedEvents, DocumentMetadata } from '@/lib/firebaseService';
 import { apiPost } from '@/lib/apiClient';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { EventEditor } from "@/components/EventEditor";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside } from "lucide-react";
+import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles } from "lucide-react";
 import { EventList } from "@/components/EventList";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
@@ -522,124 +523,211 @@ export const NewTrip = () => {
     </div>
   );
 
+  // Animation variants
+  const pageVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 }
+  };
+
+  const stepTransition = {
+    type: "spring",
+    stiffness: 300,
+    damping: 30
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 0.5, ease: "easeOut" }
+    }
+  };
+
+  const documentItemVariants = {
+    hidden: { x: -20, opacity: 0, scale: 0.95 },
+    visible: { 
+      x: 0, 
+      opacity: 1, 
+      scale: 1,
+      transition: { duration: 0.3, ease: "easeOut" }
+    },
+    exit: { 
+      x: 20, 
+      opacity: 0, 
+      scale: 0.95,
+      transition: { duration: 0.2 }
+    }
+  };
+
+  const progressVariants = {
+    hidden: { scaleX: 0 },
+    visible: { 
+      scaleX: 1,
+      transition: { duration: 0.5, ease: "easeInOut" }
+    }
+  };
+
   const renderTripDetailsStep = () => (
-    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
-      <h1 className='text-2xl font-bold mb-6'>Create New Trip</h1>
-      
-      <form onSubmit={(e) => { e.preventDefault(); setCurrentStep('document-upload'); }}>
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2" htmlFor="name">
-            Trip Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border border-input rounded-md px-3 py-2 bg-background"
-            placeholder="European Adventure"
-            required
-          />
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div>
-            <label className="block text-sm font-medium mb-2" htmlFor="startDate">
-              Start Date
-            </label>
-            <div className="relative">
-              <CalendarDays size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border border-input rounded-md pl-10 pr-3 py-2 bg-background"
-                required
-              />
-            </div>
+    <motion.div 
+      key="trip-details"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+    >
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants} className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-primary" />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2" htmlFor="endDate">
-              End Date
-            </label>
-            <div className="relative">
-              <CalendarDays size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border border-input rounded-md pl-10 pr-3 py-2 bg-background"
-                required
-              />
-            </div>
-          </div>
-        </div>
+          <h1 className='text-2xl font-bold'>Create New Trip</h1>
+        </motion.div>
         
-        <div className="flex justify-between">
-          <Button 
-            type="button" 
-            variant="outline"
-            onClick={() => navigate('/dashboard')}
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="submit" 
-            disabled={!name || !startDate || !endDate}
-            className="gap-2"
-          >
-            Continue
-            <ArrowRight size={16} />
-          </Button>
-        </div>
-      </form>
-    </div>
+        <form onSubmit={(e) => { e.preventDefault(); setCurrentStep('document-upload'); }}>
+          <motion.div variants={itemVariants} className="mb-6">
+            <label className="block text-sm font-medium mb-2" htmlFor="name">
+              Trip Name
+            </label>
+            <motion.input
+              whileFocus={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-input rounded-md px-3 py-2 bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              placeholder="European Adventure"
+              required
+            />
+          </motion.div>
+          
+          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 mb-8">
+            <div>
+              <label className="block text-sm font-medium mb-2" htmlFor="startDate">
+                Start Date
+              </label>
+              <div className="relative">
+                <motion.input
+                  whileFocus={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border border-input rounded-md px-2 py-2 bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2" htmlFor="endDate">
+                End Date
+              </label>
+              <div className="relative">
+                <motion.input
+                  whileFocus={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-input rounded-md px-2 py-2 bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  required
+                />
+              </div>
+            </div>
+          </motion.div>
+          
+          <motion.div variants={itemVariants} className="flex justify-between">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => navigate('/dashboard')}
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                type="submit" 
+                disabled={!name || !startDate || !endDate}
+                className="gap-2"
+              >
+                Continue
+                <ArrowRight size={16} />
+              </Button>
+            </motion.div>
+          </motion.div>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 
   const renderDocumentUploadStep = () => (
-    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
-      <h1 className='text-2xl font-bold mb-6'>Upload Travel Documents</h1>
-      
-      <div className="text-sm text-muted-foreground mb-6">
-        <p>Upload booking confirmations, tickets, and reservations to automatically extract your itinerary.</p>
-      </div>
-      
-      <div className="mb-6">
-        {documents.length === 0 ? (
-          <div 
-            className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
-            onClick={() => document.getElementById('file-upload')?.click()}
-          >
-            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <Upload size={24} className="text-primary" />
-            </div>
-            <p className="font-medium mb-1">Upload Documents</p>
-            <p className="text-sm text-muted-foreground mb-4">Drag and drop or click to select files</p>
-            <Button size="sm" variant="secondary" className="gap-2">
-              <FilePlus size={16} />
-              Browse Files
-            </Button>
-            <input 
-              id="file-upload" 
-              type="file" 
-              className="hidden" 
-              onChange={handleFileChange}
-              accept=".pdf,.eml,.txt,image/*"
-              multiple
-            />
+    <motion.div 
+      key="document-upload"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+    >
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants} className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+            <Upload className="w-5 h-5 text-primary" />
           </div>
-        ) : (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-medium">Uploaded Documents ({documents.length})</h2>
-              <button
-                onClick={() => document.getElementById('file-upload')?.click()}
-                className="text-xs px-3 py-1 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
-              >
-                + Add More
-              </button>
+          <h1 className='text-2xl font-bold'>Upload Travel Documents</h1>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} className="text-sm text-muted-foreground mb-6">
+          <p>Upload booking confirmations, tickets, and reservations to automatically extract your itinerary.</p>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} className="mb-6">
+          {documents.length === 0 ? (
+            <motion.div 
+              whileHover={{ scale: 1.02, borderColor: "rgb(var(--primary))" }}
+              whileTap={{ scale: 0.98 }}
+              className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center cursor-pointer hover:border-primary/40 transition-all duration-300"
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
+              <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Upload size={24} className="text-primary" />
+              </div>
+              <p className="font-medium mb-1">Upload Documents</p>
+              <p className="text-sm text-muted-foreground mb-4">Drag and drop or click to select files</p>
+              <motion.div whileHover={{ scale: 1.05 }}>
+                <Button size="sm" variant="secondary" className="gap-2">
+                  <FilePlus size={16} />
+                  Browse Files
+                </Button>
+              </motion.div>
               <input 
                 id="file-upload" 
                 type="file" 
@@ -648,204 +736,414 @@ export const NewTrip = () => {
                 accept=".pdf,.eml,.txt,image/*"
                 multiple
               />
-            </div>
-            
-            <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4">
-              {documents.map(doc => (
-                <li key={doc.id} className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center",
-                      doc.status === 'pending' && "bg-muted text-muted-foreground",
-                      doc.status === 'processing' && "bg-blue-100 text-blue-600",
-                      doc.status === 'completed' && "bg-green-100 text-green-600",
-                      doc.status === 'error' && "bg-red-100 text-red-600"
-                    )}>
-                      {doc.status === 'pending' && <FileText size={16} />}
-                      {doc.status === 'processing' && <Loader2 size={16} className="animate-spin" />}
-                      {doc.status === 'completed' && <CheckCircle2 size={16} />}
-                      {doc.status === 'error' && <XCircle size={16} />}
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="truncate font-medium">{doc.file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {doc.status === 'completed' ? 
-                          `${doc.events.length} events found` : 
-                          `${Math.round(doc.file.size / 1024)} KB`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveDocument(doc.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <FileX size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            
-            {/* Status summary */}
-            {documents.length > 0 && (
-              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6">
-                {pendingCount > 0 && <span className="flex items-center gap-1"><FileText size={12} /> {pendingCount} pending</span>}
-                {completedCount > 0 && <span className="flex items-center gap-1 text-green-600"><CheckCircle2 size={12} /> {completedCount} processed</span>}
-                {errorCount > 0 && <span className="flex items-center gap-1 text-red-500"><XCircle size={12} /> {errorCount} failed</span>}
-                {totalEvents > 0 && <span className="flex items-center gap-1 text-primary ml-auto">{totalEvents} events found</span>}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <div className="flex justify-between mt-6">
-        <Button 
-          type="button" 
-          variant="outline"
-          onClick={() => setCurrentStep('trip-details')}
-          className="gap-2"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </Button>
+            </motion.div>
+          ) : (
+            <motion.div layout>
+              <motion.div 
+                variants={itemVariants}
+                className="flex justify-between items-center mb-4"
+              >
+                <h2 className="font-medium">Uploaded Documents ({documents.length})</h2>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  className="text-xs px-3 py-1 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                >
+                  + Add More
+                </motion.button>
+                <input 
+                  id="file-upload" 
+                  type="file" 
+                  className="hidden" 
+                  onChange={handleFileChange}
+                  accept=".pdf,.eml,.txt,image/*"
+                  multiple
+                />
+              </motion.div>
+              
+              <motion.ul 
+                layout
+                className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4"
+              >
+                <AnimatePresence>
+                  {documents.map(doc => (
+                    <motion.li 
+                      key={doc.id}
+                      variants={documentItemVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      layout
+                      className="bg-background border border-border rounded-lg p-3 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center",
+                          doc.status === 'pending' && "bg-muted text-muted-foreground",
+                          doc.status === 'processing' && "bg-blue-100 text-blue-600",
+                          doc.status === 'completed' && "bg-green-100 text-green-600",
+                          doc.status === 'error' && "bg-red-100 text-red-600"
+                        )}>
+                          {doc.status === 'pending' && <FileText size={16} />}
+                          {doc.status === 'processing' && <Loader2 size={16} className="animate-spin" />}
+                          {doc.status === 'completed' && <CheckCircle2 size={16} />}
+                          {doc.status === 'error' && <XCircle size={16} />}
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="truncate font-medium">{doc.file.name}</p>
+                          <motion.p 
+                            key={doc.status}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {doc.status === 'completed' ? 
+                              `${doc.events.length} events found` : 
+                              `${Math.round(doc.file.size / 1024)} KB`
+                            }
+                          </motion.p>
+                        </div>
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.1, color: "rgb(239 68 68)" }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleRemoveDocument(doc.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <FileX size={16} />
+                      </motion.button>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </motion.ul>
+              
+              {/* Status summary */}
+              {documents.length > 0 && (
+                <motion.div 
+                  variants={itemVariants}
+                  className="flex items-center gap-4 text-xs text-muted-foreground mb-6"
+                >
+                  <AnimatePresence>
+                    {pendingCount > 0 && (
+                      <motion.span 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="flex items-center gap-1"
+                      >
+                        <FileText size={12} /> {pendingCount} pending
+                      </motion.span>
+                    )}
+                    {completedCount > 0 && (
+                      <motion.span 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="flex items-center gap-1 text-green-600"
+                      >
+                        <CheckCircle2 size={12} /> {completedCount} processed
+                      </motion.span>
+                    )}
+                    {errorCount > 0 && (
+                      <motion.span 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="flex items-center gap-1 text-red-500"
+                      >
+                        <XCircle size={12} /> {errorCount} failed
+                      </motion.span>
+                    )}
+                    {totalEvents > 0 && (
+                      <motion.span 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="flex items-center gap-1 text-primary ml-auto"
+                      >
+                        {totalEvents} events found
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </motion.div>
         
-        {documents.length > 0 && pendingCount > 0 ? (
-          <Button 
-            onClick={processDocuments}
-            disabled={isProcessing || hasProcessingDocuments}
-            className="gap-2"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                Process Documents
+        <motion.div variants={itemVariants} className="flex justify-between mt-6">
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={() => setCurrentStep('trip-details')}
+              className="gap-2"
+            >
+              <ArrowLeft size={16} />
+              Back
+            </Button>
+          </motion.div>
+          
+          {documents.length > 0 && pendingCount > 0 ? (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                onClick={processDocuments}
+                disabled={isProcessing || hasProcessingDocuments}
+                className="gap-2"
+              >
+                <AnimatePresence mode="wait">
+                  {isProcessing ? (
+                    <motion.div
+                      key="processing"
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      exit={{ opacity: 0, rotate: 90 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Loader2 size={16} className="animate-spin" />
+                      Processing...
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="process"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="flex items-center gap-2"
+                    >
+                      Process Documents
+                      <ArrowRight size={16} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                onClick={() => setCurrentStep('event-review')} 
+                className="gap-2"
+              >
+                Continue
                 <ArrowRight size={16} />
-              </>
-            )}
-          </Button>
-        ) : (
-          <Button 
-            onClick={() => setCurrentStep('event-review')} 
-            className="gap-2"
-          >
-            Continue
-            <ArrowRight size={16} />
-          </Button>
-        )}
-      </div>
-    </div>
+              </Button>
+            </motion.div>
+          )}
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 
   const renderProcessingStep = () => (
-    <div className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
-      <h1 className='text-xl font-bold mb-6 flex items-center gap-2'>
-        <Loader2 size={20} className="animate-spin text-primary" />
-        Processing Documents
-      </h1>
-      
-      <Progress value={processingProgress} className="h-2 mb-4" />
-      
-      <p className="text-sm text-muted-foreground mb-6">
-        Extracting events from your documents. This might take a moment...
-      </p>
-      
-      <div className="p-4 bg-background rounded-lg border border-border mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className='flex items-center gap-2'>
-            <FileText size={16} />
-            <span className="text-sm font-medium">Documents processed</span>
-          </span>
-            <span className="text-sm font-medium">{completedCount}/{documents.length}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="flex items-center gap-2">
-            <CalendarSearch size={16} />
-            <span className="text-sm font-medium">Events found</span>
-          </span>
-          <span className="text-sm font-medium">{totalEventsFound}</span>
-        </div>
-      </div>
-    </div>
+    <motion.div 
+      key="processing"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+    >
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants} className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+            <Loader2 size={20} className="animate-spin text-primary" />
+          </div>
+          <h1 className='text-xl font-bold'>Processing Documents</h1>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} className="mb-4">
+          <motion.div
+            variants={progressVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <Progress value={processingProgress} className="h-2" />
+          </motion.div>
+        </motion.div>
+        
+        <motion.p variants={itemVariants} className="text-sm text-muted-foreground mb-6">
+          Extracting events from your documents. This might take a moment...
+        </motion.p>
+        
+        <motion.div 
+          variants={itemVariants}
+          className="p-4 bg-background rounded-lg border border-border mb-6"
+        >
+          <motion.div 
+            layout
+            className="flex justify-between items-center mb-2"
+          >
+            <span className='flex items-center gap-2'>
+              <FileText size={16} />
+              <span className="text-sm font-medium">Documents processed</span>
+            </span>
+            <motion.span 
+              key={`${completedCount}-${documents.length}`}
+              initial={{ scale: 1.2, color: "rgb(34 197 94)" }}
+              animate={{ scale: 1, color: "inherit" }}
+              transition={{ duration: 0.3 }}
+              className="text-sm font-medium"
+            >
+              {completedCount}/{documents.length}
+            </motion.span>
+          </motion.div>
+          <motion.div 
+            layout
+            className="flex justify-between items-center"
+          >
+            <span className="flex items-center gap-2">
+              <CalendarSearch size={16} />
+              <span className="text-sm font-medium">Events found</span>
+            </span>
+            <motion.span 
+              key={totalEventsFound}
+              initial={{ scale: 1.2, color: "rgb(34 197 94)" }}
+              animate={{ scale: 1, color: "inherit" }}
+              transition={{ duration: 0.3 }}
+              className="text-sm font-medium"
+            >
+              {totalEventsFound}
+            </motion.span>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 
   const renderEventReviewStep = () => (
-    <div className="max-w-3xl mx-auto bg-card border border-border rounded-lg p-8 shadow-sm">
-      <div className="mb-6">
-        <h1 className='text-2xl font-bold'>Review Events for "{name}"</h1>
-        <div className="flex justify-start mt-2">
-          <Button onClick={() => createNewEvent({
-            id: uuidv4(),
-            category: 'experience',
-            type: 'activity',
-            title: 'New Event',
-            start: '',
-            location: {
-              name: '',
-              city: '',
-              country: ''
-            }
-            } as any)} 
-            className="flex items-center gap-2"
-          >
-            <Plus size={16} />
-            <span>Add Event</span>
-          </Button>
-        </div>
-      </div>
-      
-      <EventList 
-        events={editingEvents}
-        onEdit={handleEditEvent}
-        onDelete={handleDeleteEvent}
-        onAddNew={createNewEvent}
-        emptyState={emptyState}
-      />
-      
-      <div className="flex justify-between mt-8">
-        <Button 
-          variant="outline"
-          onClick={() => setCurrentStep('document-upload')}
-          className="gap-2"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </Button>
-        <Button 
-          onClick={handleSubmitTrip}
-          disabled={isProcessing}
-          className="gap-2"
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Creating Trip...
-            </>
-          ) : (
-            <>
-              Create Trip
-              {editingEvents.length > 0 && ` with ${editingEvents.length} Events`}
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
+    <motion.div 
+      key="event-review"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+      className="max-w-3xl mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+    >
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants} className="mb-6">
+          <motion.div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <CalendarSearch className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className='text-2xl font-bold'>Review Events for "{name}"</h1>
+          </motion.div>
+          <div className="flex justify-start">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button onClick={() => createNewEvent({
+                id: uuidv4(),
+                category: 'experience',
+                type: 'activity',
+                title: 'New Event',
+                start: '',
+                location: {
+                  name: '',
+                  city: '',
+                  country: ''
+                }
+                } as any)} 
+                className="flex items-center gap-2"
+              >
+                <Plus size={16} />
+                <span>Add Event</span>
+              </Button>
+            </motion.div>
+          </div>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <EventList 
+            events={editingEvents}
+            onEdit={handleEditEvent}
+            onDelete={handleDeleteEvent}
+            onAddNew={() => createNewEvent({
+              id: uuidv4(),
+              category: 'experience',
+              type: 'activity',
+              title: 'New Event',
+              start: '',
+              location: {
+                name: '',
+                city: '',
+                country: ''
+              }
+            } as any)}
+            emptyState={emptyState}
+          />
+        </motion.div>
+        
+        <motion.div variants={itemVariants} className="flex justify-between mt-8">
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button 
+              variant="outline"
+              onClick={() => setCurrentStep('document-upload')}
+              className="gap-2"
+            >
+              <ArrowLeft size={16} />
+              Back
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button 
+              onClick={handleSubmitTrip}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              <AnimatePresence mode="wait">
+                {isProcessing ? (
+                  <motion.div
+                    key="creating"
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    exit={{ opacity: 0, rotate: 90 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Loader2 size={16} className="animate-spin" />
+                    Creating Trip...
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="create"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex items-center gap-2"
+                  >
+                    <MapPinCheckInside size={16} />
+                    Create Trip
+                    {editingEvents.length > 0 && ` with ${editingEvents.length} Events`}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Button>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 
   return (
     <TripProvider tripId={tempTripId}>
       <main className='p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center'>
-        {isProcessing && currentStep === 'document-upload' ? (
-          renderProcessingStep()
-        ) : (
-          currentStep === 'trip-details' ? renderTripDetailsStep() :
-          currentStep === 'document-upload' ? renderDocumentUploadStep() :
-          renderEventReviewStep()
-        )}
+        <AnimatePresence mode="wait">
+          {isProcessing && currentStep === 'document-upload' ? (
+            renderProcessingStep()
+          ) : (
+            currentStep === 'trip-details' ? renderTripDetailsStep() :
+            currentStep === 'document-upload' ? renderDocumentUploadStep() :
+            renderEventReviewStep()
+          )}
+        </AnimatePresence>
 
         {/* Event Editor Dialog */}
         <EventEditor

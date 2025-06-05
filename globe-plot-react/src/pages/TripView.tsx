@@ -419,7 +419,7 @@ const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Eve
                             return (
                               <li 
                                 key={event.id} 
-                                className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors"
+                                className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 transition-colors cursor-pointer"
                                 onClick={() => onEditEvent(event)}
                               >
                                 <div className={`${bgColor} p-1 rounded-md flex-shrink-0`}>
