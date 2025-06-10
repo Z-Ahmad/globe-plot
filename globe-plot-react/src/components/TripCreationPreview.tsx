@@ -231,7 +231,7 @@ export const TripCreationPreview: React.FC<TripCreationPreviewProps> = ({
                     <Sparkles className="w-8 h-8 text-green-600" />
                   </motion.div>
 
-                  <p className="text-sm font-medium text-slate-700 mb-2">AI extracting events...</p>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Extracting event data...</p>
 
                   <motion.div className="w-48 h-2 bg-slate-200 rounded-full overflow-hidden">
                     <motion.div
@@ -458,7 +458,7 @@ export const TripCreationPreview: React.FC<TripCreationPreviewProps> = ({
                     <Sparkles className="w-8 h-8 text-green-600" />
                   </motion.div>
 
-                  <p className="text-sm font-medium text-slate-700 mb-2">AI extracting events...</p>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Extracting event data...</p>
 
                   <motion.div className="w-48 h-2 bg-slate-200 rounded-full overflow-hidden">
                     <motion.div

@@ -6,9 +6,9 @@
 :root {
   --radius: 0.625rem;
   /* Vibrant travel-inspired color palette with deeper blue primary */
-  --background: #F5F7ED;
+  --background: #F3F8FD;
   --foreground: oklch(0.2 0.01 240);
-  --card: #FBFCF8;  /* Very slightly tinted white that's subtly warmer than the background */
+  --card: #f8fbfc; 
   --card-foreground: oklch(0.2 0.01 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.01 240);
@@ -122,5 +122,20 @@
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
+  }
+}
+
+/* PWA Safe Area Support */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .h-safe-area-inset-bottom {
+    height: env(safe-area-inset-bottom);
+  }
+  
+  .pb-safe-bottom {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+  
+  .bottom-navigation {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

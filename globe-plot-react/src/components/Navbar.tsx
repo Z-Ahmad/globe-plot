@@ -1,50 +1,60 @@
 import { Link } from "react-router-dom";
 import { LoginButton } from "./LoginButton";
-import { useUserStore } from "../stores/userStore";
+import { useState, useEffect } from "react";
+import { Plus } from "lucide-react";
+import { Logo } from "./Logo";
 
-interface NavbarProps {
-  children?: React.ReactNode;
-}
+export function Navbar() {
+  const [isScrolled, setIsScrolled] = useState(false);
 
-export function Navbar({ children }: NavbarProps) {
-  
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="bg-primary text-primary-foreground py-3 px-4 shadow-md">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center gap-2">
-            {/* Logo */}
-            <div className="flex items-center justify-center bg-white rounded-full w-8 h-8 overflow-hidden">
-              <div className="text-primary text-xl" style={{ marginTop: '-2px' }}>🌍</div>
-            </div>
-            <span className="text-xl font-bold">Globeplot</span>
-          </Link>
-        </div>
-        
-        {/* Navigation Links */}
-        <div className="hidden md:flex items-center space-x-6">
-          <Link to="/dashboard" className="text-primary-foreground/90 hover:text-primary-foreground transition-colors text-sm font-medium">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-white/90 shadow-lg backdrop-blur-sm"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
+        <Link to="/" className="flex items-center gap-3 group">
+          <Logo className="w-14 h-14 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
+          <span className="text-2xl font-bold text-slate-800">
+            Globeplot
+          </span>
+        </Link>
+
+        <nav className="hidden md:flex items-center gap-6">
+          <Link
+            to="/dashboard"
+            className="text-slate-600 hover:text-blue-600 transition-colors font-medium text-sm"
+          >
             My Trips
           </Link>
-          
-          <div className="pl-2 flex items-center space-x-3">
-            <Link 
-              to="/trip/new" 
-              className="bg-white text-primary hover:bg-primary-foreground/90 transition-colors px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 shadow-sm"
+          <div className="flex items-center gap-4">
+            <Link
+              to="/trip/new"
+              className="group relative px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-1.5 text-sm"
             >
-              <span className="text-xs">+</span>
+              <Plus className="w-4 h-4" />
               <span>New Trip</span>
             </Link>
-            
-
-              <LoginButton />
-
+            <LoginButton />
           </div>
+        </nav>
+
+        <div className="md:hidden">
+          <LoginButton />
         </div>
       </div>
-      
-      {/* Optional children for extra content */}
-      {children}
     </header>
   );
 } 

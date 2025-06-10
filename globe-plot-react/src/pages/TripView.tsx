@@ -202,7 +202,7 @@ const ComingUpSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Even
   );
 
   return (
-    <section className="bg-card border border-border shadow-sm rounded-lg p-6 h-full overflow-auto">
+    <section className="bg-card border border-border shadow-sm rounded-lg p-6 overflow-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <CalendarClock className="h-5 w-5 text-primary" />
@@ -380,7 +380,7 @@ const LocationsSection = React.memo(({ onEditEvent }: { onEditEvent: (event: Eve
           </span>
         </span>
       </div>
-      <div className="p-3 bg-white text-foreground overflow-auto" style={{ minHeight: '200px' }}>
+      <div className="p-3 bg-card text-foreground overflow-auto" style={{ minHeight: '200px' }}>
         <Accordion 
           type="multiple" 
           value={expandedCountries} 

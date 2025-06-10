@@ -125,4 +125,5 @@ export interface EventStyle {
   hoverBgColor: string; // Tailwind hover background color class
   cssColor?: string; // New: Actual CSS color value (e.g., 'var(--sky-700)')
   cssBgColor?: string; // New: Actual CSS background-color value (e.g., 'var(--sky-50)')
+  svgPath?: string; // Path to the custom styled SVG file
 } 

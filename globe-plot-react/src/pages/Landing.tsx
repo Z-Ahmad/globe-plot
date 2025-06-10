@@ -530,7 +530,7 @@ export function Landing() {
                     transition={{ delay: index * 0.1, duration: 0.5 }}
                     className="flex items-start gap-3"
                   >
-                    <CircleX className="w-5 h-5 text-red-500 mt-0.5" />
+                    <CircleX className="w-6 h-6 text-red-500 mt-0.5 flex-shrink-0" />
                     <span className="text-slate-700">{item}</span>
                   </motion.li>
                 ))}
@@ -562,10 +562,10 @@ export function Landing() {
               <ul className="space-y-4">
                 {[
                   "Drag & drop all your booking files",
-                  "AI extracts everything automatically",
+                  "Everything is automatically extracted",
+                  "Edit details if needed",
                   "See your trip on a beautiful map",
-                  "Edit details if needed (or don't)",
-                  "Share one clean link",
+                  "One stop shop for all your travel details",
                   "Export a perfect itinerary anytime"
                 ].map((item, index) => (
                   <motion.li
@@ -576,7 +576,7 @@ export function Landing() {
                     transition={{ delay: index * 0.1, duration: 0.5 }}
                     className="flex items-start gap-3"
                   >
-                    <CircleCheck className="w-5 h-5 text-green-500 mt-0.5" />
+                    <CircleCheck className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                     <span className="text-slate-700">{item}</span>
                   </motion.li>
                 ))}

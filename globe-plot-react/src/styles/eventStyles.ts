@@ -51,28 +51,32 @@ export const categoryStyleMap: Record<string, EventStyle> = {
     color: 'text-blue-700',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
-    hoverBgColor: 'hover:bg-blue-100'
+    hoverBgColor: 'hover:bg-blue-100',
+    svgPath: '/svgs/styled-travel.svg'
   },
   'accommodation': {
     icon: Building,
     color: 'text-purple-700',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
-    hoverBgColor: 'hover:bg-purple-100'
+    hoverBgColor: 'hover:bg-purple-100',
+    svgPath: '/svgs/styled-accommodation.svg'
   },
   'meal': {
     icon: CookingPot,
     color: 'text-orange-700',
     bgColor: 'bg-orange-50',
     borderColor: 'border-orange-200',
-    hoverBgColor: 'hover:bg-orange-100'
+    hoverBgColor: 'hover:bg-orange-100',
+    svgPath: '/svgs/styled-meal.svg'
   },
   'experience': {
     icon: Ticket,
     color: 'text-emerald-700',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
-    hoverBgColor: 'hover:bg-emerald-100'
+    hoverBgColor: 'hover:bg-emerald-100',
+    svgPath: '/svgs/styled-experience.svg'
   },
 };
 
@@ -84,42 +88,48 @@ export const eventStyleMap: Record<string, EventStyle> = {
     color: 'text-sky-700',
     bgColor: 'bg-sky-50',
     borderColor: 'border-sky-200',
-    hoverBgColor: 'hover:bg-sky-100'
+    hoverBgColor: 'hover:bg-sky-100',
+    svgPath: '/svgs/styled-travel-flight.svg'
   },
   'travel/train': {
     icon: Train,
     color: 'text-indigo-700',
     bgColor: 'bg-indigo-50',
     borderColor: 'border-indigo-200',
-    hoverBgColor: 'hover:bg-indigo-100'
+    hoverBgColor: 'hover:bg-indigo-100',
+    svgPath: '/svgs/styled-travel-train.svg'
   },
   'travel/car': {
     icon: Car,
     color: 'text-amber-700',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
-    hoverBgColor: 'hover:bg-amber-100'
+    hoverBgColor: 'hover:bg-amber-100',
+    svgPath: '/svgs/styled-travel-car.svg'
   },
   'travel/boat': {
     icon: Sailboat,
     color: 'text-cyan-700',
     bgColor: 'bg-cyan-50',
     borderColor: 'border-cyan-200',
-    hoverBgColor: 'hover:bg-cyan-100'
+    hoverBgColor: 'hover:bg-cyan-100',
+    svgPath: '/svgs/styled-travel-boat.svg'
   },
   'travel/bus': {
     icon: Bus,
     color: 'text-green-700',
     bgColor: 'bg-green-50',
     borderColor: 'border-green-200',
-    hoverBgColor: 'hover:bg-green-100'
+    hoverBgColor: 'hover:bg-green-100',
+    svgPath: '/svgs/styled-travel-bus.svg'
   },
   'travel/other': {
     icon: Car,
     color: 'text-blue-700',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
-    hoverBgColor: 'hover:bg-blue-100'
+    hoverBgColor: 'hover:bg-blue-100',
+    svgPath: '/svgs/styled-travel-other.svg'
   },
   
   // Accommodation
@@ -128,28 +138,32 @@ export const eventStyleMap: Record<string, EventStyle> = {
     color: 'text-purple-700',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
-    hoverBgColor: 'hover:bg-purple-100'
+    hoverBgColor: 'hover:bg-purple-100',
+    svgPath: '/svgs/styled-accommodation-hotel.svg'
   },
   'accommodation/hostel': {
     icon: BedSingle,
     color: 'text-fuchsia-700',
     bgColor: 'bg-fuchsia-50',
     borderColor: 'border-fuchsia-200',
-    hoverBgColor: 'hover:bg-fuchsia-100'
+    hoverBgColor: 'hover:bg-fuchsia-100',
+    svgPath: '/svgs/styled-accommodation-hostel.svg'
   },
   'accommodation/airbnb': {
     icon: HousePlus,
     color: 'text-rose-700',
     bgColor: 'bg-rose-50',
     borderColor: 'border-rose-200',
-    hoverBgColor: 'hover:bg-rose-100'
+    hoverBgColor: 'hover:bg-rose-100',
+    svgPath: '/svgs/styled-accommodation-airbnb.svg'
   },
   'accommodation/other': {
     icon: House,
     color: 'text-pink-700',
     bgColor: 'bg-pink-50',
     borderColor: 'border-pink-200',
-    hoverBgColor: 'hover:bg-pink-100'
+    hoverBgColor: 'hover:bg-pink-100',
+    svgPath: '/svgs/styled-accommodation-other.svg'
   },
   
   // Experience
@@ -158,35 +172,40 @@ export const eventStyleMap: Record<string, EventStyle> = {
     color: 'text-emerald-700',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
-    hoverBgColor: 'hover:bg-emerald-100'
+    hoverBgColor: 'hover:bg-emerald-100',
+    svgPath: '/svgs/styled-experience-activity.svg'
   },
   'experience/tour': {
     icon: Binoculars,
     color: 'text-teal-700',
     bgColor: 'bg-teal-50',
     borderColor: 'border-teal-200',
-    hoverBgColor: 'hover:bg-teal-100'
+    hoverBgColor: 'hover:bg-teal-100',
+    svgPath: '/svgs/styled-experience-tour.svg'
   },
   'experience/museum': {
     icon: Palette,
     color: 'text-violet-700',
     bgColor: 'bg-violet-50',
     borderColor: 'border-violet-200',
-    hoverBgColor: 'hover:bg-violet-100'
+    hoverBgColor: 'hover:bg-violet-100',
+    svgPath: '/svgs/styled-experience-museum.svg'
   },
   'experience/concert': {
     icon: Music,
     color: 'text-red-700',
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200',
-    hoverBgColor: 'hover:bg-red-100'
+    hoverBgColor: 'hover:bg-red-100',
+    svgPath: '/svgs/styled-experience-concert.svg'
   },
   'experience/other': {
     icon: Drama,
     color: 'text-lime-700',
     bgColor: 'bg-lime-50',
     borderColor: 'border-lime-200',
-    hoverBgColor: 'hover:bg-lime-100'
+    hoverBgColor: 'hover:bg-lime-100',
+    svgPath: '/svgs/styled-experience-other.svg'
   },
   
   // Meal
@@ -195,14 +214,16 @@ export const eventStyleMap: Record<string, EventStyle> = {
     color: 'text-orange-700',
     bgColor: 'bg-orange-50',
     borderColor: 'border-orange-200',
-    hoverBgColor: 'hover:bg-orange-100'
+    hoverBgColor: 'hover:bg-orange-100',
+    svgPath: '/svgs/styled-meal-restaurant.svg'
   },
   'meal/other': {
     icon: UtensilsCrossed,
     color: 'text-yellow-700',
     bgColor: 'bg-yellow-50',
     borderColor: 'border-yellow-200',
-    hoverBgColor: 'hover:bg-yellow-100'
+    hoverBgColor: 'hover:bg-yellow-100',
+    svgPath: '/svgs/styled-meal-other.svg'
   }
 };
 
@@ -215,6 +236,7 @@ export const defaultEventStyle: EventStyle = {
   hoverBgColor: 'hover:bg-gray-100',
   cssColor: tailwindToCssVarMap['text-gray-700'],
   cssBgColor: tailwindToCssVarMap['bg-gray-50'],
+  svgPath: '/svgs/styled-default.svg',
 };
 
 // Helper function to get event style
@@ -225,6 +247,7 @@ export function getEventStyle(event: { category: string; type: string }): EventS
     ...style,
     cssColor: tailwindToCssVarMap[style.color] || tailwindToCssVarMap[defaultEventStyle.color],
     cssBgColor: tailwindToCssVarMap[style.bgColor] || tailwindToCssVarMap[defaultEventStyle.bgColor],
+    svgPath: style.svgPath || defaultEventStyle.svgPath,
   };
 }
 
@@ -235,5 +258,6 @@ export function getCategoryStyle(category: string): EventStyle {
     ...style,
     cssColor: tailwindToCssVarMap[style.color] || tailwindToCssVarMap[defaultEventStyle.color],
     cssBgColor: tailwindToCssVarMap[style.bgColor] || tailwindToCssVarMap[defaultEventStyle.bgColor],
+    svgPath: style.svgPath || defaultEventStyle.svgPath,
   };
 } 

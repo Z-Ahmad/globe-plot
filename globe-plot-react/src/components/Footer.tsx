@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Logo } from './Logo';
 
 export function Footer() {
   return (
@@ -7,9 +8,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center mb-4 md:mb-0">
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex items-center justify-center bg-primary rounded-full w-6 h-6 overflow-hidden">
-                <div className="text-primary-foreground text-sm" style={{ marginTop: '-2px' }}>🌍</div>
-              </div>
+              <Logo className="w-6 h-6" />
               <span className="text-sm font-bold">Globeplot</span>
             </Link>
             <span className="text-xs text-muted-foreground ml-4">© {new Date().getFullYear()}</span>

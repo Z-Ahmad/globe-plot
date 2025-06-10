@@ -184,13 +184,18 @@ export const EventCard: React.FC<EventCardProps> = ({
   return (
     <>
       <div
-        className={`p-4 border ${borderColor} rounded-lg ${bgColor} hover:${hoverBgColor} transition-colors cursor-pointer`}
+        className={`relative p-4 border ${borderColor} rounded-lg ${bgColor} hover:${hoverBgColor} transition-colors cursor-pointer overflow-hidden`}
         onClick={() => onEdit && onEdit(event)}
       >
-        <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-full ${bgColor}`}>
+        {/* Watermark icon */}
+        <div className="absolute right-1 -bottom-1 opacity-10 pointer-events-none md:mr-10">
+          <Icon className={`h-36 w-36 ${color}`}  />
+        </div>
+
+        <div className="flex items-start gap-3 relative z-10">
+          {/* <div className={`p-2 rounded-full ${bgColor}`}>
             <Icon className={`h-5 w-5 ${color}`} />
-          </div>
+          </div> */}
 
           <div className="flex-1 min-w-0 ">
             <div className="flex justify-between items-start">
