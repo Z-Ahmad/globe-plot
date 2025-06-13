@@ -711,7 +711,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       map.current.fitBounds(bounds, {
         padding: 50,
         maxZoom: 13,
-        duration: 1000
+        duration: 800
       });
       setIsInitialFitDone(true);
     } else if (validCoordinates.length > 0 && !isInitialFitDone && focusedEventId) {
@@ -827,8 +827,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
       map.current.flyTo({
         center: coordinatesToUse as [number, number],
         zoom: DESIRED_FOCUS_ZOOM,
-        speed: 1.5, 
-        curve: 1,
+        speed: 2.5,
         essential: true
       });
 
@@ -1230,26 +1229,26 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
                                 (acc, coord) => acc.extend(coord as mapboxgl.LngLatLike),
                                 new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
                             );
-                            map.current.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 1000 });
+                            map.current.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 800 });
                         } else {
                             map.current.flyTo({
                                 center: DEFAULT_CENTER as [number, number],
                                 zoom: DEFAULT_ZOOM,
-                                duration: 1000
+                                duration: 800
                             });
                         }
                     } else {
                         map.current.flyTo({
                             center: DEFAULT_CENTER as [number, number],
                             zoom: DEFAULT_ZOOM,
-                            duration: 1000
+                            duration: 800
                         });
                     }
                 } else {
                     map.current.flyTo({
                         center: DEFAULT_CENTER as [number, number],
                         zoom: DEFAULT_ZOOM,
-                        duration: 1000
+                        duration: 800
                     });
                 }
               }

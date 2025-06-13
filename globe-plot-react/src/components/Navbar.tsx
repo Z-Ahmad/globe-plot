@@ -24,9 +24,9 @@ export function Navbar() {
           : "bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
+      <div className="max-w-7xl mx-2 flex justify-between items-center px-6 py-3">
         <Link to="/" className="flex items-center gap-3 group">
-          <Logo className="w-14 h-14 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
+          <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
           <span className="text-2xl font-bold text-slate-800">
             Globeplot
           </span>
