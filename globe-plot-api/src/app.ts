@@ -58,7 +58,8 @@ const corsOptions = {
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "https://globe-plot.pages.dev",
-    "https://globeplot.com"
+    "https://globeplot.com",
+    "https://www.globeplot.com"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

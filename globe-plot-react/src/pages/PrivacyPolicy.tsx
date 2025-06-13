@@ -70,13 +70,59 @@ export const PrivacyPolicy = () => {
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Data Storage</h2>
-          <p className="mb-4">Your trip data is currently stored in your browser's local storage. This means:</p>
+          <p className="mb-4">When signed in, your trip data is securely stored using Firebase, Google's cloud-based platform. Here's how your data is handled:</p>
+          
+          <h3 className="text-xl font-medium mt-6 mb-3">Authentication & Account Data</h3>
           <ul className="list-disc pl-6 mb-4 space-y-2">
-            <li>Data remains on your device and is not sent to our servers for storage</li>
-            <li>Clearing your browser cache or cookies will delete this data</li>
-            <li>Your data is not accessible across different devices</li>
+            <li>We use Google Firebase Authentication for secure sign-in</li>
+            <li>Your Google account information (email, name, profile picture) is used for authentication only</li>
+            <li>Authentication is handled entirely by Google's secure infrastructure</li>
           </ul>
-          <p className="mb-4">In future versions, we plan to offer optional account-based storage with additional privacy controls and cross-device access.</p>
+
+          <h3 className="text-xl font-medium mt-6 mb-3">Trip Data Storage</h3>
+          <ul className="list-disc pl-6 mb-4 space-y-2">
+            <li>Your trip data (events, itineraries) is stored in Firebase Firestore, a secure NoSQL database</li>
+            <li>All data is encrypted in transit and at rest using industry-standard encryption</li>
+            <li>Data is accessible across all your devices when signed in to your account</li>
+            <li>You have full control over your data and can delete trips or your entire account at any time</li>
+          </ul>
+
+          <h3 className="text-xl font-medium mt-6 mb-3">Document Storage</h3>
+          <ul className="list-disc pl-6 mb-4 space-y-2">
+            <li>Uploaded documents (PDFs, emails, images) are stored in Firebase Storage</li>
+            <li>Documents are associated with your account and accessible only to you and your collaborators</li>
+            <li>You can delete uploaded documents at any time</li>
+            <li>Documents are automatically deleted when you delete the associated trip or your account</li>
+          </ul>
+
+          <p className="mb-4">
+            <strong>Data Location:</strong> Your data is stored in Google's secure data centers. Firebase complies with major privacy regulations including GDPR and CCPA.
+            For more information about Firebase's security and privacy practices, visit{" "}
+            <a
+              href="https://firebase.google.com/support/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Firebase Privacy and Security
+            </a>.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Your Data Rights</h2>
+          <p className="mb-4">You have full control over your data:</p>
+          <ul className="list-disc pl-6 mb-4 space-y-2">
+            <li><strong>Access:</strong> You can view all your trip data through the application interface</li>
+            <li><strong>Modify:</strong> You can edit or update your trip information at any time</li>
+            <li><strong>Delete:</strong> You can delete individual trips, documents, or your entire account</li>
+            <li><strong>Export:</strong> You can export your itineraries as PDFs</li>
+            <li><strong>Data Portability:</strong> Contact us if you need your data in a machine-readable format</li>
+          </ul>
+          <p className="mb-4">
+            To exercise any of these rights or if you have questions about your data, you can manage everything through your account dashboard 
+            or contact us directly.
+          </p>
         </section>
 
         <section className="mb-8">
@@ -84,11 +130,6 @@ export const PrivacyPolicy = () => {
           <p className="mb-4">
             We may update this Privacy Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons.
           </p>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Contact Us</h2>
-          <p className="mb-4">If you have questions about this Privacy Policy or our privacy practices, please contact us at: privacy@globeplot.com</p>
         </section>
 
         <div className="mt-8 pt-6 border-t border-border">
