@@ -1,8 +1,7 @@
 import { Request } from 'express';
 import pdf from 'pdf-parse';
 import { simpleParser } from 'mailparser';
-import { createReadStream } from 'fs';
-import { promisify } from 'util';
+
 
 export const documentService = {
   processDocument: async (file: Express.Multer.File) => {

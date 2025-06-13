@@ -1,4 +1,4 @@
-import { documentController } from '@/controllers/documentController';
+import { documentController } from '../controllers/documentController';
 import express from 'express';
 
 import multer from 'multer';

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import OpenAI from 'openai';
-import { documentService } from '@/services/documentService';
+import { documentService } from '../services/documentService';
 import dotenv from 'dotenv';
 import { Mistral } from '@mistralai/mistralai';
 import { v4 as uuidv4 } from 'uuid';
