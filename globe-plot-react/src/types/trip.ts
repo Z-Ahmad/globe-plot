@@ -109,11 +109,15 @@ export interface Document {
 
 export interface Trip {
   id: string;
+  userId: string;
   name: string;
   startDate: string;
   endDate: string;
   events: Event[];
   documents: Document[];
+  sharedWith?: { [uid: string]: 'editor' | 'viewer' };
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 // Event styling for UI
@@ -126,4 +130,16 @@ export interface EventStyle {
   cssColor?: string; // New: Actual CSS color value (e.g., 'var(--sky-700)')
   cssBgColor?: string; // New: Actual CSS background-color value (e.g., 'var(--sky-50)')
   svgPath?: string; // Path to the custom styled SVG file
+}
+
+export interface ShareInvitation {
+  id: string;
+  tripId: string;
+  tripName: string;
+  ownerId: string;
+  ownerEmail: string;
+  inviteeEmail: string;
+  inviteeUid?: string; // UID of the user who accepted the invitation
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: any; // Firestore Timestamp
 } 

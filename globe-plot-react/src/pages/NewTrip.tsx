@@ -376,6 +376,7 @@ export const NewTrip = () => {
     // Create new trip with edited events (documents will be uploaded after trip creation)
     const newTrip: Trip = {
       id: tripId,
+      userId: user?.uid || '',
       name,
       startDate,
       endDate,
@@ -397,15 +398,12 @@ export const NewTrip = () => {
       (async () => {
         try {
           // Add trip to store (which will now handle both local storage and Firestore)
-          await addTrip(newTrip);
+          // and get back the version with final Firestore IDs
+          const createdTrip: Trip | undefined = await addTrip(newTrip);
           
           // Upload documents AFTER trip creation with final Firestore IDs
           if (user && documents.length > 0) {
             console.log('NewTrip: Uploading documents with final Firestore IDs...');
-            
-            // Get the trip with final Firestore IDs from the store
-            const { trips } = useTripStore.getState();
-            const createdTrip = trips.find(t => t.name === name && t.startDate === startDate);
             
             if (createdTrip) {
               console.log('NewTrip: Found created trip with final IDs:', createdTrip.id);
@@ -419,7 +417,7 @@ export const NewTrip = () => {
                     const eventIdsFromThisDoc = doc.events
                       .map(docEvent => {
                         // Find the event in the created trip by matching properties
-                        const matchingEvent = createdTrip.events.find(e => 
+                        const matchingEvent = createdTrip.events.find((e: Event) => 
                           e.title === docEvent.title && 
                           e.category === docEvent.category &&
                           e.start === docEvent.start
@@ -454,7 +452,7 @@ export const NewTrip = () => {
               
               
             } else {
-              console.warn('NewTrip: Could not find created trip for document upload');
+              console.warn('NewTrip: addTrip did not return the created trip for document upload');
             }
           }
           
@@ -464,7 +462,7 @@ export const NewTrip = () => {
             setIsProcessing(false);
           }, 500);
           
-          return newTrip; // Return trip for success message
+          return createdTrip; // Return trip for success message
         } catch (error) {
           console.error('Error creating trip:', error);
           setIsProcessing(false);

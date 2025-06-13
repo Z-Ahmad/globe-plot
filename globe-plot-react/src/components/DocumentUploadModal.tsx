@@ -6,7 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
+  DialogClose,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { Upload, FilePlus, Loader2, FileText, CheckCircle2, XCircle } from 'lucide-react';
 import { apiPost } from '@/lib/apiClient';
@@ -143,6 +144,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       >
         <DialogHeader>
           <DialogTitle>Add Event from Document</DialogTitle>
+          <DialogDescription>
+            You can use documents to automatically add events, or skip and add event details manually.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="py-4 space-y-4">

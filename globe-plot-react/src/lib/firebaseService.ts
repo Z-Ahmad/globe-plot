@@ -15,7 +15,10 @@ import {
   query,
   where,
   Timestamp,
-  writeBatch
+  writeBatch,
+  deleteField,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { 
   ref as storageRef, 
@@ -24,7 +27,7 @@ import {
   deleteObject 
 } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
-import { Trip } from '@/types/trip';
+import { Trip, ShareInvitation } from '@/types/trip';
 
 // Auth Functions
 export const signInWithGoogle = async () => {
@@ -554,9 +557,9 @@ export const getTripDocuments = async (tripId: string): Promise<DocumentMetadata
 };
 
 /**
- * Gets documents associated with a specific event
+ * Gets documents associated with a specific event for a given trip
  */
-export const getEventDocuments = async (eventId: string): Promise<DocumentMetadata[]> => {
+export const getEventDocuments = async (tripId: string, eventId: string): Promise<DocumentMetadata[]> => {
   try {
     const userId = getCurrentUser()?.uid;
     if (!userId) {
@@ -564,13 +567,15 @@ export const getEventDocuments = async (eventId: string): Promise<DocumentMetada
       throw new Error('User not authenticated');
     }
 
-    console.log('getEventDocuments: Searching for documents with eventId:', eventId, 'userId:', userId);
+    console.log('getEventDocuments: Searching for documents with eventId:', eventId, 'for tripId:', tripId);
 
     const documentsRef = collection(db, 'documents');
+    // Security rules will handle access control based on trip ownership/sharing.
+    // We only need to query by trip and event association.
     const q = query(
       documentsRef,
-      where('associatedEvents', 'array-contains', eventId),
-      where('userId', '==', userId)
+      where('tripId', '==', tripId),
+      where('associatedEvents', 'array-contains', eventId)
     );
     
     const querySnapshot = await getDocs(q);
@@ -724,4 +729,208 @@ const determineDocumentType = (file: File): 'pdf' | 'email' | 'image' => {
   } else {
     return 'image';
   }
+}; 
+
+// Share/Invitation Functions
+export const createShareInvitation = async (
+  tripId: string,
+  tripName: string,
+  inviteeEmail: string
+): Promise<void> => {
+  const user = getCurrentUser();
+  if (!user || !user.email) {
+    throw new Error('User not authenticated or has no email.');
+  }
+
+  // Prevent user from inviting themselves
+  if (user.email === inviteeEmail) {
+    throw new Error('You cannot share a trip with yourself.');
+  }
+
+  const invitationsRef = collection(db, 'shareInvitations');
+  const newInvitationRef = doc(invitationsRef);
+
+  const invitation: ShareInvitation = {
+    id: newInvitationRef.id,
+    tripId,
+    tripName,
+    ownerId: user.uid,
+    ownerEmail: user.email,
+    inviteeEmail: inviteeEmail.toLowerCase(),
+    status: 'pending',
+    createdAt: Timestamp.now(),
+  };
+
+  await setDoc(newInvitationRef, invitation);
+};
+
+export const getPendingInvitations = async (): Promise<ShareInvitation[]> => {
+  const user = getCurrentUser();
+  if (!user || !user.email) {
+    console.log('getPendingInvitations: User not authenticated or no email.');
+    return [];
+  }
+
+  const invitationsRef = collection(db, 'shareInvitations');
+  const q = query(
+    invitationsRef,
+    where('inviteeEmail', '==', user.email),
+    where('status', '==', 'pending')
+  );
+
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data() as ShareInvitation);
+};
+
+export const listenForPendingInvitations = (
+  callback: (invitations: ShareInvitation[]) => void
+): Unsubscribe => {
+  const user = getCurrentUser();
+  if (!user || !user.email) {
+    console.log('listenForPendingInvitations: User not authenticated or no email.');
+    return () => {}; // Return an empty unsubscribe function
+  }
+
+  const invitationsRef = collection(db, 'shareInvitations');
+  const q = query(
+    invitationsRef,
+    where('inviteeEmail', '==', user.email),
+    where('status', '==', 'pending')
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const invitations = querySnapshot.docs.map(doc => doc.data() as ShareInvitation);
+    callback(invitations);
+  }, (error) => {
+    console.error("Error listening for pending invitations:", error);
+    callback([]);
+  });
+
+  return unsubscribe;
+};
+
+export const acceptInvitation = async (invitationId: string): Promise<void> => {
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated.');
+  }
+
+  const invitationRef = doc(db, 'shareInvitations', invitationId);
+  const invitationDoc = await getDoc(invitationRef);
+
+  if (!invitationDoc.exists()) {
+    throw new Error('Invitation not found.');
+  }
+
+  const invitation = invitationDoc.data() as ShareInvitation;
+
+  // Security check: ensure current user is the invitee
+  if (user.email !== invitation.inviteeEmail) {
+    throw new Error('You are not authorized to accept this invitation.');
+  }
+  
+  const tripRef = doc(db, 'trips', invitation.tripId);
+
+  const batch = writeBatch(db);
+
+  // 1. Update the invitation status
+  batch.update(invitationRef, { 
+    status: 'accepted',
+    inviteeUid: user.uid // Store the UID of the user who accepted
+  });
+
+  // 2. Add user to the trip's sharedWith map
+  // Use dot notation for updating a field within a map
+  batch.update(tripRef, {
+    [`sharedWith.${user.uid}`]: 'editor'
+  });
+
+  await batch.commit();
+};
+
+export const declineInvitation = async (invitationId: string): Promise<void> => {
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated.');
+  }
+
+  const invitationRef = doc(db, 'shareInvitations', invitationId);
+  const invitationDoc = await getDoc(invitationRef);
+
+  if (!invitationDoc.exists()) {
+    throw new Error('Invitation not found.');
+  }
+
+  // Optional: Security check to ensure current user is the invitee
+  const invitation = invitationDoc.data() as ShareInvitation;
+  if (user.email !== invitation.inviteeEmail) {
+    throw new Error('You are not authorized to decline this invitation.');
+  }
+
+  await updateDoc(invitationRef, {
+    status: 'declined'
+  });
+};
+
+export const getInvitationsForTrip = async (tripId: string, ownerId: string): Promise<ShareInvitation[]> => {
+  const invitationsRef = collection(db, 'shareInvitations');
+  const q = query(
+    invitationsRef,
+    where('tripId', '==', tripId),
+    where('ownerId', '==', ownerId)
+  );
+
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data() as ShareInvitation);
+};
+
+export const listenForTripInvitations = (
+  tripId: string,
+  ownerId: string,
+  callback: (invitations: ShareInvitation[]) => void
+): Unsubscribe => {
+  const invitationsRef = collection(db, 'shareInvitations');
+  const q = query(
+    invitationsRef,
+    where('tripId', '==', tripId),
+    where('ownerId', '==', ownerId)
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const invitations = querySnapshot.docs.map(doc => doc.data() as ShareInvitation)
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()); // Sort by most recent
+    callback(invitations);
+  }, (error) => {
+    console.error("Error listening for trip invitations:", error);
+    callback([]);
+  });
+
+  return unsubscribe;
+};
+
+export const revokeTripAccess = async (
+  tripId: string, 
+  invitationId: string, 
+  inviteeUid: string | undefined
+): Promise<void> => {
+  const user = getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated.');
+  }
+
+  const batch = writeBatch(db);
+
+  // 1. Delete the invitation document
+  const invitationRef = doc(db, 'shareInvitations', invitationId);
+  batch.delete(invitationRef);
+
+  // 2. If the user had accepted, remove them from the trip's sharedWith map
+  if (inviteeUid) {
+    const tripRef = doc(db, 'trips', tripId);
+    batch.update(tripRef, {
+      [`sharedWith.${inviteeUid}`]: deleteField()
+    });
+  }
+
+  await batch.commit();
 }; 

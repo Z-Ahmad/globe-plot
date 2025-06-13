@@ -26,12 +26,12 @@ export function BottomNavigation() {
       active: location.pathname === "/trip/new",
       isSpecial: true
     },
-    {
-      to: user ? "/profile" : "/login",
-      icon: User,
-      label: user ? "Profile" : "Login",
-      active: location.pathname === "/profile" || location.pathname === "/login"
-    }
+    // {
+    //   to: user ? "/profile" : "/login",
+    //   icon: User,
+    //   label: user ? "Profile" : "Login",
+    //   active: location.pathname === "/profile" || location.pathname === "/login"
+    // }
   ];
 
   return (

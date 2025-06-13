@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Event,
   Trip,
@@ -29,9 +29,11 @@ interface TripState {
   trips: Trip[];
   loading: boolean;
   error: string | null;
+  lastSync: number | null; // Tracks the last successful fetch timestamp
+  _isHydrated: boolean; // Tracks if store has been rehydrated from localStorage
   
   // CRUD operations
-  addTrip: (trip: Trip) => Promise<void>;
+  addTrip: (trip: Trip) => Promise<Trip>;
   removeTrip: (id: string) => Promise<void>;
   updateTrip: (id: string, trip: Partial<Trip>) => Promise<void>;
   addEvent: (tripId: string, event: Event) => Promise<void>;
@@ -46,6 +48,7 @@ interface TripState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setEventsForTrip: (tripId: string, newEvents: Event[]) => void;
+  setHydrated: () => void; // Action to mark hydration as complete
 }
 
 export const useTripStore = create<TripState>()(
@@ -54,13 +57,17 @@ export const useTripStore = create<TripState>()(
       trips: [],
       loading: false,
       error: null,
+      lastSync: null,
+      _isHydrated: false,
       
+      setHydrated: () => set({ _isHydrated: true }),
+
       fetchTrips: async () => {
         const user = useUserStore.getState().user;
         
-        // Skip if user is not authenticated
+        // Skip if user is not authenticated, and clear existing data
         if (!user) {
-          set({ loading: false });
+          set({ trips: [], loading: false, error: null, lastSync: Date.now() });
           return [];
         }
         
@@ -69,19 +76,37 @@ export const useTripStore = create<TripState>()(
         try {
           // Fetch trips from Firestore
           const tripsRef = collection(db, 'trips');
-          const q = query(tripsRef, where('userId', '==', user.uid));
-          const tripSnapshot = await getDocs(q);
+          
+          // Query for trips owned by the user
+          const ownedTripsQuery = query(tripsRef, where('userId', '==', user.uid));
+          
+          // Query for trips shared with the user as an editor
+          const sharedTripsQuery = query(tripsRef, where(`sharedWith.${user.uid}`, '==', 'editor'));
+
+          const [ownedTripsSnapshot, sharedTripsSnapshot] = await Promise.all([
+            getDocs(ownedTripsQuery),
+            getDocs(sharedTripsQuery)
+          ]);
+
+          // Combine and deduplicate trips
+          const allTripsMap = new Map();
+          
+          ownedTripsSnapshot.docs.forEach(doc => {
+            allTripsMap.set(doc.id, doc.data());
+          });
+
+          sharedTripsSnapshot.docs.forEach(doc => {
+            allTripsMap.set(doc.id, doc.data());
+          });
           
           // For each trip, fetch its events only (documents are now handled separately)
           const trips = await Promise.all(
-            tripSnapshot.docs.map(async (tripDoc) => {
-              const tripData = tripDoc.data();
-              const tripId = tripDoc.id;
-              
+            Array.from(allTripsMap.entries()).map(async ([tripId, tripData]) => {
               // Fetch events for this trip
               const eventsQuery = query(collection(db, 'events'), 
-                where('tripId', '==', tripId),
-                where('userId', '==', user.uid)
+                where('tripId', '==', tripId)
+                // Note: No userId filter here because security rules will enforce access
+                // based on trip ownership or share status.
               );
               const eventSnapshot = await getDocs(eventsQuery);
               
@@ -117,7 +142,7 @@ export const useTripStore = create<TripState>()(
             })
           );
           
-          set({ trips, loading: false });
+          set({ trips, loading: false, lastSync: Date.now() });
           
           // Return the trips for use by other functions
           return trips;
@@ -139,7 +164,7 @@ export const useTripStore = create<TripState>()(
         // If not authenticated, just update local state with locally-generated ID
         if (!user) {
           set((state) => ({ trips: [...state.trips, trip] }));
-          return;
+          return trip;
         }
         
         try {
@@ -210,7 +235,8 @@ export const useTripStore = create<TripState>()(
             endDate: new Date(trip.endDate),
             // Remove the events and documents arrays as they'll be separate collections
             events: [],
-            documents: []
+            documents: [],
+            sharedWith: {} // Initialize the sharedWith map
           };
           
           // Use a batch to write everything
@@ -239,6 +265,7 @@ export const useTripStore = create<TripState>()(
           const localTripWithFirestoreIds = {
             ...trip,
             id: firestoreTripId,
+            sharedWith: {},
             events: trip.events.map(event => ({
               ...event,
               id: eventIdMap.get(event.id)
@@ -257,11 +284,13 @@ export const useTripStore = create<TripState>()(
             trips: state.trips.filter(t => t.id !== trip.id).concat(localTripWithFirestoreIds)
           }));
           
+          return localTripWithFirestoreIds;
         } catch (error) {
           // If Firestore fails, fall back to local storage with original IDs
           console.error('Error adding trip to Firestore:', error);
           set((state) => ({ trips: [...state.trips, trip] }));
           set({ error: error instanceof Error ? error.message : 'Failed to save trip' });
+          throw error; // Re-throw so the caller knows it failed
         }
       },
       
@@ -530,77 +559,70 @@ export const useTripStore = create<TripState>()(
         
         console.log(`Attempting to delete event ${eventId} from trip ${tripId}`);
         
-        // Update local state first
+        // Find the event to be removed to restore it on failure
+        const eventToRemove = get().trips.find(t => t.id === tripId)?.events.find(e => e.id === eventId);
+        
+        // Update local state first (optimistic update)
         set((state) => ({
-        trips: state.trips.map(trip =>
-          trip.id === tripId
-            ? { ...trip, events: trip.events.filter(event => event.id !== eventId) }
-            : trip
-        )
+          trips: state.trips.map(trip =>
+            trip.id === tripId
+              ? { ...trip, events: trip.events.filter(event => event.id !== eventId) }
+              : trip
+          )
         }));
         
         // Skip Firestore if user is not authenticated
         if (!user) return;
         
         try {
-          // Delete from events collection
+          // Delete from events collection. Firestore security rules will handle permissions.
           const eventRef = doc(db, 'events', eventId);
-          
-          // Check if the event exists and belongs to the user
-          const eventDoc = await getDoc(eventRef);
-          if (!eventDoc.exists()) {
-            console.warn(`Event ${eventId} not found in Firestore`);
-            return;
-          }
-          
-          const eventData = eventDoc.data();
-          if (eventData.userId !== user.uid) {
-            console.error('Not authorized to delete this event');
-            set({ error: 'Not authorized to delete this event' });
-            return;
-          }
-          
-          // Now delete the event
           await deleteDoc(eventRef);
           console.log(`Successfully deleted event ${eventId}`);
           
-          // Update any documents that reference this event - include userId in the query
+          // Update any documents that reference this event
           const documentsQuery = query(
             collection(db, 'documents'), 
-            where('userId', '==', user.uid),
-            where('tripId', '==', tripId)
+            where('tripId', '==', tripId),
+            where('associatedEvents', 'array-contains', eventId)
           );
           
           const documentSnapshot = await getDocs(documentsQuery);
           console.log(`Found ${documentSnapshot.size} documents to check for event references`);
           
-          // Update documents one by one instead of using a batch
-          for (const doc of documentSnapshot.docs) {
-            try {
-              const documentData = doc.data();
-              
-              // Only update if this document references the event
-              if (documentData.associatedEvents && documentData.associatedEvents.includes(eventId)) {
-                const updatedAssociatedEvents = documentData.associatedEvents.filter(
-                  (id: string) => id !== eventId
-                );
-                
-                await updateDoc(doc.ref, { 
-                  associatedEvents: updatedAssociatedEvents,
-                  updatedAt: Timestamp.now()
-                });
-                
-                console.log(`Updated document ${doc.id} to remove event reference`);
-              }
-            } catch (e) {
-              console.error(`Failed to update document ${doc.id}:`, e);
-              // Continue with other documents
+          // Use a batch to update all documents atomically
+          const batch = writeBatch(db);
+          documentSnapshot.forEach(doc => {
+            const documentData = doc.data();
+            if (documentData.associatedEvents?.includes(eventId)) {
+              const updatedAssociatedEvents = documentData.associatedEvents.filter(
+                (id: string) => id !== eventId
+              );
+              batch.update(doc.ref, { 
+                associatedEvents: updatedAssociatedEvents,
+                updatedAt: Timestamp.now()
+              });
             }
-          }
+          });
+          await batch.commit();
           
         } catch (error) {
           console.error('Error removing event from Firestore:', error);
+          
+          // Restore the event in local state since deletion failed
+          if (eventToRemove) {
+            set((state) => ({
+              trips: state.trips.map(trip =>
+                trip.id === tripId
+                  ? { ...trip, events: [...trip.events, eventToRemove].sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime()) }
+                  : trip
+              )
+            }));
+          }
+          
+          // Set error message and re-throw to be caught by UI layer
           set({ error: error instanceof Error ? error.message : 'Failed to remove event' });
+          throw error;
         }
       },
       
@@ -786,6 +808,14 @@ export const useTripStore = create<TripState>()(
     }),
     {
       name: 'trip-storage',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated();
+        }
+      },
+      // Exclude sync-related flags from being persisted
+      partialize: (state) => ({ trips: state.trips }),
     }
   )
 );

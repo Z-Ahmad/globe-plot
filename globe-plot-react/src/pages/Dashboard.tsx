@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTripStore } from '../stores/tripStore';
-import { Event, BaseEvent, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent } from '../types/trip';
-import { CalendarDays, Map, Trash2 } from 'lucide-react';
+import { Event, BaseEvent, TravelEvent, AccommodationEvent, ExperienceEvent, MealEvent, Trip, ShareInvitation } from '../types/trip';
+import { CalendarDays, Map, Trash2, Share2, Send, UserPlus, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   AlertDialog,
@@ -15,9 +15,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { formatDateRange } from '@/lib/utils';
-import { deleteTrip as firebaseDeleteTrip } from '@/lib/firebaseService';
-
+import { 
+  deleteTrip as firebaseDeleteTrip,
+  listenForPendingInvitations,
+  acceptInvitation,
+  declineInvitation,
+  createShareInvitation
+} from '@/lib/firebaseService';
+import { useUserStore } from '@/stores/userStore';
+import { ShareTripModal } from '@/components/ShareTripModal';
 
 // Helper function to get city and country from event
 const getLocationInfo = (event: Event): { city?: string; country?: string } => {
@@ -64,12 +83,171 @@ interface PreviewEvent {
   event: Event;
 }
 
+const TripCard = ({ 
+  trip, 
+  isOwner,
+  onDelete,
+  onShare 
+}: { 
+  trip: Trip, 
+  isOwner: boolean,
+  onDelete: (tripId: string) => void,
+  onShare: (trip: Trip) => void 
+}) => {
+  // Group events for preview
+  const grouped = groupEventsByCountryCity(trip.events);
+  const previewEvents: PreviewEvent[] = [];
+  Object.entries(grouped).forEach(([country, cities]) => {
+    Object.entries(cities).forEach(([city, events]) => {
+      if (events.length > 0) {
+        previewEvents.push({ country, city, event: events[0] });
+      }
+    });
+  });
+
+  return (
+    <div className="relative">
+      <Link to={`/trip/${trip.id}`} className="block bg-card border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">{trip.name}</h2>
+          <p className="text-muted-foreground text-sm flex items-center gap-2">
+            <CalendarDays size={16} />
+            <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+          </p>
+          <div className="mt-4 flex items-center text-sm text-chart-2">
+            <span className="mr-4 flex items-center gap-2">
+              <Map size={16} />
+              <span className="mr-1">{trip.events.length} events</span>
+            </span>
+          </div>
+          {previewEvents.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2">Itinerary Preview</p>
+              <div className="space-y-2">
+                {previewEvents.slice(0, 3).map((item, idx) => (
+                  <div key={idx} className="flex items-center text-sm">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mr-2 flex-shrink-0 text-xs">{idx + 1}</div>
+                    <div className="truncate">
+                      <span className="font-medium">{item.city}, {item.country}</span>: {item.event.title}
+                    </div>
+                  </div>
+                ))}
+                {previewEvents.length > 3 && <div className="text-xs text-muted-foreground ml-7">+ {previewEvents.length - 3} more locations</div>}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className={`h-2 bg-gradient-to-r ${isOwner ? 'from-primary to-accent' : 'from-purple-400 to-pink-500'}`}></div>
+      </Link>
+      
+      {isOwner && (
+        <div className="absolute top-2 right-2 flex space-x-1">
+          <button
+            className="w-8 h-8 bg-background/80 backdrop-blur-sm rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background transition-colors z-10"
+            aria-label={`Share ${trip.name}`}
+            onClick={() => onShare(trip)}
+          >
+            <Share2 size={16} />
+          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="w-8 h-8 bg-background/80 backdrop-blur-sm rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-background transition-colors z-10"
+                aria-label={`Delete ${trip.name}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Trash2 size={16} />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to delete this trip?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your trip and remove all its data from your device.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => onDelete(trip.id)}
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Dashboard = () => {
-  const { trips, removeTrip, error } = useTripStore();
+  const { trips, removeTrip, error, fetchTrips, lastSync, _isHydrated } = useTripStore();
+  const { user } = useUserStore();
   const navigate = useNavigate();
   const [deleteError, setDeleteError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
+
+  const [invitations, setInvitations] = useState<ShareInvitation[]>([]);
+  const [isShareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+
+  useEffect(() => {
+    // This effect handles the initial data fetch and sync on user login.
+    // It runs only when the store is hydrated and the user is logged in.
+    if (user && _isHydrated) {
+      // Only fetch if we haven't synced in this session yet.
+      // This prevents re-fetching on every component re-render.
+      if (!lastSync) {
+        console.log("Dashboard: User logged in and store hydrated. Fetching initial data...");
+        fetchTrips();
+      }
+    }
+  }, [user, _isHydrated, lastSync, fetchTrips]);
+
+  useEffect(() => {
+    if (user) {
+      // Set up the real-time listener for invitations
+      const unsubscribe = listenForPendingInvitations((pendingInvitations) => {
+        setInvitations(pendingInvitations);
+      });
+      
+      // Cleanup listener on component unmount
+      return () => unsubscribe();
+    } else {
+      // If user logs out, clear invitations
+      setInvitations([]);
+    }
+  }, [user]);
+
+  const handleAccept = async (invitationId: string) => {
+    try {
+      await acceptInvitation(invitationId);
+      toast.success("Invitation accepted! The trip is now in your 'Shared With Me' list.");
+      setInvitations(invitations.filter(inv => inv.id !== invitationId));
+      fetchTrips(); // Refresh the trips list
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to accept invitation.");
+    }
+  };
+
+  const handleDecline = async (invitationId: string) => {
+    try {
+      await declineInvitation(invitationId);
+      toast.success("Invitation declined.");
+      setInvitations(invitations.filter(inv => inv.id !== invitationId));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to decline invitation.");
+    }
+  };
+
+  const openShareModal = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setShareModalOpen(true);
+  };
 
   const confirmDelete = async (tripId: string) => {
     // Find the trip name for the toast message
@@ -145,8 +323,16 @@ export const Dashboard = () => {
     );
   };
 
+  const ownedTrips = user ? trips.filter(trip => trip.userId === user.uid) : [];
+  const sharedTrips = user ? trips.filter(trip => trip.userId !== user.uid) : [];
+
   return (
     <main className='max-w-7xl mx-auto p-6'>
+      <ShareTripModal 
+        trip={selectedTrip}
+        open={isShareModalOpen}
+        onOpenChange={setShareModalOpen}
+      />
       <div className="flex justify-between items-center mb-8">
         <h1 className='text-2xl font-bold'>My Trips</h1>
         <Link 
@@ -161,6 +347,31 @@ export const Dashboard = () => {
         <div className="bg-destructive/10 border border-destructive text-destructive p-4 mb-4 rounded-md">
           <p className="font-medium">Error deleting trip: {deleteError}</p>
           <p className="text-sm mt-1">Please try again or refresh the page.</p>
+        </div>
+      )}
+
+      {invitations.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <UserPlus />
+            Trip Invitations
+          </h2>
+          <div className="space-y-4">
+            {invitations.map(inv => (
+              <div key={inv.id} className="bg-card border border-border p-4 rounded-lg flex justify-between items-center">
+                <div>
+                  <p>
+                    <span className="font-semibold">{inv.ownerEmail}</span> has invited you to join the trip: <span className="font-bold text-primary">{inv.tripName}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">Received on {new Date(inv.createdAt.seconds * 1000).toLocaleDateString()}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleAccept(inv.id)} size="sm">Accept</Button>
+                  <Button onClick={() => handleDecline(inv.id)} variant="outline" size="sm">Decline</Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -181,97 +392,41 @@ export const Dashboard = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trips.map(trip => {
-            // Group events for preview
-            const grouped = groupEventsByCountryCity(trip.events);
-            // Flatten preview: country > city > first event in each city
-            const previewEvents: PreviewEvent[] = [];
-            Object.entries(grouped).forEach(([country, cities]) => {
-              Object.entries(cities).forEach(([city, events]) => {
-                if (events.length > 0) {
-                  previewEvents.push({
-                    country,
-                    city,
-                    event: events[0]
-                  });
-                }
-              });
-            });
-            return (
-              <div key={trip.id} className="relative">
-                <Link to={`/trip/${trip.id}`} className="block bg-card border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
-                  <div className="p-6">
-                    <h2 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">{trip.name}</h2>
-                    <p className="text-muted-foreground text-sm flex items-center gap-2">
-                      <CalendarDays size={16} />
-
-                      <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
-                    </p>
-                    <div className="mt-4 flex items-center text-sm text-chart-2">
-                      <span className="mr-4 flex items-center gap-2">
-                        <Map size={16} />
-                        <span className="mr-1">{trip.events.length} events</span>
-                      </span>
-                    </div>
-                    {previewEvents.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-border">
-                        <p className="text-xs text-muted-foreground mb-2">Itinerary Preview</p>
-                        <div className="space-y-2">
-                          {previewEvents.slice(0, 3).map((item, idx) => (
-                            <div key={idx} className="flex items-center text-sm">
-                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mr-2 flex-shrink-0 text-xs">{idx + 1}</div>
-                              <div className="truncate">
-                                <span className="font-medium">
-                                  {item.city}, {item.country}
-                                </span>
-                                : {item.event.title}
-                              </div>
-                            </div>
-                          ))}
-                          {previewEvents.length > 3 && <div className="text-xs text-muted-foreground ml-7">+ {previewEvents.length - 3} more locations</div>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="h-2 bg-gradient-to-r from-primary to-accent"></div>
-                </Link>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      className="absolute top-2 right-2 w-8 h-8 bg-background/80 backdrop-blur-sm rounded-full 
-                                flex items-center justify-center text-muted-foreground hover:text-destructive
-                                hover:bg-background transition-colors z-10"
-                      aria-label={`Delete ${trip.name}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure you want to delete this trip?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your trip and remove all its data from your device.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => confirmDelete(trip.id)}
-                        className="bg-destructive text-white hover:bg-destructive/90"
-                        disabled={isDeleting && deletingTripId === trip.id}
-                      >
-                        {isDeleting && deletingTripId === trip.id ? 'Deleting...' : 'Delete'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+        <>
+          {ownedTrips.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-xl font-bold mb-4">My Trips</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ownedTrips.map(trip => (
+                  <TripCard 
+                    key={trip.id} 
+                    trip={trip} 
+                    isOwner={true}
+                    onDelete={confirmDelete} 
+                    onShare={openShareModal} 
+                  />
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+
+          {sharedTrips.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold mb-4">Shared With Me</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sharedTrips.map(trip => (
+                  <TripCard 
+                    key={trip.id} 
+                    trip={trip} 
+                    isOwner={false}
+                    onDelete={() => {}} 
+                    onShare={() => {}}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </main>
   );

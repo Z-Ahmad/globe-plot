@@ -1,14 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Helper function to check if the userId matches
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isEditor(tripData) {
+      return isAuthenticated() && 
+        'sharedWith' in tripData && 
+        request.auth.uid in tripData.sharedWith && 
+        tripData.sharedWith[request.auth.uid] == 'editor';
+    }
+
+    function isAllowedOnTrip(tripId) {
+      // Check if the trip document exists first to avoid null errors on get()
+      return exists(/databases/$(database)/documents/trips/$(tripId)) && (
+        // Then, check if the user is either the owner or an editor
+        isOwner(get(/databases/$(database)/documents/trips/$(tripId)).data.userId) || 
+        isEditor(get(/databases/$(database)/documents/trips/$(tripId)).data)
+      );
     }
     
     // User-specific data
@@ -18,54 +33,74 @@ service cloud.firestore {
     
     // Trip collection rules
     match /trips/{tripId} {
-      // Allow read if user is authenticated and owns the resource
-      allow read: if isAuthenticated() && 
-        (resource == null || resource.data.userId == request.auth.uid);
+      allow read: if isAuthenticated() && resource != null &&
+        (isOwner(resource.data.userId) || isEditor(resource.data));
       
-      // Allow create if user is setting their own userId
       allow create: if isAuthenticated() && 
         request.resource.data.userId == request.auth.uid;
       
-      // Allow update and delete if user owns the trip
-      allow update, delete: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
+      // Owners and editors can perform any update
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isEditor(resource.data));
+      
+      // An invitee can update the trip doc ONLY to add themselves to the sharedWith map
+      allow update: if isAuthenticated() &&
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith']) &&
+          request.resource.data.sharedWith[request.auth.uid] == 'editor' &&
+          (
+            // Case 1: 'sharedWith' map already exists
+            ('sharedWith' in resource.data) &&
+            request.resource.data.sharedWith.size() == resource.data.sharedWith.size() + 1
+          ) || (
+            // Case 2: 'sharedWith' is being created for the first time
+            !('sharedWith' in resource.data) &&
+            request.resource.data.sharedWith.size() == 1
+          )
+        );
+      
+      allow delete: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || isEditor(resource.data));
     }
     
     // Event collection rules
     match /events/{eventId} {
-      // Allow read if user is authenticated and owns the resource
-      // or when querying by tripId (needed for deletion)
-      allow read: if isAuthenticated() && 
-        ((resource == null) || 
-         (resource.data.userId == request.auth.uid));
-      
-      // Allow create if user is setting their own userId
-      allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid;
-      
-      // Allow update and delete if user owns the event
-      allow update, delete: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
-        
-      // Future enhancement: Allow read if event is shared with user
-      // allow read: if resource.data.sharedWith[request.auth.uid] == true;
+      allow read: if isAuthenticated() && resource != null && isAllowedOnTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && isAllowedOnTrip(resource.data.tripId);
     }
     
     // Document collection rules
     match /documents/{docId} {
-      // Allow read if user is authenticated and owns the resource
-      // or when querying by tripId (needed for deletion)
-      allow read: if isAuthenticated() && 
-        ((resource == null) || 
-         (resource.data.userId == request.auth.uid));
-      
-      // Allow create if user is setting their own userId
+      allow read: if isAuthenticated() && resource != null && isAllowedOnTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && isAllowedOnTrip(resource.data.tripId);
+    }
+
+    // Share Invitations collection rules
+    match /shareInvitations/{invitationId} {
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.ownerId || request.auth.token.email == resource.data.inviteeEmail);
+
       allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid;
-      
-      // Allow update and delete if user owns the document
-      allow update, delete: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
+        request.auth.uid == request.resource.data.ownerId &&
+        isAllowedOnTrip(request.resource.data.tripId);
+
+      allow update: if isAuthenticated() && 
+        request.auth.token.email == resource.data.inviteeEmail &&
+        request.resource.data.status != resource.data.status &&
+        (
+          ( // Rule for accepting
+            request.resource.data.status == 'accepted' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'inviteeUid']) &&
+            request.resource.data.inviteeUid == request.auth.uid
+          ) || 
+          ( // Rule for declining
+            request.resource.data.status == 'declined' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          )
+        );
+        
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
     }
   }
 } 

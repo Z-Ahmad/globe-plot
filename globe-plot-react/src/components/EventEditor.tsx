@@ -84,15 +84,15 @@ const EventForm: React.FC<EventFormProps> = ({
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [associatedDocuments, setAssociatedDocuments] = useState<DocumentMetadata[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
-  const { setFocusedEventId, events } = useTripContext();
+  const { setFocusedEventId, events, tripId } = useTripContext();
   const user = useUserStore((state) => state.user);
 
   // Load associated documents when event changes
   useEffect(() => {
     const loadAssociatedDocuments = async () => {
       // Don't fetch documents if shouldFetchDocuments is false (e.g., during trip creation)
-      if (!shouldFetchDocuments) {
-        console.log('EventEditor: Skipping document fetch - shouldFetchDocuments is false');
+      if (!shouldFetchDocuments || !editingEvent?.id || !tripId) {
+        console.log('EventEditor: Skipping document fetch - missing required IDs');
         setAssociatedDocuments([]);
         return;
       }
@@ -105,7 +105,7 @@ const EventForm: React.FC<EventFormProps> = ({
       setLoadingDocuments(true);
       try {
         console.log('EventEditor: Loading documents for event:', editingEvent.id);
-        const docs = await getEventDocuments(editingEvent.id);
+        const docs = await getEventDocuments(tripId, editingEvent.id);
         console.log('EventEditor: Loaded documents:', docs);
         setAssociatedDocuments(docs);
       } catch (error) {
@@ -117,7 +117,7 @@ const EventForm: React.FC<EventFormProps> = ({
     };
 
     loadAssociatedDocuments();
-  }, [editingEvent.id, shouldFetchDocuments]);
+  }, [editingEvent?.id, shouldFetchDocuments, tripId]);
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
