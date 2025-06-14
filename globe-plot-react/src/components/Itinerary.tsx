@@ -19,6 +19,7 @@ interface ItineraryProps {
   emptyState?: React.ReactNode;
   startDate?: string;
   endDate?: string;
+  isTabVisible?: boolean;
 }
 
 type SortOption = 'chronological' | 'category' | 'location';
@@ -42,7 +43,8 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   onAddNew,
   emptyState,
   startDate,
-  endDate
+  endDate,
+  isTabVisible = true,
 }) => {
   const { tripId, events, setFocusedEventId } = useTripContext();
   // Persist sort option and view mode to localStorage
@@ -401,7 +403,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
         >
           <MapView 
             className="w-full h-full"
-            isVisible={viewMode === 'map'}
+            isVisible={viewMode === 'map' && isTabVisible}
             onEditEventRequest={onEdit}
           />
         </div>

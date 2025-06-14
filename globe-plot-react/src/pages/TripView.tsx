@@ -457,12 +457,14 @@ const ItinerarySection = React.memo(({
   onEditEvent, 
   onDeleteEvent, 
   onAddNew,
-  emptyState 
+  emptyState,
+  isTabVisible
 }: { 
   onEditEvent: (event: Event) => void;
   onDeleteEvent: (eventId: string) => void;
   onAddNew: () => void;
   emptyState: React.ReactNode;
+  isTabVisible?: boolean;
 }) => {
   const { trip } = useTripContext();
 
@@ -480,6 +482,7 @@ const ItinerarySection = React.memo(({
         emptyState={emptyState}
         startDate={trip?.startDate}
         endDate={trip?.endDate}
+        isTabVisible={isTabVisible}
       />
     </section>
   );
@@ -872,24 +875,25 @@ const TripContent = () => {
               <span>Locations</span>
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="itinerary" className="mt-4">
+        </Tabs>
+        
+        <div className="mt-4">
+          <div style={{ display: activeTab === 'itinerary' ? 'block' : 'none' }}>
             <ItinerarySection 
               onEditEvent={handleEditEvent}
               onDeleteEvent={handleDeleteEvent}
               onAddNew={createNewEvent}
               emptyState={emptyState}
+              isTabVisible={activeTab === 'itinerary'}
             />
-          </TabsContent>
-          
-          <TabsContent value="upcoming" className="mt-4">
+          </div>
+          <div style={{ display: activeTab === 'upcoming' ? 'block' : 'none' }}>
             <ComingUpSection onEditEvent={handleEditEvent} />
-          </TabsContent>
-          
-          <TabsContent value="locations" className="mt-4">
+          </div>
+          <div style={{ display: activeTab === 'locations' ? 'block' : 'none' }}>
             <LocationsSection onEditEvent={handleEditEvent} />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
 
       {/* Desktop layout - hidden on mobile, optimized for different screen sizes */}
@@ -906,6 +910,7 @@ const TripContent = () => {
             onDeleteEvent={handleDeleteEvent}
             onAddNew={createNewEvent}
             emptyState={emptyState}
+            isTabVisible={true}
           />
         </div>
         
