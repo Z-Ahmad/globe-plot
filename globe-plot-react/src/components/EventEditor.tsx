@@ -2,7 +2,7 @@ import React, { useState, ChangeEvent, useEffect } from 'react';
 import { Event, EventCategory } from '@/stores/tripStore';
 import { useUserStore } from '@/stores/userStore';
 import { useTripContext } from '@/context/TripContext';
-import { getEventDocuments, DocumentMetadata } from '@/lib/firebaseService';
+import { getEventDocuments, DocumentMetadata, uploadDocument } from '@/lib/firebaseService';
 import toast from 'react-hot-toast';
 import {
   Dialog,
@@ -47,7 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Info, Loader, Map, FileText, ExternalLink, Calendar } from 'lucide-react';
+import { Info, Loader, Map, FileText, ExternalLink, Calendar, Upload, Plus } from 'lucide-react';
 import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
 import { CountryDropdown } from './CountryDropdown';
 import { focusEventOnMap } from '@/context/TripContext';
@@ -84,6 +84,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [associatedDocuments, setAssociatedDocuments] = useState<DocumentMetadata[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const { setFocusedEventId, events, tripId } = useTripContext();
   const user = useUserStore((state) => state.user);
 
@@ -118,6 +119,43 @@ const EventForm: React.FC<EventFormProps> = ({
 
     loadAssociatedDocuments();
   }, [editingEvent?.id, shouldFetchDocuments, tripId]);
+
+  // Handle document upload for existing events
+  const handleDocumentUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingEvent?.id || !tripId || !user) {
+      return;
+    }
+
+    // Check if this is a new event (has UUID format) - don't allow upload for new events
+    const isNewEvent = editingEvent.id.includes('-');
+    if (isNewEvent) {
+      toast.error('Please save the event first before uploading documents');
+      return;
+    }
+
+    setIsUploadingDocument(true);
+    
+    try {
+      console.log('EventEditor: Uploading document for existing event:', editingEvent.id);
+      
+      // Upload the document and associate it with this event
+      await uploadDocument(file, tripId, [editingEvent.id]);
+      
+      // Refresh the associated documents list
+      const updatedDocs = await getEventDocuments(tripId, editingEvent.id);
+      setAssociatedDocuments(updatedDocs);
+      
+      toast.success(`Document "${file.name}" uploaded and attached to event`);
+    } catch (error) {
+      console.error('EventEditor: Error uploading document:', error);
+      toast.error('Failed to upload document: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsUploadingDocument(false);
+      // Clear the input so the same file can be uploaded again if needed
+      e.target.value = '';
+    }
+  };
 
   // Available categories
   const categories: EventCategory[] = ['travel', 'accommodation', 'experience', 'meal'];
@@ -985,10 +1023,46 @@ const EventForm: React.FC<EventFormProps> = ({
         />
       </div>
 
-      {/* Associated Documents Section - show at the top if there are any */}
-      {user && (associatedDocuments.length > 0 || loadingDocuments) && (
+      {/* Associated Documents Section - show at the top if there are any or if user can upload */}
+      {user && shouldFetchDocuments && (associatedDocuments.length > 0 || loadingDocuments || !editingEvent.id.includes('-')) && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Associated Documents</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Associated Documents</Label>
+            {/* Only show upload button for existing events (not new ones with UUID format) */}
+            {!editingEvent.id.includes('-') && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  id="document-upload"
+                  className="hidden"
+                  accept=".pdf,.eml,.txt,image/*"
+                  onChange={handleDocumentUpload}
+                  disabled={isUploadingDocument}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('document-upload')?.click()}
+                  disabled={isUploadingDocument}
+                  className="flex items-center gap-2"
+                >
+                  {isUploadingDocument ? (
+                    <>
+                      <Loader className="h-3 w-3 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3 w-3" />
+                      <span>Upload</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+          
           {loadingDocuments ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader className="h-4 w-4 animate-spin" />
@@ -1021,7 +1095,27 @@ const EventForm: React.FC<EventFormProps> = ({
                 </div>
               ))}
             </div>
-          ) : null}
+          ) : (
+            !editingEvent.id.includes('-') && (
+              <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
+                <div className="w-12 h-12 mx-auto bg-muted rounded-full flex items-center justify-center mb-3">
+                  <FileText className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">No documents attached to this event</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById('document-upload')?.click()}
+                  disabled={isUploadingDocument}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Upload Document</span>
+                </Button>
+              </div>
+            )
+          )}
         </div>
       )}
     </div>
