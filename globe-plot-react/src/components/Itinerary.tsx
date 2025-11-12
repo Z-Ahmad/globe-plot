@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Event } from '@/types/trip';
-import { EventList } from './EventList';
+import { EventList } from './Event/EventList';
 import { Button } from './ui/button';
 import { Calendar, List, Map, LockIcon } from 'lucide-react';
 import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';

@@ -3,7 +3,7 @@ import { Event, AccommodationEvent, TravelEvent } from '@/types/trip';
 import { format, parseISO } from 'date-fns';
 import { getEventStyle } from '@/styles/eventStyles';
 import { MoreHorizontal, Map, Pencil, Trash2, Loader } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,

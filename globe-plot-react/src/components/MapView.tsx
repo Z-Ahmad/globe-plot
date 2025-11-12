@@ -15,7 +15,7 @@ import { getUserLastRefreshTimestamp, updateUserLastRefreshTimestamp } from '@/l
 import { createRoot, Root } from 'react-dom/client';
 import { format } from 'date-fns';
 import { MapInteractionControls } from './MapInteractionControls'; // Import the new component
-import { EventPopupContent } from './EventPopupContent'; // Import the new component
+import { EventPopupContent } from './Event/EventPopupContent'; // Import the new component
 
 // You'll need to set your public Mapbox token in environment variables
 // For development, create a .env.local file with VITE_MAPBOX_TOKEN=your_token
