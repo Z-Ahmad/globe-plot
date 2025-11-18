@@ -1,6 +1,16 @@
 import { Request } from 'express';
 import pdf from 'pdf-parse';
 import { simpleParser } from 'mailparser';
+import { Mistral } from '@mistralai/mistralai';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Initialize Mistral client for image processing
+const mistral = new Mistral({
+  apiKey: process.env.MISTRAL_API_KEY || ''
+});
 
 
 export const documentService = {
@@ -15,6 +25,13 @@ export const documentService = {
         case 'message/rfc822':
         case 'text/plain':
           text = await processEmail(file.buffer);
+          break;
+        case 'image/jpeg':
+        case 'image/jpg':
+        case 'image/png':
+        case 'image/gif':
+        case 'image/webp':
+          text = await processImage(file.buffer, file.mimetype);
           break;
         default:
           throw new Error('Unsupported file type');
@@ -47,6 +64,69 @@ async function processEmail(buffer: Buffer): Promise<string> {
     return parsed.text || '';
   } catch (error) {
     console.error('Error processing email:', error);
+    throw error;
+  }
+}
+
+async function processImage(buffer: Buffer, mimeType: string): Promise<string> {
+  try {
+    // Convert image buffer to base64
+    const base64Image = buffer.toString('base64');
+    const imageUrl = `data:${mimeType};base64,${base64Image}`;
+
+    // Use Mistral's vision model to extract text from image
+    // @ts-ignore - Temporarily ignore type checking for Mistral vision SDK
+    const chatResponse = await mistral.chat.complete({
+      model: "pixtral-12b-2409", // Mistral's vision model
+      messages: [
+        {
+          role: "system",
+          content: "You are an OCR assistant. Extract all text from the image accurately. If the image contains travel documents (flight confirmations, hotel bookings, etc.), extract all relevant information including dates, times, locations, booking references, and other details. Return only the extracted text without any additional commentary."
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Please extract all text from this image:"
+            },
+            {
+              type: "image_url",
+              imageUrl: {
+                url: imageUrl
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.1,
+    });
+
+    // @ts-ignore - Temporarily ignore type checking for Mistral vision SDK
+    if (!chatResponse.choices || chatResponse.choices.length === 0) {
+      throw new Error('No response from Mistral AI vision model');
+    }
+
+    // @ts-ignore - Temporarily ignore type checking for Mistral vision SDK
+    const content = chatResponse.choices[0].message.content;
+    if (!content) {
+      throw new Error('Empty response from Mistral AI vision model');
+    }
+
+    // Convert content to string regardless of its actual type
+    let contentStr = '';
+    
+    // @ts-ignore - Handle both string and array cases
+    if (typeof content === 'string') {
+      contentStr = content;
+    } else {
+      // @ts-ignore - Handle array case by joining elements
+      contentStr = Array.isArray(content) ? content.join('') : String(content);
+    }
+
+    return contentStr.trim();
+  } catch (error) {
+    console.error('Error processing image with Mistral vision:', error);
     throw error;
   }
 }

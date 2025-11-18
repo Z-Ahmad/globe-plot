@@ -4,13 +4,39 @@ import express from 'express';
 import multer from 'multer';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Configure multer with file type validation
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      'application/pdf',
+      'message/rfc822',
+      'text/plain',
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Supported types: PDF, email files, and images (JPEG, PNG, GIF, WebP).`));
+    }
+  }
+});
 
 /**
  * @swagger
  * /api/documents/upload:
  *   post:
- *     summary: Upload a document for processing
+ *     summary: Upload a document or image for processing
+ *     description: Supports PDF files, email files (.eml), and images (JPEG, PNG, GIF, WebP). Images are processed using Mistral AI's vision model for text extraction.
  *     tags: [Documents]
  *     requestBody:
  *       required: true
@@ -22,6 +48,7 @@ const upload = multer({ storage: multer.memoryStorage() });
  *               document:
  *                 type: string
  *                 format: binary
+ *                 description: PDF, email file, or image file (JPEG, PNG, GIF, WebP) up to 10MB
  *     responses:
  *       200:
  *         description: Document processed successfully
