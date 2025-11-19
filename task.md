@@ -1,0 +1,32 @@
+# Globeplot MVP Tasks
+
+- [x] Project Initialization & Planning <!-- id: 0 -->
+    - [x] Read `mvp.md` and explore codebase <!-- id: 1 -->
+    - [x] Create `implementation_plan.md` <!-- id: 2 -->
+    - [x] Refine plan for PostgreSQL & Explainable AI <!-- id: 3 -->
+    - [x] Refine plan for Multi-Modal & Docker <!-- id: 4 -->
+    - [x] Refine plan for PWA (Mobile) <!-- id: 5 -->
+- [ ] Database Setup (PostgreSQL + PostGIS) <!-- id: 6 -->
+    - [ ] Create `docker-compose.yml` for local DB <!-- id: 7 -->
+    - [ ] Initialize Prisma <!-- id: 8 -->
+    - [ ] Define schema matching `trip.ts` <!-- id: 9 -->
+    - [ ] Enable PostGIS extension <!-- id: 10 -->
+- [ ] Backend Intelligence Engine (`globe-plot-api`) <!-- id: 11 -->
+    - [ ] Implement `poiService.ts` (Fetch & Cache) <!-- id: 12 -->
+    - [ ] Implement `rankingService.ts` (Heuristic Scoring) <!-- id: 13 -->
+    - [ ] Implement `itineraryService.ts` (Multi-modal Routing) <!-- id: 14 -->
+    - [ ] Create API endpoints <!-- id: 15 -->
+- [ ] Frontend "Cast a Net" UI (`globe-plot-react`) <!-- id: 16 -->
+    - [ ] Install `mapbox-gl-draw` <!-- id: 17 -->
+    - [ ] Create `DrawControl` component <!-- id: 18 -->
+    - [ ] Create `PlanningSidebar` for preferences <!-- id: 19 -->
+    - [ ] Integrate API with frontend state <!-- id: 20 -->
+- [ ] Mobile Optimization (PWA) <!-- id: 21 -->
+    - [ ] Install `vite-plugin-pwa` <!-- id: 22 -->
+    - [ ] Configure `manifest.json` (Icons, Name, Colors) <!-- id: 23 -->
+    - [ ] Configure Service Worker (Offline caching) <!-- id: 24 -->
+    - [ ] Verify responsive layout on mobile view <!-- id: 25 -->
+- [ ] Verification & Polish <!-- id: 26 -->
+    - [ ] Verify Docker local setup <!-- id: 27 -->
+    - [ ] Verify multi-modal routing logic <!-- id: 28 -->
+    - [ ] End-to-end planning flow test <!-- id: 29 -->
