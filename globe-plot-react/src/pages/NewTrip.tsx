@@ -8,10 +8,10 @@ import { uploadDocument, updateDocumentAssociatedEvents, DocumentMetadata } from
 import { apiPost } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { EventEditor } from "@/components/EventEditor";
+import { EventEditor } from "@/components/Event/EventEditor";
 import { Button } from "@/components/ui/button";
 import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles } from "lucide-react";
-import { EventList } from "@/components/EventList";
+import { EventList } from "@/components/Event/EventList";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';

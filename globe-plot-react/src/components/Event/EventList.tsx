@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Event } from '@/types/trip';
 import { format, parseISO } from 'date-fns';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { useTripContext } from '@/context/TripContext';

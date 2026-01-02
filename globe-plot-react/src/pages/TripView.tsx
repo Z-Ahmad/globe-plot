@@ -10,7 +10,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { getEventStyle } from '../styles/eventStyles';
-import { EventEditor } from '@/components/EventEditor';
+import { EventEditor } from '@/components/Event/EventEditor';
 import { 
   CalendarDays, 
   MapPinPlusInside, 
@@ -26,7 +26,7 @@ import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { v4 as uuidv4 } from 'uuid';
 import { Itinerary } from '@/components/Itinerary';
-import { EventList } from '@/components/EventList';
+import { EventList } from '@/components/Event/EventList';
 import {
   Tabs,
   TabsContent,

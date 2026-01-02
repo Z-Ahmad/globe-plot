@@ -193,7 +193,7 @@ export function Landing() {
                   onClick={scrollToMapSection}
                   className="px-12 py-4 border-2 border-slate-300 text-slate-700 text-xl font-semibold rounded-full hover:border-blue-400 hover:text-blue-600 transition-all duration-300"
                 >
-                  See How It Works
+                  See How It Works ↓
                 </button>
               </motion.div>
             </motion.div>

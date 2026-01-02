@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Info, Loader, Map, FileText, ExternalLink, Calendar, Upload, Plus } from 'lucide-react';
 import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
-import { CountryDropdown } from './CountryDropdown';
+import { CountryDropdown } from '@/components/CountryDropdown';
 import { focusEventOnMap } from '@/context/TripContext';
 import { format } from 'date-fns';
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Event } from '@/types/trip';
-import { EventList } from './EventList';
+import { EventList } from './Event/EventList';
 import { Button } from './ui/button';
 import { Calendar, List, Map, LockIcon } from 'lucide-react';
 import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -9,7 +9,7 @@ import { getEventStyle } from '@/styles/eventStyles';
 import { useUserStore } from '@/stores/userStore';
 import { useTripContext } from '@/context/TripContext';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
-import { MapView } from './MapView';
+import { MapView } from './Map/MapView';
 import { registerViewModeCallback, clearViewModeCallback } from '@/context/TripContext';
 
 interface ItineraryProps {
