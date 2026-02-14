@@ -55,6 +55,22 @@ Globeplot is now a fully functional Progressive Web App (PWA) that can be instal
 - Uses stale content while fetching fresh data in background
 - Balances performance with data freshness
 
+#### Video Caching (CacheFirst - Runtime Only)
+```typescript
+{
+  urlPattern: /\.mp4$/i,
+  handler: "CacheFirst",
+  expiration: {
+    maxEntries: 10,
+    maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+  }
+}
+```
+- Video files (landing page demos) are cached on-demand, not precached
+- Prevents slow initial PWA installation (30+ MB of videos)
+- Videos are cached after first view for faster subsequent loads
+- Reduces initial bandwidth usage for users
+
 ### 5. **Web App Manifest**
 - Complete manifest with proper metadata
 - Icons in multiple sizes (192x192, 512x512)

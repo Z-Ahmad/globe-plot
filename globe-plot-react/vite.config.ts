@@ -45,7 +45,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,mp4}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+        // Exclude large video files from precaching
+        globIgnores: ["**/assets/**/*.mp4"],
+        // Increase size limit for main JS bundle (3.5 MB)
+        maximumFileSizeToCacheInBytes: 3.5 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
@@ -69,6 +73,21 @@ export default defineConfig({
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            // Cache video files on-demand (not precached)
+            urlPattern: /\.mp4$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "video-cache",
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
               cacheableResponse: {
                 statuses: [0, 200],
