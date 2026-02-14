@@ -32,3 +32,6 @@ lerna-debug.log*
 
 # Project-specific
 MVP.md
+
+# PWA dev files
+dev-dist/
