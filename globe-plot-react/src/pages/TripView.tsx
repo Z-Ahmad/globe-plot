@@ -20,7 +20,8 @@ import {
   CalendarClock,
   ListTodo,
   Map as MapIcon,
-  MapPinned
+  MapPinned,
+  Sparkles
 } from 'lucide-react';
 import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ import { DocumentUploadModal } from '@/components/DocumentUploadModal';
 import { uploadDocument, updateDocumentAssociatedEvents } from '@/lib/firebaseService';
 import { useUserStore } from '../stores/userStore';
 import { Loader2 } from 'lucide-react';
+import { TripQueryAssistant } from '@/components/AI/TripQueryAssistant';
 
 // Helper function to ensure all events have the required location property
 const normalizeEvent = (event: Event): Event => {
@@ -496,6 +498,7 @@ function useEventHandlers() {
   const [currentEditingEvent, setCurrentEditingEvent] = useState<Event | null>(null);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [showDocumentUploadModal, setShowDocumentUploadModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [pendingExtractedEvents, setPendingExtractedEvents] = useState<Event[]>([]);
   const [pendingDocumentFile, setPendingDocumentFile] = useState<File | null>(null);
   const [showMultiEventReview, setShowMultiEventReview] = useState(false);
@@ -781,6 +784,8 @@ function useEventHandlers() {
     handleSaveAllReviewedEvents,
     handleCancelMultiEventReview,
     setShowDocumentUploadModal,
+    showAIAssistant,
+    setShowAIAssistant,
     emptyState
   };
 }
@@ -807,6 +812,8 @@ const TripContent = () => {
     handleSaveAllReviewedEvents,
     handleCancelMultiEventReview,
     setShowDocumentUploadModal,
+    showAIAssistant,
+    setShowAIAssistant,
     emptyState 
   } = useEventHandlers();
 
@@ -852,10 +859,20 @@ const TripContent = () => {
             <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
           </p>
         </div>
-        <Button onClick={createNewEvent} className="flex items-center gap-2">
-          <MapPinPlusInside size={20} />
-          <span>Add Event</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowAIAssistant(true)} 
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">AI Assistant</span>
+          </Button>
+          <Button onClick={createNewEvent} className="flex items-center gap-2">
+            <MapPinPlusInside size={20} />
+            <span>Add Event</span>
+          </Button>
+        </div>
       </div>
 
       {/* Mobile Tabs View */}
@@ -1001,6 +1018,15 @@ const TripContent = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Query Assistant */}
+      {tripId && (
+        <TripQueryAssistant 
+          isOpen={showAIAssistant}
+          onClose={() => setShowAIAssistant(false)}
+          tripId={tripId}
+        />
       )}
     </div>
   );

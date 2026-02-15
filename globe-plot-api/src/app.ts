@@ -6,7 +6,11 @@ import rateLimit from 'express-rate-limit';
 import { documentRoutes } from './routes/documentRoutes';
 import { geocodeRoutes } from './routes/geocodeRoutes';
 import { countryRoutes } from './routes/countryRoutes';
+import { tripQueryRoutes } from './routes/tripQueryRoutes';
 import { swaggerSpec } from './config/swagger';
+import { authenticateUser } from './middleware/auth';
+import { aiQueryLimiter, aiQueryDailyLimiter, globalAiQueryLimiter } from './middleware/aiRateLimiter';
+import './services/firebase/admin'; // Initialize Firebase Admin SDK
 
 // Load environment variables
 const result = dotenv.config();
@@ -20,7 +24,9 @@ console.log('Environment variables after loading:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
   MISTRAL_API_KEY: process.env.MISTRAL_API_KEY ? '***' : 'undefined',
-  MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN ? '***' : 'undefined'
+  MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN ? '***' : 'undefined',
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? '***' : 'undefined',
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL ? '***' : 'undefined'
 });
 
 const app = express();
@@ -81,6 +87,15 @@ app.use('/api/documents', documentLimiter, documentRoutes);
 app.use('/api/geocode', geocodeLimiter, geocodeRoutes);
 app.use('/api/countries', countryRoutes);
 
+// AI Query route - with authentication and rate limiting
+app.use('/api/trip-query', 
+  authenticateUser, 
+  globalAiQueryLimiter, 
+  aiQueryDailyLimiter, 
+  aiQueryLimiter, 
+  tripQueryRoutes
+);
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
@@ -96,4 +111,5 @@ app.listen(PORT, () => {
   console.log('  - General: 1000 requests per 15 minutes');
   console.log('  - Documents: 100 uploads per hour');
   console.log('  - Geocoding: 1000 requests per hour');
+  console.log('  - AI Queries: 30 per hour per user, 100 per day per user, 500 per hour global');
 }); 
