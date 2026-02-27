@@ -290,6 +290,7 @@ export async function queryTrip(
 
   // Serialize events for AI context
   const serializedEvents = serializeEventsForAI(events);
+  console.log('Serialized events:', serializedEvents);
   const context = createAIContext(
     tripName,
     tripStartDate.toISOString(),

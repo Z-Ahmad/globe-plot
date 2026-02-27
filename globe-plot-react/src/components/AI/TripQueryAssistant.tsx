@@ -11,6 +11,7 @@ interface TripQueryAssistantProps {
   isOpen: boolean;
   onClose: () => void;
   tripId: string;
+  embedded?: boolean; // New prop for sidebar mode
 }
 
 interface QueryResponse {
@@ -45,7 +46,8 @@ const SUGGESTED_QUESTIONS = [
 export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   isOpen,
   onClose,
-  tripId
+  tripId,
+  embedded = false
 }) => {
   const [question, setQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -115,17 +117,21 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   };
 
   const content = (
-    <div className="flex flex-col h-full max-h-[80vh]">
-      {/* Header with icon */}
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="w-5 h-5 text-purple-500" />
-        <h3 className="text-lg font-semibold">AI Trip Assistant</h3>
-      </div>
+    <div className="flex flex-col h-full">
+      {/* Header with icon - only show if not embedded */}
+      {!embedded && (
+        <>
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <h3 className="text-lg font-semibold">AI Trip Assistant</h3>
+          </div>
 
-      {/* Description */}
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        Ask questions about your trip and get instant answers powered by AI.
-      </p>
+          {/* Description */}
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Ask questions about your trip and get instant answers powered by AI.
+          </p>
+        </>
+      )}
 
       {/* Suggested questions */}
       {queryHistory.length === 0 && (
@@ -136,7 +142,7 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
               <button
                 key={index}
                 onClick={() => handleSuggestedQuestion(q)}
-                className="text-xs px-3 py-1.5 bg-gray-100  hover:bg-gray-200 rounded-full transition-colors"
+                className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
                 disabled={isLoading}
               >
                 {q}
@@ -268,6 +274,11 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
       </div>
     </div>
   );
+
+  // If embedded (sidebar mode), just return the content
+  if (embedded) {
+    return <div className="p-4 h-full overflow-y-auto">{content}</div>;
+  }
 
   // Mobile: Use Drawer
   if (isMobile) {

@@ -7,10 +7,9 @@ import { format, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval 
 import { cn } from '@/lib/utils';
 import { getEventStyle } from '@/styles/eventStyles';
 import { useUserStore } from '@/stores/userStore';
-import { useTripContext } from '@/context/TripContext';
+import { ItineraryViewMode, useTripContext } from '@/context/TripContext';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { MapView } from './Map/MapView';
-import { registerViewModeCallback, clearViewModeCallback } from '@/context/TripContext';
 
 interface ItineraryProps {
   onEdit: (event: Event) => void;
@@ -20,10 +19,12 @@ interface ItineraryProps {
   startDate?: string;
   endDate?: string;
   isTabVisible?: boolean;
+  hideViewModeControls?: boolean;
+  lockViewMode?: ItineraryViewMode;
+  hideListAddButton?: boolean;
 }
 
 type SortOption = 'chronological' | 'category' | 'location';
-type ViewMode = 'list' | 'calendar' | 'map';
 
 // Helper function to get stored value from localStorage with fallback
 const getStoredValue = <T,>(key: string, defaultValue: T): T => {
@@ -45,14 +46,15 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   startDate,
   endDate,
   isTabVisible = true,
+  hideViewModeControls = false,
+  lockViewMode,
+  hideListAddButton = false,
 }) => {
-  const { tripId, events, setFocusedEventId } = useTripContext();
+  const { events, setFocusedEventId, viewMode, setViewMode } = useTripContext();
+  const activeViewMode = lockViewMode ?? viewMode;
   // Persist sort option and view mode to localStorage
   const [sortOption, setSortOption] = useState<SortOption>(() => 
     getStoredValue('itinerary-sort-option', 'chronological' as SortOption)
-  );
-  const [viewMode, setViewMode] = useState<ViewMode>(() => 
-    getStoredValue('itinerary-view-mode', 'list' as ViewMode)
   );
   
   // Save sort option and view mode to localStorage when they change
@@ -61,37 +63,18 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   }, [sortOption]);
   
   useEffect(() => {
+    if (lockViewMode) return;
     localStorage.setItem('itinerary-view-mode', JSON.stringify(viewMode));
-  }, [viewMode]);
+  }, [viewMode, lockViewMode]);
 
-  // Register view mode callback to allow external control
+  // Initialize view mode from localStorage once
   useEffect(() => {
-    // Register the callback for external components to set view mode
-    registerViewModeCallback((mode) => {
-      setViewMode(mode);
-    });
-    
-    // Clean up on unmount
-    return () => {
-      clearViewModeCallback();
-    };
-  }, []);
-
-  // Listen for the custom focusEventOnMap event
-  useEffect(() => {
-    const handleFocusEventOnMap = (e: CustomEvent) => {
-      const { eventId } = e.detail;
-      setFocusedEventId(eventId);
-    };
-
-    // Add event listener
-    window.addEventListener('focusEventOnMap', handleFocusEventOnMap as EventListener);
-    
-    // Remove event listener on cleanup
-    return () => {
-      window.removeEventListener('focusEventOnMap', handleFocusEventOnMap as EventListener);
-    };
-  }, [setFocusedEventId]);
+    if (lockViewMode) return;
+    const storedMode = getStoredValue('itinerary-view-mode', 'list');
+    if (storedMode === 'list' || storedMode === 'calendar' || storedMode === 'map') {
+      setViewMode(storedMode);
+    }
+  }, [lockViewMode, setViewMode]);
 
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => {
     // Try to get the stored month first
@@ -113,16 +96,6 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   const user = useUserStore((state) => state.user);
   const isAuthenticated = !!user;
   
-  // Update geocoded events when events prop changes
-  useEffect(() => {
-    // No longer needed, using events from context directly
-  }, [events]);
-  
-  // Handle map view mode selection - REMOVED (logic moved to MapView)
-  useEffect(() => {
-    // This effect was for triggering geocoding from Itinerary, which is now handled by MapView
-  }, [viewMode, events, isAuthenticated, tripId]);
-
   // Memoize sorted events to prevent unnecessary recalculations
   const sortedEvents = useMemo(() => {
     if (events.length === 0) return [];
@@ -221,7 +194,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
   const handleViewOnMap = useCallback((eventId: string) => {
     setFocusedEventId(eventId);
     setViewMode('map');
-  }, [setFocusedEventId]);
+  }, [setFocusedEventId, setViewMode]);
 
   if (events.length === 0) {
     return <>{emptyState}</>;
@@ -235,61 +208,65 @@ export const Itinerary: React.FC<ItineraryProps> = ({
           
           {/* View mode controls - icons only on small screens */}
           <div className="flex items-center gap-2">
-            <Button 
-              variant={viewMode === 'list' ? 'default' : 'outline'} 
-              size="sm" 
-              className="flex items-center gap-2"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" /> 
-              <span className="hidden sm:inline">List</span>
-            </Button>
-            <Button 
-              variant={viewMode === 'calendar' ? 'default' : 'outline'} 
-              size="sm" 
-              className="flex items-center gap-2"
-              onClick={() => setViewMode('calendar')}
-            >
-              <Calendar className="h-4 w-4" /> 
-              <span className="hidden sm:inline">Calendar</span>
-            </Button>
-            
-            {isAuthenticated ? (
-              <Button 
-                variant={viewMode === 'map' ? 'default' : 'outline'} 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={() => setViewMode('map')}
-              >
-                <Map className="h-4 w-4" /> 
-                <span className="hidden sm:inline">Map</span>
-              </Button>
-            ) : (
-              <HoverCard>
-                <HoverCardTrigger asChild>
+            {!hideViewModeControls && (
+              <>
+                <Button 
+                  variant={activeViewMode === 'list' ? 'default' : 'outline'} 
+                  size="sm" 
+                  className="flex items-center gap-2"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4" /> 
+                  <span className="hidden sm:inline">List</span>
+                </Button>
+                <Button 
+                  variant={activeViewMode === 'calendar' ? 'default' : 'outline'} 
+                  size="sm" 
+                  className="flex items-center gap-2"
+                  onClick={() => setViewMode('calendar')}
+                >
+                  <Calendar className="h-4 w-4" /> 
+                  <span className="hidden sm:inline">Calendar</span>
+                </Button>
+                
+                {isAuthenticated ? (
                   <Button 
-                    variant="outline" 
+                    variant={activeViewMode === 'map' ? 'default' : 'outline'} 
                     size="sm" 
-                    className="flex items-center gap-2 cursor-not-allowed opacity-70"
+                    className="flex items-center gap-2"
+                    onClick={() => setViewMode('map')}
                   >
                     <Map className="h-4 w-4" /> 
                     <span className="hidden sm:inline">Map</span>
                   </Button>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <div className="flex space-x-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted px-2">
-                      <LockIcon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-semibold">Authentication Required</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Please sign in to view the map.
-                      </p>
-                    </div>
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
+                ) : (
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-2 cursor-not-allowed opacity-70"
+                      >
+                        <Map className="h-4 w-4" /> 
+                        <span className="hidden sm:inline">Map</span>
+                      </Button>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="flex space-x-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted px-2">
+                          <LockIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold">Authentication Required</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Please sign in to view the map.
+                          </p>
+                        </div>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+              </>
             )}
             
             <span className="text-xs text-muted-foreground ml-auto">
@@ -302,7 +279,7 @@ export const Itinerary: React.FC<ItineraryProps> = ({
 
       {/* View content based on selected mode */}
       <div>
-        <div style={{ display: viewMode === 'list' ? 'block' : 'none' }}>
+        <div style={{ display: activeViewMode === 'list' ? 'block' : 'none' }}>
           <EventList 
             events={sortedEvents}
             onEdit={onEdit}
@@ -310,10 +287,11 @@ export const Itinerary: React.FC<ItineraryProps> = ({
             onAddNew={onAddNew}
             emptyState={emptyState}
             onViewOnMap={handleViewOnMap}
+            hideAddButton={hideListAddButton}
           />
         </div>
 
-        <div style={{ display: viewMode === 'calendar' ? 'block' : 'none' }}>
+        <div style={{ display: activeViewMode === 'calendar' ? 'block' : 'none' }}>
           <div className="space-y-4">
             {/* Calendar navigation */}
             <div className="flex items-center justify-between">
@@ -399,11 +377,11 @@ export const Itinerary: React.FC<ItineraryProps> = ({
         {/* MapView is now always rendered but visibility is controlled by parent div */}
         <div 
           className="relative h-[500px] lg:h-[70vh] border rounded-lg bg-muted/50 overflow-hidden"
-          style={{ display: viewMode === 'map' ? 'block' : 'none' }}
+          style={{ display: activeViewMode === 'map' ? 'block' : 'none' }}
         >
           <MapView 
             className="w-full h-full"
-            isVisible={viewMode === 'map' && isTabVisible}
+            isVisible={activeViewMode === 'map' && isTabVisible}
             onEditEventRequest={onEdit}
           />
         </div>

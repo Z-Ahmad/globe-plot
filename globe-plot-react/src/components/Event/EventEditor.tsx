@@ -48,9 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Info, Loader, Map, FileText, ExternalLink, Calendar, Upload, Plus } from 'lucide-react';
-import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
+import { geocodeEventForMap } from '@/lib/mapboxService';
 import { CountryDropdown } from '@/components/CountryDropdown';
-import { focusEventOnMap } from '@/context/TripContext';
 import { format } from 'date-fns';
 
 interface EventEditorProps {
@@ -85,7 +84,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const [associatedDocuments, setAssociatedDocuments] = useState<DocumentMetadata[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
-  const { setFocusedEventId, events, tripId } = useTripContext();
+  const { setFocusedEventId, setViewMode, tripId } = useTripContext();
   const user = useUserStore((state) => state.user);
 
   // Load associated documents when event changes
@@ -291,7 +290,7 @@ const EventForm: React.FC<EventFormProps> = ({
     if (hasCoordinates) {
       // Event already has coordinates, just focus on map
       setFocusedEventId(editingEvent.id);
-      focusEventOnMap(editingEvent.id);
+      setViewMode('map');
       
       // Close the dialog if onClose prop is provided
       if (onClose) {
@@ -321,7 +320,7 @@ const EventForm: React.FC<EventFormProps> = ({
         
         // Set the focused event and switch to map view
         setFocusedEventId(result.event.id);
-        focusEventOnMap(result.event.id);
+        setViewMode('map');
         
         // Close the dialog if onClose prop is provided
         if (onClose) {

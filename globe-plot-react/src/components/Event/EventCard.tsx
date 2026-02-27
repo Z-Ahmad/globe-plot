@@ -20,9 +20,8 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
-import { geocodeEventForMap, waitForEventUpdateAndFocus } from '@/lib/mapboxService';
+import { geocodeEventForMap } from '@/lib/mapboxService';
 import { useTripContext } from '@/context/TripContext';
-import { focusEventOnMap } from '@/context/TripContext';
 import toast from 'react-hot-toast';
 
 interface EventCardProps {
@@ -96,7 +95,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const { updateEvent, setFocusedEventId, events } = useTripContext();
+  const { updateEvent, setFocusedEventId, setViewMode } = useTripContext();
   const { icon: Icon, color, bgColor, borderColor, hoverBgColor } = getEventStyle(event);
 
   const handleDelete = async () => {
@@ -130,9 +129,8 @@ export const EventCard: React.FC<EventCardProps> = ({
       if (onViewOnMap) {
         onViewOnMap(event.id);
       } else {
-        // Fallback to context-based approach
         setFocusedEventId(event.id);
-        focusEventOnMap(event.id);
+        setViewMode('map');
       }
       return;
     }
@@ -149,26 +147,13 @@ export const EventCard: React.FC<EventCardProps> = ({
       
       if (result.success && result.event) {
         toast.success('Location coordinates found!');
-        
-        // Wait for the event to be updated in the context before focusing
+
+        // If parent provides an explicit map handler, delegate to it.
         if (onViewOnMap) {
-          await waitForEventUpdateAndFocus(
-            result.event.id,
-            events,
-            setFocusedEventId,
-            focusEventOnMap,
-            2000
-          );
           onViewOnMap(result.event.id);
         } else {
-          // Fallback to context-based approach
-          await waitForEventUpdateAndFocus(
-            result.event.id,
-            events,
-            setFocusedEventId,
-            focusEventOnMap,
-            2000
-          );
+          setFocusedEventId(result.event.id);
+          setViewMode('map');
         }
       } else {
         toast.error(result.error || 'Could not find coordinates for this location');

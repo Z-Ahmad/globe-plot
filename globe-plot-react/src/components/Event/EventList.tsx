@@ -74,7 +74,7 @@ export const EventList: React.FC<EventListProps> = ({
     <div className="space-y-8">
       {sortedDates.map(date => (
         <div key={date} className="space-y-4">
-          <h3 className="text-lg font-semibold sticky top-0 bg-accent/60 backdrop-blur-sm p-2 z-10 rounded-lg">
+          <h3 className="text-lg font-semibold sticky top-0 bg-accent/80 backdrop-blur-sm p-2 z-40 rounded-lg">
             {formatDateHeader(date)}
           </h3>
           

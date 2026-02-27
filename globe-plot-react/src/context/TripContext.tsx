@@ -4,11 +4,15 @@ import { useTripStore } from '@/stores/tripStore';
 import { doc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+export type ItineraryViewMode = 'list' | 'calendar' | 'map';
+
 interface TripContextValue {
   tripId: string | null;
   trip: Trip | null;
   events: Event[];
   loading: boolean;
+  viewMode: ItineraryViewMode;
+  setViewMode: (mode: ItineraryViewMode) => void;
   focusedEventId: string | null;
   setFocusedEventId: (id: string | null) => void;
   updateEvent: (eventId: string, eventData: Partial<Event>) => Promise<void>;
@@ -33,6 +37,7 @@ export const TripProvider: React.FC<{
   const [tripData, setTripData] = useState<Omit<Trip, 'events' | 'documents'> | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ItineraryViewMode>('list');
   const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -121,6 +126,8 @@ export const TripProvider: React.FC<{
     trip,
     events,
     loading,
+    viewMode,
+    setViewMode,
     focusedEventId,
     setFocusedEventId,
     updateEvent: updateEventHandler,
@@ -132,6 +139,7 @@ export const TripProvider: React.FC<{
     trip, 
     events, 
     loading,
+    viewMode,
     focusedEventId, 
     updateEventHandler, 
     addEventHandler, 
@@ -144,35 +152,6 @@ export const TripProvider: React.FC<{
       {children}
     </TripContext.Provider>
   );
-};
-
-// Global map view state
-// This is outside the context to allow components to control Itinerary's view mode
-let globalViewModeCallback: ((mode: 'map') => void) | null = null;
-
-// Register a callback to control the Itinerary view mode
-export const registerViewModeCallback = (callback: (mode: 'map') => void) => {
-  globalViewModeCallback = callback;
-};
-
-// Clear the callback when component unmounts
-export const clearViewModeCallback = () => {
-  globalViewModeCallback = null;
-};
-
-// Function to focus on an event and switch to map view
-export const focusEventOnMap = (eventId: string | null) => {
-  // Switch to map mode
-  if (globalViewModeCallback) {
-    globalViewModeCallback('map');
-  }
-  
-  // We'll use a custom event to communicate between components
-  // This is necessary because we can't directly modify the context from here
-  const event = new CustomEvent('focusEventOnMap', { 
-    detail: { eventId } 
-  });
-  window.dispatchEvent(event);
 };
 
 export const useTripContext = () => {
