@@ -8,12 +8,6 @@ export function BottomNavigation() {
 
   const navItems = [
     {
-      to: "/",
-      icon: Home,
-      label: "Home",
-      active: location.pathname === "/"
-    },
-    {
       to: "/dashboard",
       icon: Map,
       label: "Trips",
@@ -26,16 +20,16 @@ export function BottomNavigation() {
       active: location.pathname === "/trip/new",
       isSpecial: true
     },
-    // {
-    //   to: user ? "/profile" : "/login",
-    //   icon: User,
-    //   label: user ? "Profile" : "Login",
-    //   active: location.pathname === "/profile" || location.pathname === "/login"
-    // }
+    {
+      to: user ? "/profile" : "/login",
+      icon: User,
+      label: user ? "Profile" : "Login",
+      active: location.pathname === "/profile" || location.pathname === "/login"
+    }
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-card border-t border-slate-200 dark:border-border z-50">
       <div className="flex items-center justify-around py-2">
         {navItems.map((item) => (
           <Link
@@ -45,8 +39,8 @@ export function BottomNavigation() {
               item.isSpecial
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
                 : item.active
-                ? "text-blue-600 bg-blue-50"
-                : "text-slate-500 hover:text-slate-700"
+                ? "text-blue-600 dark:text-primary bg-blue-50 dark:bg-primary/10"
+                : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-foreground"
             }`}
           >
             <item.icon className={`w-5 h-5 ${item.isSpecial ? "text-white" : ""}`} />
@@ -57,7 +51,7 @@ export function BottomNavigation() {
         ))}
       </div>
       {/* Safe area padding for iOS devices */}
-      <div className="h-safe-area-inset-bottom bg-white"></div>
+      <div className="h-safe-area-inset-bottom bg-white dark:bg-card"></div>
     </nav>
   );
-} 
+}

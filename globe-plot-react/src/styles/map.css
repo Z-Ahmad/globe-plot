@@ -47,56 +47,6 @@
   }
 }
 
-/* Define CSS variables for each color used in eventStyles.ts */
-:root {
-  /* Travel colors */
-  --sky-700: #0369a1;
-  --indigo-700: #4338ca;
-  --amber-700: #b45309;
-  --cyan-700: #0e7490;
-  --green-700: #15803d;
-  --blue-700: #1d4ed8;
-  
-  /* Accommodation colors */
-  --purple-700: #7e22ce;
-  --fuchsia-700: #a21caf;
-  --rose-700: #be123c;
-  --pink-700: #be185d;
-  
-  /* Experience colors */
-  --emerald-700: #047857;
-  --teal-700: #0f766e;
-  --violet-700: #6d28d9;
-  --red-700: #b91c1c;
-  --lime-700: #4d7c0f;
-  
-  /* Meal colors */
-  --orange-700: #c2410c;
-  --yellow-700: #a16207;
-  
-  /* Default color */
-  --gray-700: #374151;
-  
-  /* Background colors */
-  --sky-50: #f0f9ff;
-  --indigo-50: #eef2ff;
-  --amber-50: #fffbeb;
-  --cyan-50: #ecfeff;
-  --green-50: #f0fdf4;
-  --blue-50: #eff6ff;
-  --purple-50: #faf5ff;
-  --fuchsia-50: #fdf4ff;
-  --rose-50: #fff1f2;
-  --pink-50: #fdf2f8;
-  --emerald-50: #ecfdf5;
-  --teal-50: #f0fdfa;
-  --violet-50: #f5f3ff;
-  --red-50: #fef2f2;
-  --lime-50: #f7fee7;
-  --orange-50: #fff7ed;
-  --yellow-50: #fefce8;
-  --gray-50: #f9fafb;
-}
 
 /* Pulse animation for markers */
 @keyframes marker-pulse {
@@ -147,36 +97,33 @@
   border-radius: 8px; /* Match card's border-radius */
 }
 
-/* Tip of the popup */
+/* Tip of the popup — use card background so it blends with the popup content */
 .event-details-popup .mapboxgl-popup-tip {
-  /* border-top-color: transparent !important; */ /* Re-evaluate if needed, depends on card bg */
-  /* If your card has a specific background color, you might want the tip to match it */
-  /* For example, if most cards are light: */
-  /* border-top-color: white; */ 
-  /* This needs to be dynamic or a sensible default if card colors vary a lot */
+  border-top-color: var(--card) !important;
+  border-bottom-color: var(--card) !important;
 }
 
-/* Styling the close button for React popups */
+/* Styling the close button for event popups — theme-aware */
 .event-details-popup .mapboxgl-popup-close-button {
-  font-size: 1.5rem; /* Make the 'x' larger */
+  font-size: 1rem;
   line-height: 1;
-  padding: 0.3rem 0.5rem; /* Adjust padding for better click area */
-  color: #555; /* A softer color for the 'x' */
-  background-color: rgba(255, 255, 255, 0.7);
+  color: var(--muted-foreground);
+  background-color: var(--muted);
+  border: 1px solid var(--border);
   border-radius: 50%;
-  width: 30px; /* Explicit width */
-  height: 30px; /* Explicit height */
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  top: 5px; /* Adjust position slightly */
-  right: 5px; /* Adjust position slightly */
-  transition: background-color 0.2s, color 0.2s;
+  top: 8px;
+  right: 8px;
+  transition: background-color 0.15s, color 0.15s;
 }
 
 .event-details-popup .mapboxgl-popup-close-button:hover {
-  color: #000;
-  background-color: rgba(255, 255, 255, 0.9);
+  color: var(--foreground);
+  background-color: var(--accent);
 }
 
 /* Add hover effect for the clickable title in the HTML popup */

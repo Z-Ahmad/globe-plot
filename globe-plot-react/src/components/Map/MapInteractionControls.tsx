@@ -30,7 +30,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
         size="icon" 
         onClick={onPrevEvent}
         disabled={isNavigationDisabled}
-        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
+        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
         title="Previous location"
       >
         <ArrowLeft className="h-5 w-5" />
@@ -41,7 +41,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
         size="icon"
         onClick={onViewAllLocations}
         disabled={isNavigationDisabled}
-        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
+        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
         title="View all locations"
       >
         <Scan className="h-5 w-5" />
@@ -52,7 +52,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
         size="icon"
         onClick={onNextEvent}
         disabled={isNavigationDisabled}
-        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white"
+        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white dark:bg-gray-800 dark:hover:bg-gray-700"
         title="Next location"
       >
         <ArrowRight className="h-5 w-5" />
@@ -63,7 +63,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
         size="icon"
         onClick={onRefreshCoordinates}
         disabled={isRefreshing || isRefreshOnCooldown}
-        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50"
+        className="rounded-full h-10 w-10 shadow-md bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50 dark:bg-gray-800 dark:hover:bg-gray-700"
         title={
           isRefreshOnCooldown 
             ? `Refresh on cooldown (${cooldownRemaining} remaining)` 

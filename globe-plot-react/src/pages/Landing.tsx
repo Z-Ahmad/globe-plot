@@ -115,7 +115,7 @@ export function Landing() {
   };
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-background dark:via-background dark:to-background overflow-hidden">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {/* Travel-themed icon watermarks */}
@@ -168,15 +168,15 @@ export function Landing() {
           <div className="grid lg:grid-cols-2 gap-20 items-center">
             {/* Left Content */}
             <motion.div variants={containerVariants} initial="hidden" animate="visible" className="text-center lg:text-left">
-              <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl lg:text-8xl font-bold text-slate-800 mb-8">
-                Drag, Drop, <span className="text-blue-600">Done.</span>
+              <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl lg:text-8xl font-bold text-slate-800 dark:text-foreground mb-8">
+                Drag, Drop, <span className="text-blue-600 dark:text-primary">Done.</span>
               </motion.h1>
 
               <motion.div variants={itemVariants} className="mb-12">
-                <p className="text-xl md:text-2xl text-slate-600 leading-relaxed mb-4">
+                <p className="text-xl md:text-2xl text-slate-600 dark:text-muted-foreground leading-relaxed mb-4">
                   Turn scattered travel bookings into an organized itinerary in seconds. No more hunting through emails or juggling apps.
                 </p>
-                <p className="text-lg md:text-xl text-blue-600 font-medium">✨ Upload once. Travel with confidence.</p>
+                <p className="text-lg md:text-xl text-blue-600 dark:text-primary font-medium">✨ Upload once. Travel with confidence.</p>
               </motion.div>
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-6 justify-center lg:justify-start items-center">
@@ -191,7 +191,7 @@ export function Landing() {
                 </Link>
                 <button
                   onClick={scrollToMapSection}
-                  className="px-12 py-4 border-2 border-slate-300 text-slate-700 text-xl font-semibold rounded-full hover:border-blue-400 hover:text-blue-600 transition-all duration-300"
+                  className="px-12 py-4 border-2 border-slate-300 dark:border-border text-slate-700 dark:text-muted-foreground text-xl font-semibold rounded-full hover:border-blue-400 dark:hover:border-primary hover:text-blue-600 dark:hover:text-primary transition-all duration-300"
                 >
                   See How It Works ↓
                 </button>
@@ -220,7 +220,7 @@ export function Landing() {
       </section>
 
       {/* Feature Comparison Section */}
-      <section className="py-40 px-6 bg-slate-900 text-white relative">
+      <section className="py-40 px-6 bg-slate-900 dark:bg-slate-800/60 text-white relative">
         {/* Background watermarks for dark section */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <motion.div
@@ -388,7 +388,7 @@ export function Landing() {
       </section>
 
       {/* Map & Timeline Section */}
-      <section ref={mapSectionRef} className="py-40 px-6 bg-slate-50 text-slate-800">
+      <section ref={mapSectionRef} className="py-40 px-6 bg-slate-50 dark:bg-background text-slate-800 dark:text-foreground">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -400,9 +400,9 @@ export function Landing() {
             <motion.div variants={floatingVariants} animate="animate" className="inline-block mb-6">
               <Compass className="w-16 h-16 text-blue-600" />
             </motion.div>
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-slate-800">From Chaos to Clarity</h2>
-            <p className="text-lg md:text-xl text-slate-600 mb-4 max-w-3xl mx-auto">
-              No more bouncing between tabs and spreadsheets. Watch your scattered bookings transform into a beautiful, <span className="text-blue-600">organized</span> trip you can actually navigate.
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-slate-800 dark:text-foreground">From Chaos to Clarity</h2>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-muted-foreground mb-4 max-w-3xl mx-auto">
+              No more bouncing between tabs and spreadsheets. Watch your scattered bookings transform into a beautiful, <span className="text-blue-600 dark:text-primary">organized</span> trip you can actually navigate.
             </p>
           </motion.div>
 
@@ -415,16 +415,16 @@ export function Landing() {
           >
             {/* Interactive instruction */}
             <div className="text-center mb-8">
-              <p className="text-blue-600 text-sm font-medium mb-2">👇 Tap to see demos</p>
-              <div className="w-12 h-0.5 bg-blue-600/50 mx-auto"></div>
+              <p className="text-blue-600 dark:text-primary text-sm font-medium mb-2">👇 Tap to see demos</p>
+              <div className="w-12 h-0.5 bg-blue-600/50 dark:bg-primary/50 mx-auto"></div>
             </div>
 
             {/* Map Feature Card */}
             <div
               className={`cursor-pointer transition-all duration-500 rounded-2xl border-2 overflow-hidden ${
                 selectedVideo === "map"
-                  ? "bg-blue-50 border-blue-400 text-slate-800 shadow-lg shadow-blue-500/20"
-                  : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400"
+                  ? "bg-blue-50 dark:bg-primary/10 border-blue-400 dark:border-primary text-slate-800 dark:text-foreground shadow-lg shadow-blue-500/20"
+                  : "bg-white dark:bg-card border-slate-300 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-muted/50 hover:border-slate-400 dark:hover:border-muted-foreground"
               }`}
             >
               <motion.div
@@ -436,23 +436,23 @@ export function Landing() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-3">
                     <motion.div whileHover={{ scale: 1.1, rotate: 5 }}>
-                      <Earth className="w-8 h-8 text-blue-600" />
+                      <Earth className="w-8 h-8 text-blue-600 dark:text-primary" />
                     </motion.div>
                     <h3 className="text-2xl font-bold">See Everything at Once</h3>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     {selectedVideo === "map" ? (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                        <Play className="w-5 h-5 text-blue-600 fill-current" />
+                        <Play className="w-5 h-5 text-blue-600 dark:text-primary fill-current" />
                       </motion.div>
                     ) : (
-                      <motion.div className="text-slate-400">
+                      <motion.div className="text-slate-400 dark:text-muted-foreground">
                         <Play className="w-5 h-5" />
                       </motion.div>
                     )}
                   </div>
                 </div>
-                <p className={`text-lg leading-relaxed ${selectedVideo === "map" ? "text-slate-700" : "text-slate-500"}`}>
+                <p className={`text-lg leading-relaxed ${selectedVideo === "map" ? "text-slate-700 dark:text-foreground" : "text-slate-500 dark:text-muted-foreground"}`}>
                   Your entire journey on one beautiful map. No more wondering "wait, where am I going next?"
                 </p>
               </motion.div>
@@ -483,8 +483,8 @@ export function Landing() {
             <div
               className={`cursor-pointer transition-all duration-500 rounded-2xl border-2 overflow-hidden ${
                 selectedVideo === "timeline"
-                  ? "bg-blue-50 border-blue-400 text-slate-800 shadow-lg shadow-blue-500/20"
-                  : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400"
+                  ? "bg-blue-50 dark:bg-primary/10 border-blue-400 dark:border-primary text-slate-800 dark:text-foreground shadow-lg shadow-blue-500/20"
+                  : "bg-white dark:bg-card border-slate-300 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-muted/50 hover:border-slate-400 dark:hover:border-muted-foreground"
               }`}
             >
               <motion.div
@@ -496,23 +496,23 @@ export function Landing() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-3">
                     <motion.div whileHover={{ scale: 1.1, rotate: -5 }}>
-                      <Calendar className="w-8 h-8 text-blue-600" />
+                      <Calendar className="w-8 h-8 text-blue-600 dark:text-primary" />
                     </motion.div>
                     <h3 className="text-2xl font-bold">Know What's When</h3>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     {selectedVideo === "timeline" ? (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                        <Play className="w-5 h-5 text-blue-600 fill-current" />
+                        <Play className="w-5 h-5 text-blue-600 dark:text-primary fill-current" />
                       </motion.div>
                     ) : (
-                      <motion.div className="text-slate-400">
+                      <motion.div className="text-slate-400 dark:text-muted-foreground">
                         <Play className="w-5 h-5" />
                       </motion.div>
                     )}
                   </div>
                 </div>
-                <p className={`text-lg leading-relaxed ${selectedVideo === "timeline" ? "text-slate-700" : "text-slate-500"}`}>
+                <p className={`text-lg leading-relaxed ${selectedVideo === "timeline" ? "text-slate-700 dark:text-foreground" : "text-slate-500 dark:text-muted-foreground"}`}>
                   Day-by-day timeline that actually makes sense. Flights, hotels, dinner reservations — all in order.
                 </p>
               </motion.div>
@@ -543,8 +543,8 @@ export function Landing() {
             <div
               className={`cursor-pointer transition-all duration-500 rounded-2xl border-2 overflow-hidden ${
                 selectedVideo === "geocode"
-                  ? "bg-blue-50 border-blue-400 text-slate-800 shadow-lg shadow-blue-500/20"
-                  : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400"
+                  ? "bg-blue-50 dark:bg-primary/10 border-blue-400 dark:border-primary text-slate-800 dark:text-foreground shadow-lg shadow-blue-500/20"
+                  : "bg-white dark:bg-card border-slate-300 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-muted/50 hover:border-slate-400 dark:hover:border-muted-foreground"
               }`}
             >
               <motion.div
@@ -556,23 +556,23 @@ export function Landing() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-3">
                     <motion.div whileHover={{ scale: 1.1 }}>
-                      <Zap className="w-8 h-8 text-blue-600" />
+                      <Zap className="w-8 h-8 text-blue-600 dark:text-primary" />
                     </motion.div>
                     <h3 className="text-2xl font-bold">Smart Address Detection</h3>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     {selectedVideo === "geocode" ? (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                        <Play className="w-5 h-5 text-blue-600 fill-current" />
+                        <Play className="w-5 h-5 text-blue-600 dark:text-primary fill-current" />
                       </motion.div>
                     ) : (
-                      <motion.div className="text-slate-400">
+                      <motion.div className="text-slate-400 dark:text-muted-foreground">
                         <Play className="w-5 h-5" />
                       </motion.div>
                     )}
                   </div>
                 </div>
-                <p className={`text-lg leading-relaxed ${selectedVideo === "geocode" ? "text-slate-700" : "text-slate-500"}`}>
+                <p className={`text-lg leading-relaxed ${selectedVideo === "geocode" ? "text-slate-700 dark:text-foreground" : "text-slate-500 dark:text-muted-foreground"}`}>
                   Fuzzy hotel name? Partial address? We'll find it and put it on the map automatically.
                 </p>
               </motion.div>

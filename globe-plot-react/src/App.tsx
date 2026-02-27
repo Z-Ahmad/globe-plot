@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -8,8 +9,19 @@ import { Dashboard } from "./pages/Dashboard";
 import { NewTrip } from "./pages/NewTrip";
 import { TripView } from "./pages/TripView";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
+import { Login } from "@/pages/Login";
+import { Profile } from "@/pages/Profile";
 import { AuthProvider } from "./components/AuthProvider";
 import { Toaster } from "react-hot-toast";
+import { useThemeStore } from "./stores/themeStore";
+
+function ThemeInitializer() {
+  const { isDark, setDark } = useThemeStore();
+  useEffect(() => {
+    setDark(isDark);
+  }, []);
+  return null;
+}
 
 // Layout component that includes the Navbar and renders child routes
 function MainLayout() {
@@ -28,6 +40,7 @@ function MainLayout() {
 function App() {
   return (
     <AuthProvider>
+      <ThemeInitializer />
       <Router>
         <Routes>
           {/* Main layout wraps all routes that need the navbar */}
@@ -49,6 +62,10 @@ function App() {
 
             {/* Privacy Policy route */}
             <Route path="/privacy" element={<PrivacyPolicy />} />
+
+            {/* Auth routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Not found route */}
             <Route

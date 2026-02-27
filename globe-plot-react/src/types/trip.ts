@@ -123,12 +123,14 @@ export interface Trip {
 // Event styling for UI
 export interface EventStyle {
   icon: React.ComponentType<any>;
-  color: string; // Tailwind color class
-  bgColor: string; // Tailwind background color class
+  color: string; // Tailwind color class (may include dark: variant)
+  bgColor: string; // Tailwind background color class (may include dark: variant)
   borderColor: string; // Tailwind border color class
   hoverBgColor: string; // Tailwind hover background color class
-  cssColor?: string; // New: Actual CSS color value (e.g., 'var(--sky-700)')
-  cssBgColor?: string; // New: Actual CSS background-color value (e.g., 'var(--sky-50)')
+  cssColor?: string; // Resolved CSS variable for light mode (e.g., 'var(--color-sky-700)')
+  cssBgColor?: string; // Resolved CSS variable for light mode bg (e.g., 'var(--color-sky-50)')
+  cssDarkColor?: string; // Resolved CSS variable for dark mode (e.g., 'var(--color-sky-300)')
+  cssDarkBgColor?: string; // Resolved CSS variable for dark mode bg (e.g., 'var(--color-sky-950)')
   svgPath?: string; // Path to the custom styled SVG file
 }
 
