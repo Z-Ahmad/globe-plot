@@ -46,7 +46,7 @@ export function Profile() {
     setIsSavingName(true);
     try {
       await updateProfile(auth.currentUser, { displayName: displayName.trim() });
-      setUser({ ...auth.currentUser });
+      setUser({ ...user, displayName: displayName.trim() });
       toast.success("Name updated successfully.");
     } catch {
       toast.error("Failed to update name. Please try again.");
@@ -78,17 +78,20 @@ export function Profile() {
     setIsUploadingPhoto(true);
     try {
       const userId = auth.currentUser.uid;
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const filePath = `profileImages/${userId}/avatar.${ext}`;
+      // Use a timestamp so each upload creates a new object rather than
+      // overwriting the previous one — overwriting invalidates the old
+      // download token and causes a race where getDownloadURL returns 403.
+      const filePath = `profileImages/${userId}/avatar_${Date.now()}`;
       const fileRef = storageRef(storage, filePath);
 
-      await uploadBytes(fileRef, file);
-      const photoURL = await getDownloadURL(fileRef);
+      const snapshot = await uploadBytes(fileRef, file, { contentType: file.type });
+      const photoURL = await getDownloadURL(snapshot.ref);
 
       await updateProfile(auth.currentUser, { photoURL });
-      setUser({ ...auth.currentUser });
+      setUser({ ...user, photoURL });
       toast.success("Profile photo updated.");
-    } catch {
+    } catch (err) {
+      console.error("Profile photo upload failed:", err);
       toast.error("Failed to upload photo. Please try again.");
       setPhotoPreview(user.photoURL ?? null);
     } finally {
