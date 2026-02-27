@@ -9,7 +9,8 @@ import {
   DialogClose,
   DialogDescription
 } from '@/components/ui/dialog';
-import { Upload, FilePlus, Loader2, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { Upload, FilePlus, Loader2, FileText, CheckCircle2, XCircle, WifiOff } from 'lucide-react';
+import { useIsOnline } from '@/hooks/useIsOnline';
 import { apiPost } from '@/lib/apiClient';
 import { Event } from '@/stores/tripStore'; // Ensure this path is correct
 import toast from 'react-hot-toast';
@@ -38,6 +39,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 }) => {
   const [documentItem, setDocumentItem] = useState<DocumentItem | null>(null);
   const [isProcessingGlobal, setIsProcessingGlobal] = useState(false);
+  const isOnline = useIsOnline();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,17 +152,23 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         </DialogHeader>
         
         <div className="py-4 space-y-4">
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700 text-sm">
+              <WifiOff className="w-4 h-4 shrink-0" />
+              <span>Document processing requires an internet connection.</span>
+            </div>
+          )}
           {!documentItem ? (
             <div 
-              className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
-              onClick={() => document.getElementById('single-file-upload-modal')?.click()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isOnline ? 'border-primary/20 cursor-pointer hover:border-primary/40' : 'border-muted opacity-50 cursor-not-allowed'}`}
+              onClick={() => isOnline && document.getElementById('single-file-upload-modal')?.click()}
             >
               <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Upload size={24} className="text-primary" />
+                {isOnline ? <Upload size={24} className="text-primary" /> : <WifiOff size={24} className="text-muted-foreground" />}
               </div>
               <p className="font-medium mb-1">Upload Document</p>
               <p className="text-sm text-muted-foreground mb-4">Select a single PDF, EML, or image file.</p>
-              <Button size="sm" variant="secondary" className="gap-2" type="button" onClick={() => document.getElementById('single-file-upload-modal')?.click()}>
+              <Button size="sm" variant="secondary" className="gap-2" type="button" disabled={!isOnline} onClick={() => document.getElementById('single-file-upload-modal')?.click()}>
                 <FilePlus size={16} />
                 Browse File
               </Button>
@@ -169,7 +177,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 type="file" 
                 className="hidden" 
                 onChange={handleFileChange}
-                accept=".pdf,.eml,.txt,image/*" // Consider .msg for Outlook emails if backend supports
+                accept=".pdf,.eml,.txt,image/*"
+                disabled={!isOnline}
               />
             </div>
           ) : (
@@ -203,7 +212,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </div>
           )}
            {documentItem && documentItem.status === 'error' && (
-            <Button onClick={processDocument} disabled={isProcessingGlobal || documentItem.status !== 'error'} className="w-full">
+            <Button onClick={processDocument} disabled={isProcessingGlobal || documentItem.status !== 'error' || !isOnline} className="w-full">
               Retry Processing
             </Button>
           )}
@@ -231,7 +240,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </DialogClose>
             <Button 
               onClick={processDocument} 
-              disabled={!documentItem || (documentItem.status !== 'pending' && documentItem.status !== 'completed') || isProcessingGlobal}
+              disabled={!documentItem || (documentItem.status !== 'pending' && documentItem.status !== 'completed') || isProcessingGlobal || !isOnline}
+              title={!isOnline ? 'Document processing requires an internet connection' : undefined}
               className="w-full sm:w-auto"
             >
               {isProcessingGlobal && (documentItem?.status === 'uploading' || documentItem?.status === 'parsing') && (

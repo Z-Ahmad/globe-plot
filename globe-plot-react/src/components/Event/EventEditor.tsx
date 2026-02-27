@@ -47,7 +47,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Info, Loader, Map, FileText, ExternalLink, Calendar, Upload, Plus } from 'lucide-react';
+import { Info, Loader, Map, FileText, ExternalLink, Calendar, Upload, Plus, WifiOff } from 'lucide-react';
+import { useIsOnline } from '@/hooks/useIsOnline';
 import { geocodeEventForMap } from '@/lib/mapboxService';
 import { CountryDropdown } from '@/components/CountryDropdown';
 import { format } from 'date-fns';
@@ -86,6 +87,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const { setFocusedEventId, setViewMode, tripId } = useTripContext();
   const user = useUserStore((state) => state.user);
+  const isOnline = useIsOnline();
 
   // Load associated documents when event changes
   useEffect(() => {
@@ -1036,20 +1038,26 @@ const EventForm: React.FC<EventFormProps> = ({
                   className="hidden"
                   accept=".pdf,.eml,.txt,image/*"
                   onChange={handleDocumentUpload}
-                  disabled={isUploadingDocument}
+                  disabled={isUploadingDocument || !isOnline}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('document-upload')?.click()}
-                  disabled={isUploadingDocument}
+                  disabled={isUploadingDocument || !isOnline}
+                  title={!isOnline ? 'Document upload requires an internet connection' : undefined}
                   className="flex items-center gap-2"
                 >
                   {isUploadingDocument ? (
                     <>
                       <Loader className="h-3 w-3 animate-spin" />
                       <span>Uploading...</span>
+                    </>
+                  ) : !isOnline ? (
+                    <>
+                      <WifiOff className="h-3 w-3" />
+                      <span>Offline</span>
                     </>
                   ) : (
                     <>
@@ -1106,11 +1114,12 @@ const EventForm: React.FC<EventFormProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('document-upload')?.click()}
-                  disabled={isUploadingDocument}
+                  disabled={isUploadingDocument || !isOnline}
+                  title={!isOnline ? 'Document upload requires an internet connection' : undefined}
                   className="flex items-center gap-2"
                 >
-                  <Plus className="h-3 w-3" />
-                  <span>Upload Document</span>
+                  {!isOnline ? <WifiOff className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                  <span>{!isOnline ? 'Offline' : 'Upload Document'}</span>
                 </Button>
               </div>
             )

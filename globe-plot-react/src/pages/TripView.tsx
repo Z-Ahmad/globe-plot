@@ -24,6 +24,7 @@ import { EventList } from '@/components/Event/EventList';
 import { Itinerary } from '@/components/Itinerary';
 import { TripQueryAssistant } from '@/components/AI/TripQueryAssistant';
 import { cn } from '@/lib/utils';
+import { useIsOnline } from '@/hooks/useIsOnline';
 
 // Floating Action Button Component
 const FloatingActionButton = React.memo(({ 
@@ -390,6 +391,7 @@ const TripContent = () => {
   const { trip, tripId, loading } = useTripContext();
   const [showItinerarySidebar, setShowItinerarySidebar] = useState(false);
   const [showAISidebar, setShowAISidebar] = useState(false);
+  const isOnline = useIsOnline();
   
   const { 
     currentEditingEvent, 
@@ -500,6 +502,8 @@ const TripContent = () => {
               onClick={() => setShowAISidebar(true)} 
               variant="outline"
               size="sm"
+              disabled={!isOnline}
+              title={!isOnline ? 'Travel Intelligence requires an internet connection' : undefined}
               className="flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
@@ -522,7 +526,8 @@ const TripContent = () => {
               variant="outline"
               size="icon"
               className="h-9 w-9"
-              title="Travel Intelligence"
+              disabled={!isOnline}
+              title={!isOnline ? 'Travel Intelligence requires an internet connection' : 'Travel Intelligence'}
             >
               <Sparkles className="w-4 h-4" />
             </Button>

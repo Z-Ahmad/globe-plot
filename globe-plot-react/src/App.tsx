@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, Navigate, useLocation } from "react-router-dom";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { useIsOnline } from "@/hooks/useIsOnline";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Navbar } from "./components/Navbar";
@@ -37,21 +38,6 @@ function RequireAuth() {
   }
 
   return <Outlet />;
-}
-
-function useIsOnline() {
-  return useSyncExternalStore(
-    (cb) => {
-      window.addEventListener("online", cb);
-      window.addEventListener("offline", cb);
-      return () => {
-        window.removeEventListener("online", cb);
-        window.removeEventListener("offline", cb);
-      };
-    },
-    () => navigator.onLine,
-    () => true
-  );
 }
 
 function OfflineBanner() {

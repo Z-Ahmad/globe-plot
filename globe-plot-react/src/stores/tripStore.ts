@@ -490,9 +490,7 @@ export const useTripStore = create<TripState>()(
         
         // If not authenticated, just use the local ID
         if (!user) {
-          // Create a temporary UUID if no ID exists
           const eventWithId = event.id ? event : { ...event, id: crypto.randomUUID() };
-          
           set((state) => ({
             trips: state.trips.map(trip =>
               trip.id === tripId
@@ -503,55 +501,35 @@ export const useTripStore = create<TripState>()(
           return;
         }
         
-        try {
-          // Generate a new Firestore ID for the event
-          const eventsCollection = collection(db, 'events');
-          const eventRef = doc(eventsCollection); // This creates a new document reference with a Firestore ID
-          const firestoreEventId = eventRef.id;
-          
-          // Create event object with Firestore ID
-          const firestoreEvent = {
-            ...event,
-            id: firestoreEventId,
-            tripId,
-            userId: user.uid,
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-            // Convert dates
-            start: event.start ? new Date(event.start) : null,
-            end: event.end ? new Date(event.end) : null,
-          };
-          
-          // Save to Firestore
-          await setDoc(eventRef, firestoreEvent);
-          
-          // Update local state with the Firestore ID
-          set((state) => ({
-            trips: state.trips.map(trip =>
-              trip.id === tripId
-                ? { 
-                    ...trip, 
-                    events: [...trip.events, { 
-                      ...event, 
-                      id: firestoreEventId 
-                    }] 
-                  }
-                : trip
-            )
-          }));
-          
-        } catch (error) {
-          // On error, update local state with original ID
+        // Generate Firestore ID locally — no network needed
+        const eventsCollection = collection(db, 'events');
+        const eventRef = doc(eventsCollection);
+        const firestoreEventId = eventRef.id;
+
+        // Update local state immediately with the Firestore-assigned ID
+        set((state) => ({
+          trips: state.trips.map(trip =>
+            trip.id === tripId
+              ? { ...trip, events: [...trip.events, { ...event, id: firestoreEventId }] }
+              : trip
+          )
+        }));
+
+        // Fire-and-forget: offline persistence queues this and syncs when reconnected
+        const firestoreEvent = {
+          ...event,
+          id: firestoreEventId,
+          tripId,
+          userId: user.uid,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          start: event.start ? new Date(event.start) : null,
+          end: event.end ? new Date(event.end) : null,
+        };
+        setDoc(eventRef, firestoreEvent).catch((error) => {
           console.error('Error adding event to Firestore:', error);
-          set((state) => ({
-        trips: state.trips.map(trip =>
-          trip.id === tripId
-            ? { ...trip, events: [...trip.events, event] }
-            : trip
-        )
-          }));
           set({ error: error instanceof Error ? error.message : 'Failed to save event' });
-        }
+        });
       },
       
       removeEvent: async (tripId, eventId) => {
@@ -629,49 +607,34 @@ export const useTripStore = create<TripState>()(
       updateEvent: async (tripId, eventId, updatedEvent) => {
         const user = useUserStore.getState().user;
         
-        // Update local state first
+        // Update local state immediately
         set((state) => ({
-        trips: state.trips.map(trip =>
-          trip.id === tripId
-            ? {
-                ...trip,
-                events: trip.events.map(event =>
-                  event.id === eventId 
-                    ? { ...event, ...updatedEvent } as Event 
-                    : event
-                )
-              }
-            : trip
-        )
+          trips: state.trips.map(trip =>
+            trip.id === tripId
+              ? {
+                  ...trip,
+                  events: trip.events.map(event =>
+                    event.id === eventId
+                      ? { ...event, ...updatedEvent } as Event
+                      : event
+                  )
+                }
+              : trip
+          )
         }));
         
-        // Skip Firestore if user is not authenticated
         if (!user) return;
-        
-        try {
-          const eventRef = doc(db, 'events', eventId);
-          
-          // Format data for Firestore
-          const firestoreData: any = {
-            ...updatedEvent,
-            updatedAt: Timestamp.now(),
-          };
-          
-          // Convert dates if present
-          if (updatedEvent.start) {
-            firestoreData.start = new Date(updatedEvent.start);
-          }
-          
-          if (updatedEvent.end) {
-            firestoreData.end = new Date(updatedEvent.end);
-          }
-          
-          await updateDoc(eventRef, firestoreData);
-          
-        } catch (error) {
+
+        const eventRef = doc(db, 'events', eventId);
+        const firestoreData: any = { ...updatedEvent, updatedAt: Timestamp.now() };
+        if (updatedEvent.start) firestoreData.start = new Date(updatedEvent.start);
+        if (updatedEvent.end) firestoreData.end = new Date(updatedEvent.end);
+
+        // Fire-and-forget: offline persistence queues this and syncs when reconnected
+        updateDoc(eventRef, firestoreData).catch((error) => {
           console.error('Error updating event in Firestore:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to update event' });
-        }
+        });
       },
       
       addDocument: async (tripId, document) => {

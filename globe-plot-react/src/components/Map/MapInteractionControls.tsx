@@ -24,7 +24,7 @@ export const MapInteractionControls: React.FC<MapInteractionControlsProps> = ({
   cooldownRemaining
 }) => {
   return (
-    <div className="map-navigation-controls absolute bottom-10 right-4 z-50 flex space-x-2">
+    <div className="map-navigation-controls absolute bottom-20 md:bottom-10  right-4 z-50 flex space-x-2">
       <Button 
         variant="secondary" 
         size="icon" 
