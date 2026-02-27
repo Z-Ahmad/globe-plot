@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { EventEditor } from "@/components/Event/EventEditor";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles } from "lucide-react";
+import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles, Check } from "lucide-react";
 import { EventList } from "@/components/Event/EventList";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
@@ -41,6 +41,10 @@ export const NewTrip = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [totalEventsFound, setTotalEventsFound] = useState(0);
   const [tempTripId] = useState<string>(uuidv4());
+  const [direction, setDirection] = useState<1 | -1>(1);
+
+  const goForward = (step: FormStep) => { setDirection(1); setCurrentStep(step); };
+  const goBack = (step: FormStep) => { setDirection(-1); setCurrentStep(step); };
 
   const API_URL = import.meta.env.VITE_API_URL;
   
@@ -193,7 +197,7 @@ export const NewTrip = () => {
     setTimeout(() => {
       setEditingEvents(allEvents);
       setIsProcessing(false);
-      setCurrentStep('event-review');
+      goForward('event-review');
     }, 1000); // 1 second delay
   };
 
@@ -384,16 +388,6 @@ export const NewTrip = () => {
       documents: [] // Documents will be uploaded after trip creation
     };
     
-    // Custom toast styling for trip creation
-    const customToastStyle = {
-      background: 'rgb(209, 250, 229)', // Light teal background (teal-100)
-      color: 'rgb(6, 95, 70)',          // Dark teal text (teal-800)
-      border: '1px solid rgb(167, 243, 208)', // Light teal border (teal-200)
-      borderRadius: '8px',
-      padding: '12px 16px',
-    };
-    
-    // Use toast.promise for trip creation
     toast.promise(
       (async () => {
         try {
@@ -475,10 +469,9 @@ export const NewTrip = () => {
         error: `Failed to create trip: ${(err: Error) => err.message || 'Unknown error'}`,
       },
       {
-        style: customToastStyle,
         success: {
           duration: 4000,
-          icon: <MapPinCheckInside color="rgb(6, 95, 70)" size={24} />,
+          icon: <MapPinCheckInside size={20} />,
         },
       }
     );
@@ -521,17 +514,17 @@ export const NewTrip = () => {
     </div>
   );
 
-  // Animation variants
+  // Animation variants — custom prop carries slide direction (+1 forward, -1 back)
   const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 }
+    initial: (d: number) => ({ opacity: 0, x: d * 60 }),
+    animate: { opacity: 1, x: 0 },
+    exit: (d: number) => ({ opacity: 0, x: d * -60 }),
   };
 
   const stepTransition = {
     type: "spring",
     stiffness: 300,
-    damping: 30
+    damping: 30,
   };
 
   const containerVariants = {
@@ -581,12 +574,13 @@ export const NewTrip = () => {
   const renderTripDetailsStep = () => (
     <motion.div 
       key="trip-details"
+      custom={direction}
       variants={pageVariants}
       initial="initial"
       animate="animate"
       exit="exit"
       transition={stepTransition}
-      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+      className="max-w-md mx-auto bg-card border border-border rounded-xl p-8 shadow-sm"
     >
       <motion.div
         variants={containerVariants}
@@ -600,7 +594,7 @@ export const NewTrip = () => {
           <h1 className='text-2xl font-bold'>Create New Trip</h1>
         </motion.div>
         
-        <form onSubmit={(e) => { e.preventDefault(); setCurrentStep('document-upload'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); goForward('document-upload'); }}>
           <motion.div variants={itemVariants} className="mb-6">
             <label className="block text-sm font-medium mb-2" htmlFor="name">
               Trip Name
@@ -684,12 +678,13 @@ export const NewTrip = () => {
   const renderDocumentUploadStep = () => (
     <motion.div 
       key="document-upload"
+      custom={direction}
       variants={pageVariants}
       initial="initial"
       animate="animate"
       exit="exit"
       transition={stepTransition}
-      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+      className="max-w-md mx-auto bg-card border border-border rounded-xl p-8 shadow-sm"
     >
       <motion.div
         variants={containerVariants}
@@ -875,7 +870,7 @@ export const NewTrip = () => {
             <Button 
               type="button" 
               variant="outline"
-              onClick={() => setCurrentStep('trip-details')}
+              onClick={() => goBack('trip-details')}
               className="gap-2"
             >
               <ArrowLeft size={16} />
@@ -920,7 +915,7 @@ export const NewTrip = () => {
           ) : (
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button 
-                onClick={() => setCurrentStep('event-review')} 
+                onClick={() => goForward('event-review')} 
                 className="gap-2"
               >
                 Continue
@@ -936,12 +931,13 @@ export const NewTrip = () => {
   const renderProcessingStep = () => (
     <motion.div 
       key="processing"
+      custom={direction}
       variants={pageVariants}
       initial="initial"
       animate="animate"
       exit="exit"
       transition={stepTransition}
-      className="max-w-md mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+      className="max-w-md mx-auto bg-card border border-border rounded-xl p-8 shadow-sm"
     >
       <motion.div
         variants={containerVariants}
@@ -1017,12 +1013,13 @@ export const NewTrip = () => {
   const renderEventReviewStep = () => (
     <motion.div 
       key="event-review"
+      custom={direction}
       variants={pageVariants}
       initial="initial"
       animate="animate"
       exit="exit"
       transition={stepTransition}
-      className="max-w-3xl mx-auto bg-card border border-border rounded-lg p-8 shadow-sm"
+      className="max-w-3xl mx-auto bg-card border border-border rounded-xl p-8 shadow-sm"
     >
       <motion.div
         variants={containerVariants}
@@ -1084,7 +1081,7 @@ export const NewTrip = () => {
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button 
               variant="outline"
-              onClick={() => setCurrentStep('document-upload')}
+              onClick={() => goBack('document-upload')}
               className="gap-2"
             >
               <ArrowLeft size={16} />
@@ -1130,18 +1127,69 @@ export const NewTrip = () => {
     </motion.div>
   );
 
+  const STEPS: { id: FormStep; label: string }[] = [
+    { id: 'trip-details', label: 'Trip Details' },
+    { id: 'document-upload', label: 'Documents' },
+    { id: 'event-review', label: 'Review' },
+  ];
+  const activeStepIndex = STEPS.findIndex((s) => s.id === currentStep);
+
   return (
     <TripProvider tripId={tempTripId}>
-      <main className='p-6 min-h-[calc(100vh-4rem)] flex items-center justify-center'>
-        <AnimatePresence mode="wait">
-          {isProcessing && currentStep === 'document-upload' ? (
-            renderProcessingStep()
-          ) : (
-            currentStep === 'trip-details' ? renderTripDetailsStep() :
-            currentStep === 'document-upload' ? renderDocumentUploadStep() :
-            renderEventReviewStep()
-          )}
-        </AnimatePresence>
+      <main className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-6 overflow-hidden">
+        {/* Ambient background blobs */}
+        <div className="absolute inset-0 bg-background pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Step progress indicator */}
+        <div className="relative z-10 flex items-center gap-0 mb-8 w-full max-w-xs">
+          {STEPS.map((step, index) => {
+            const isCompleted = index < activeStepIndex;
+            const isCurrent = index === activeStepIndex;
+            return (
+              <React.Fragment key={step.id}>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-all duration-300",
+                    isCurrent && "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30",
+                    isCompleted && "border-primary/60 bg-primary/10 text-primary",
+                    !isCurrent && !isCompleted && "border-muted-foreground/30 text-muted-foreground/40"
+                  )}>
+                    {isCompleted ? <Check size={13} /> : index + 1}
+                  </div>
+                  <span className={cn(
+                    "text-xs font-medium whitespace-nowrap transition-colors duration-300",
+                    isCurrent && "text-foreground",
+                    isCompleted && "text-muted-foreground",
+                    !isCurrent && !isCompleted && "text-muted-foreground/40"
+                  )}>
+                    {step.label}
+                  </span>
+                </div>
+                {index < STEPS.length - 1 && (
+                  <div className={cn(
+                    "flex-1 h-px mb-4 mx-2 transition-colors duration-500",
+                    index < activeStepIndex ? "bg-primary/60" : "bg-muted-foreground/20"
+                  )} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Step card */}
+        <div className="relative z-10 w-full">
+          <AnimatePresence mode="wait">
+            {isProcessing && currentStep === 'document-upload' ? (
+              renderProcessingStep()
+            ) : (
+              currentStep === 'trip-details' ? renderTripDetailsStep() :
+              currentStep === 'document-upload' ? renderDocumentUploadStep() :
+              renderEventReviewStep()
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Event Editor Dialog */}
         <EventEditor

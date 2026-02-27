@@ -8,8 +8,13 @@ import {
   Sparkles,
   List,
   ChevronLeft,
-  Plus
+  Plus,
+  Share2,
+  Pencil,
+  Check,
 } from 'lucide-react';
+import { ShareTripModal } from '@/components/ShareTripModal';
+import { useTripStore } from '@/stores/tripStore';
 import { formatDateRange } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { v4 as uuidv4 } from 'uuid';
@@ -389,9 +394,30 @@ function useEventHandlers() {
 const TripContent = () => {
   const navigate = useNavigate();
   const { trip, tripId, loading } = useTripContext();
+  const { user } = useUserStore();
   const [showItinerarySidebar, setShowItinerarySidebar] = useState(false);
   const [showAISidebar, setShowAISidebar] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
   const isOnline = useIsOnline();
+
+  const isOwner = !!(trip && user && trip.userId === user.uid);
+
+  const handleSaveDates = async () => {
+    if (!tripId || !editStartDate || !editEndDate) return;
+    try {
+      await useTripStore.getState().updateTrip(tripId, {
+        startDate: editStartDate,
+        endDate: editEndDate,
+      });
+      setIsEditingDates(false);
+      toast.success('Trip dates updated');
+    } catch {
+      toast.error('Failed to update dates');
+    }
+  };
   
   const { 
     currentEditingEvent, 
@@ -489,10 +515,67 @@ const TripContent = () => {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-lg font-bold">{trip.name}</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
-                {formatDateRange(trip.startDate, trip.endDate)}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-lg font-bold leading-tight">{trip.name}</h1>
+                {isOwner && (
+                  <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors shrink-0"
+                    title="Share trip"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {isEditingDates ? (
+                <div className="flex items-center gap-1 mt-1">
+                  <input
+                    type="date"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                    className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <input
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                    className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={handleSaveDates}
+                    className="p-0.5 text-emerald-500 hover:text-emerald-600 transition-colors"
+                    title="Save dates"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingDates(false)}
+                    className="p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={isOwner ? () => {
+                    setEditStartDate(trip.startDate.slice(0, 10));
+                    setEditEndDate(trip.endDate.slice(0, 10));
+                    setIsEditingDates(true);
+                  } : undefined}
+                  className={cn(
+                    'text-xs text-muted-foreground flex items-center gap-1 truncate',
+                    isOwner && 'hover:text-foreground transition-colors group'
+                  )}
+                >
+                  <span>{formatDateRange(trip.startDate, trip.endDate)}</span>
+                  {isOwner && (
+                    <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </button>
+              )}
             </div>
           </div>
           
@@ -563,7 +646,7 @@ const TripContent = () => {
           label="Itinerary"
           variant="secondary"
           showLabel={true}
-          className="border border-border/70"
+          className="border border-border/70 dark:border-white/50"
         />
       </div>
 
@@ -728,6 +811,14 @@ const TripContent = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isOwner && (
+        <ShareTripModal
+          trip={trip}
+          open={isShareModalOpen}
+          onOpenChange={setIsShareModalOpen}
+        />
       )}
     </div>
   );

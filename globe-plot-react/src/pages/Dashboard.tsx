@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useTripStore } from '../stores/tripStore';
 import { Event, TravelEvent, AccommodationEvent, Trip, ShareInvitation } from '../types/trip';
-import { CalendarDays, Map, Trash2, Share2, UserPlus, MapPin } from 'lucide-react';
+import { CalendarDays, Map, Trash2, Share2, UserPlus, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   AlertDialog,
@@ -25,6 +26,16 @@ import {
 } from '@/lib/firebaseService';
 import { useUserStore } from '@/stores/userStore';
 import { ShareTripModal } from '@/components/ShareTripModal';
+
+const cardContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+const cardItemVariants = {
+  hidden: { opacity: 0, y: -16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+};
 
 const ACCENT_GRADIENTS = [
   'from-blue-500 to-indigo-600',
@@ -73,6 +84,19 @@ function getUniqueCities(events: Event[]): string[] {
   return cities;
 }
 
+function getUniqueCountries(events: Event[]): string[] {
+  const seen = new Set<string>();
+  const countries: string[] = [];
+  for (const event of events) {
+    const country = event.location?.country
+    if (country && !seen.has(country)) {
+      seen.add(country);
+      countries.push(country as string);
+    }
+  }
+  return Array.from(countries);
+}
+
 function TripCardSkeleton() {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden animate-pulse">
@@ -102,11 +126,12 @@ interface TripCardProps {
 const TripCard = ({ trip, isOwner, onDelete, onShare }: TripCardProps) => {
   const gradient = getAccentGradient(trip.id);
   const cities = getUniqueCities(trip.events);
+  const countries = getUniqueCountries(trip.events);
   const visibleCities = cities.slice(0, 4);
   const extraCities = cities.length - visibleCities.length;
 
   return (
-    <div className="relative group">
+    <motion.div className="relative group" variants={cardItemVariants}>
       <Link
         to={`/trip/${trip.id}`}
         className="block bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20 hover:-translate-y-0.5 transition-all duration-200"
@@ -144,18 +169,15 @@ const TripCard = ({ trip, isOwner, onDelete, onShare }: TripCardProps) => {
               <Map size={12} />
               {trip.events.length} {trip.events.length === 1 ? 'event' : 'events'}
             </span>
-            {cities.length > 0 && (
-              <span className="flex items-center gap-1">
-                <MapPin size={12} />
-                {cities.length} {cities.length === 1 ? 'city' : 'cities'}
-              </span>
+            {countries.length > 0 && (
+              <span>{countries.length} {countries.length === 1 ? 'country' : 'countries'}</span>
             )}
           </div>
         </div>
       </Link>
 
       {isOwner && (
-        <div className="absolute top-3.5 right-3 flex gap-1">
+        <div className="absolute top-3.5 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           <button
             className="w-7 h-7 bg-background/80 backdrop-blur-sm border border-border rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-background transition-colors"
             aria-label={`Share ${trip.name}`}
@@ -195,7 +217,7 @@ const TripCard = ({ trip, isOwner, onDelete, onShare }: TripCardProps) => {
           </AlertDialog>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
@@ -229,6 +251,7 @@ export const Dashboard = () => {
   const [invitations, setInvitations] = useState<ShareInvitation[]>([]);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [pastCollapsed, setPastCollapsed] = useState(true);
 
   useEffect(() => {
     if (user && _isHydrated && !lastSync) {
@@ -415,7 +438,7 @@ export const Dashboard = () => {
                 count={ongoingTrips.length}
                 icon={<span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <motion.div variants={cardContainerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {ongoingTrips.map((trip) => (
                   <TripCard
                     key={trip.id}
@@ -425,7 +448,7 @@ export const Dashboard = () => {
                     onShare={openShareModal}
                   />
                 ))}
-              </div>
+              </motion.div>
             </section>
           )}
 
@@ -436,7 +459,7 @@ export const Dashboard = () => {
                 count={upcomingTrips.length}
                 icon={<CalendarDays size={16} className="text-primary" />}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <motion.div variants={cardContainerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {upcomingTrips.map((trip) => (
                   <TripCard
                     key={trip.id}
@@ -446,28 +469,48 @@ export const Dashboard = () => {
                     onShare={openShareModal}
                   />
                 ))}
-              </div>
+              </motion.div>
             </section>
           )}
 
           {pastTrips.length > 0 && (
             <section>
-              <SectionHeading
-                label="Past Trips"
-                count={pastTrips.length}
-                icon={<Map size={16} className="text-muted-foreground" />}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-70">
-                {pastTrips.map((trip) => (
-                  <TripCard
-                    key={trip.id}
-                    trip={trip}
-                    isOwner={true}
-                    onDelete={confirmDelete}
-                    onShare={openShareModal}
-                  />
-                ))}
-              </div>
+              <button
+                onClick={() => setPastCollapsed((c) => !c)}
+                className="flex items-center gap-2 mb-4 group w-full text-left"
+              >
+                <Map size={16} className="text-muted-foreground" />
+                <span className="font-semibold text-foreground">Past Trips</span>
+                <span className="px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground font-medium">
+                  {pastTrips.length}
+                </span>
+                <motion.span
+                  animate={{ rotate: pastCollapsed ? -90 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="ml-auto text-muted-foreground"
+                >
+                  <ChevronDown size={16} />
+                </motion.span>
+              </button>
+
+              <motion.div
+                initial={false}
+                animate={pastCollapsed ? { height: 0, opacity: 0 } : { height: 'auto', opacity: 1 }}
+                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <motion.div variants={cardContainerVariants} initial="hidden" animate={pastCollapsed ? "hidden" : "visible"} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-70">
+                  {pastTrips.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isOwner={true}
+                      onDelete={confirmDelete}
+                      onShare={openShareModal}
+                    />
+                  ))}
+                </motion.div>
+              </motion.div>
             </section>
           )}
 
@@ -478,7 +521,7 @@ export const Dashboard = () => {
                 count={sharedTrips.length}
                 icon={<UserPlus size={16} className="text-indigo-500" />}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <motion.div variants={cardContainerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {sharedTrips.map((trip) => (
                   <TripCard
                     key={trip.id}
@@ -488,7 +531,7 @@ export const Dashboard = () => {
                     onShare={() => {}}
                   />
                 ))}
-              </div>
+              </motion.div>
             </section>
           )}
         </div>
