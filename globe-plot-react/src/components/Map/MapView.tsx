@@ -578,7 +578,7 @@ export const MapView: React.FC<MapViewProps> = ({ className = "", isVisible, onE
 
   return (
     <div className={`relative overflow-hidden rounded-lg border ${className}`}>
-      <div ref={mapContainer} className="w-full h-full rounded-lg map-container">
+      <div ref={mapContainer} className="w-11/12 h-11/12 mx-auto rounded-lg map-container">
         {!loading && events.length > 0 && (
           <MapInteractionControls 
             onPrevEvent={goToPrevEvent}

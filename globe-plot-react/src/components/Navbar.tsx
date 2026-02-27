@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Moon, Sun, LogIn, LogOut, User } from "lucide-react";
+import { Moon, Sun, LogIn, LogOut, User } from "lucide-react";
 import { Logo } from "./Logo";
 import { useThemeStore } from "../stores/themeStore";
 import { useUserStore } from "../stores/userStore";
@@ -157,15 +157,6 @@ export function Navbar() {
             </Link>
           )}
           <div className="flex items-center gap-3">
-            {user && (
-              <Link
-                to="/trip/new"
-                className="group relative px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-1.5 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Trip</span>
-              </Link>
-            )}
             <ThemeToggle />
             <ProfileButton />
           </div>

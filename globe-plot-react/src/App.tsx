@@ -20,6 +20,41 @@ import { useThemeStore } from "./stores/themeStore";
 import { useUserStore } from "./stores/userStore";
 import { Loader2 } from "lucide-react";
 
+function ThemedToaster() {
+  const { isDark } = useThemeStore();
+
+  const base = isDark
+    ? { background: '#1e1f2e', color: '#e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }
+    : { background: '#ffffff', color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' };
+
+  const success = isDark
+    ? { background: '#0d2818', color: '#86efac', border: '1px solid #166534' }
+    : { background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' };
+
+  const error = isDark
+    ? { background: '#2d0f0f', color: '#fca5a5', border: '1px solid #7f1d1d' }
+    : { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' };
+
+  return (
+    <Toaster
+      position="top-center"
+      reverseOrder={false}
+      toastOptions={{
+        style: { ...base, borderRadius: '10px' },
+        duration: 4000,
+        success: {
+          style: { ...success, borderRadius: '10px' },
+          iconTheme: { primary: isDark ? '#86efac' : '#166534', secondary: isDark ? '#0d2818' : '#dcfce7' },
+        },
+        error: {
+          style: { ...error, borderRadius: '10px' },
+          iconTheme: { primary: isDark ? '#fca5a5' : '#b91c1c', secondary: isDark ? '#2d0f0f' : '#fee2e2' },
+        },
+      }}
+    />
+  );
+}
+
 // Guards protected routes — waits for Firebase auth to initialise before deciding
 function RequireAuth() {
   const { user, initialized } = useUserStore();
@@ -166,40 +201,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        toastOptions={{
-          // Global toast styling (will be overridden by custom styles)
-          style: {
-            borderRadius: '8px',
-            background: '#fff',
-            color: '#333',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-          },
-          // Individual toast type styling (for non-custom toasts)
-          success: {
-            style: {
-              background: 'rgb(220, 252, 231)', // Light green background
-              color: 'rgb(22, 101, 52)',       // Dark green text
-              border: '1px solid rgb(187, 247, 208)' // Light green border
-            },
-            iconTheme: {
-              primary: 'rgb(22, 101, 52)',
-              secondary: 'rgb(220, 252, 231)',
-            },
-          },
-          error: {
-            style: {
-              background: 'rgb(254, 226, 226)', // Light red background
-              color: 'rgb(185, 28, 28)',       // Dark red text
-              border: '1px solid rgb(254, 202, 202)' // Light red border
-            },
-          },
-          // We can customize duration globally
-          duration: 4000,
-        }}
-      />
+      <ThemedToaster />
     </AuthProvider>
   );
 }
