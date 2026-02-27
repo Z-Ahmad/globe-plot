@@ -1,11 +1,35 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Plus, Moon, Sun, LogIn, LogOut, User } from "lucide-react";
 import { Logo } from "./Logo";
 import { useThemeStore } from "../stores/themeStore";
 import { useUserStore } from "../stores/userStore";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
+
+function ThemeToggle() {
+  const { isDark, toggleTheme } = useThemeStore();
+  return (
+    <button
+      onClick={toggleTheme}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className={`relative flex items-center w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+        isDark ? "bg-indigo-900" : "bg-amber-100"
+      }`}
+    >
+      <motion.div
+        className={`absolute flex items-center justify-center w-6 h-6 rounded-full shadow-md ${
+          isDark ? "bg-indigo-500 text-indigo-100" : "bg-amber-400 text-amber-800"
+        }`}
+        animate={{ x: isDark ? 30 : 2 }}
+        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+      >
+        {isDark ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+      </motion.div>
+    </button>
+  );
+}
 
 function ProfileButton() {
   const { user, logout, loading } = useUserStore();
@@ -95,7 +119,7 @@ function ProfileButton() {
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
-  const { isDark, toggleTheme } = useThemeStore();
+  const user = useUserStore((state) => state.user);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -114,7 +138,7 @@ export function Navbar() {
           : "bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-2 flex justify-between items-center px-6 py-3">
+      <div className="max-w-full mx-2 flex justify-between items-center px-6 py-3">
         <Link to="/" className="flex items-center gap-3 group">
           <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
           <span className="text-2xl font-bold text-foreground">
@@ -123,39 +147,32 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          <Link
-            to="/dashboard"
-            className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm"
-          >
-            My Trips
-          </Link>
-          <div className="flex items-center gap-3">
+
+          {user && (
             <Link
-              to="/trip/new"
-              className="group relative px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-1.5 text-sm"
+              to="/dashboard"
+              className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Trip</span>
+              My Trips
             </Link>
-            <button
-              onClick={toggleTheme}
-              className="flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+          )}
+          <div className="flex items-center gap-3">
+            {user && (
+              <Link
+                to="/trip/new"
+                className="group relative px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full overflow-hidden shadow-md hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-1.5 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Trip</span>
+              </Link>
+            )}
+            <ThemeToggle />
             <ProfileButton />
           </div>
         </nav>
 
         <div className="md:hidden flex items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            className="flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <ThemeToggle />
           <ProfileButton />
         </div>
       </div>

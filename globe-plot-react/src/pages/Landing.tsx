@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { 
   Plane, 
@@ -25,16 +25,8 @@ import globeplotItinerary from "@/assets/globeplot_itinerary.mp4";
 import globeplotGeocode from "@/assets/globeplot_geocode.mp4";
 
 export function Landing() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLDivElement>(null);
   const mapSectionRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start end", "end start"]
-  });
 
-  const y = useTransform(scrollYProgress, [0, 1], [-50, 50]);
-  const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.3, 1, 0.3]);
 
   // State for video selection in "See Your Trip Take Shape" section
   const [selectedVideo, setSelectedVideo] = useState<'map' | 'timeline' | 'geocode' | null>('map');
@@ -103,67 +95,117 @@ export function Landing() {
     }
   };
 
-  const bounceVariants = {
-    animate: {
-      y: [0, -5, 0],
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        ease: "easeInOut"
-      }
-    }
-  };
-
   return (
-    <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-background dark:via-background dark:to-background overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Travel-themed icon watermarks */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-background dark:via-background dark:to-background overflow-hidden">
+      {/* Hero Section - Combined with Drag Drop */}
+      <section className="relative min-h-screen flex items-center justify-center px-6 py-32">
+      {/* Floating Background Icons — scoped to hero so they don't overlap content cards */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Plane — top-right, drifts slowly left and down */}
         <motion.div
-          style={{ y, opacity: useTransform(scrollYProgress, [0, 0.5, 1], [0.1, 0.15, 0.1]) }}
-          className="absolute top-10 right-4 md:top-20 md:right-20"
+          className="absolute top-[8%] right-[6%]"
+          animate={{
+            x: [0, -40, -15, -55, -20, 0],
+            y: [0, 20, 50, 15, 40, 0],
+            rotate: [12, 18, 8, 22, 10, 12],
+          }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Plane className="w-20 h-20 md:w-32 md:h-32 text-blue-200/60 transform rotate-12" />
+          <Plane className="w-20 h-20 md:w-32 md:h-32 text-blue-500/20 dark:text-blue-300/20" />
         </motion.div>
-        
+
+        {/* MapPin — left side, gentle drift */}
         <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], [30, -30]), opacity: 0.15 }}
-          className="absolute bottom-32 left-4 md:bottom-20 md:left-20"
+          className="absolute top-[35%] left-[3%]"
+          animate={{
+            x: [0, 25, 10, 35, 5, 0],
+            y: [0, -30, 15, -20, 10, 0],
+            rotate: [-12, -5, -18, -8, -15, -12],
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         >
-          <MapPin className="w-24 h-24 md:w-40 md:h-40 text-green-200/60 transform -rotate-12" />
+          <MapPin className="w-16 h-16 md:w-28 md:h-28 text-emerald-500/20 dark:text-emerald-300/20" />
         </motion.div>
-        
+
+        {/* Calendar — upper-left */}
         <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], [-20, 20]), opacity: 0.12 }}
-          className="absolute top-1/4 left-2 md:top-1/3 md:left-10"
+          className="absolute top-[18%] left-[12%]"
+          animate={{
+            x: [0, 20, -10, 30, 5, 0],
+            y: [0, 25, -10, 20, -5, 0],
+            rotate: [6, 14, 0, 10, 4, 6],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 4 }}
         >
-          <Calendar className="w-16 h-16 md:w-28 md:h-28 text-purple-200/60 transform rotate-45" />
+          <Calendar className="w-12 h-12 md:w-20 md:h-20 text-purple-500/20 dark:text-purple-300/20" />
         </motion.div>
-        
+
+        {/* Luggage — right middle, larger drift */}
         <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], [40, -40]), opacity: 0.18 }}
-          className="absolute top-1/2 right-2 md:top-1/2 md:right-10"
+          className="absolute top-[52%] right-[4%]"
+          animate={{
+            x: [0, -30, -60, -25, -50, 0],
+            y: [0, -25, 20, -40, 10, 0],
+            rotate: [-6, -14, 2, -10, -4, -6],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         >
-          <Luggage className="w-20 h-20 md:w-36 md:h-36 text-indigo-200/60 transform -rotate-6" />
+          <Luggage className="w-18 h-18 md:w-32 md:h-32 text-indigo-500/20 dark:text-indigo-300/20" />
         </motion.div>
-        
+
+        {/* Sailboat — lower-center-right */}
         <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], [-15, 15]), opacity: 0.15 }}
-          className="absolute bottom-1/4 right-1/3 md:bottom-1/3 md:right-1/4"
+          className="absolute top-[70%] right-[28%]"
+          animate={{
+            x: [0, -20, 15, -35, 8, 0],
+            y: [0, -15, -35, -10, -25, 0],
+            rotate: [-8, -2, -14, -5, -10, -8],
+          }}
+          transition={{ duration: 28, repeat: Infinity, ease: "easeInOut", delay: 5 }}
         >
-          <Sailboat className="w-14 h-14 md:w-24 md:h-24 text-blue-300/60 transform -rotate-12" />
+          <Sailboat className="w-12 h-12 md:w-22 md:h-22 text-sky-500/20 dark:text-sky-300/20" />
         </motion.div>
-        
+
+        {/* Map — lower-left */}
         <motion.div
-          style={{ y: useTransform(scrollYProgress, [0, 1], [25, -25]), opacity: 0.14 }}
-          className="absolute top-3/4 left-1/4 md:top-2/3 md:left-1/3"
+          className="absolute top-[65%] left-[20%]"
+          animate={{
+            x: [0, 30, -15, 45, 10, 0],
+            y: [0, -20, -45, -15, -35, 0],
+            rotate: [-12, -4, -20, -8, -16, -12],
+          }}
+          transition={{ duration: 24, repeat: Infinity, ease: "easeInOut", delay: 3 }}
         >
-          <Map className="w-18 h-18 md:w-32 md:h-32 text-emerald-200/60 transform -rotate-12" />
+          <Map className="w-14 h-14 md:w-24 md:h-24 text-teal-500/20 dark:text-teal-300/20" />
+        </motion.div>
+
+        {/* Compass — upper-center */}
+        <motion.div
+          className="absolute top-[5%] left-[45%]"
+          animate={{
+            x: [0, -25, 20, -10, 30, 0],
+            y: [0, 30, 15, 40, 20, 0],
+            rotate: [0, 20, -10, 30, 5, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut", delay: 7 }}
+        >
+          <Compass className="w-10 h-10 md:w-18 md:h-18 text-amber-500/20 dark:text-amber-300/20" />
+        </motion.div>
+
+        {/* Earth — bottom-right area */}
+        <motion.div
+          className="absolute top-[82%] right-[10%]"
+          animate={{
+            x: [0, -35, -10, -45, -20, 0],
+            y: [0, -20, -50, -25, -40, 0],
+            rotate: [0, 15, -8, 20, 5, 0],
+          }}
+          transition={{ duration: 26, repeat: Infinity, ease: "easeInOut", delay: 6 }}
+        >
+          <Earth className="w-16 h-16 md:w-28 md:h-28 text-blue-400/15 dark:text-blue-300/15" />
         </motion.div>
       </div>
 
-      {/* Hero Section - Combined with Drag Drop */}
-      <section className="relative min-h-screen flex items-center justify-center px-6 py-32">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
             {/* Left Content */}
@@ -181,7 +223,7 @@ export function Landing() {
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-6 justify-center lg:justify-start items-center">
                 <Link
-                  to="/dashboard"
+                  to="/login"
                   className="group relative px-12 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xl font-semibold rounded-full overflow-hidden shadow-2xl hover:shadow-blue-500/25 transition-all duration-300"
                 >
                   <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative z-10">
@@ -220,7 +262,7 @@ export function Landing() {
       </section>
 
       {/* Feature Comparison Section */}
-      <section className="py-40 px-6 bg-slate-900 dark:bg-slate-800/60 text-white relative">
+      <section className="py-24 px-6 bg-slate-900 dark:bg-slate-800/60 text-white relative">
         {/* Background watermarks for dark section */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <motion.div
@@ -378,7 +420,7 @@ export function Landing() {
           >
             <p className="text-2xl font-semibold text-white mb-6">Which sounds better to you?</p>
             <Link
-              to="/dashboard"
+              to="/login"
               className="inline-block px-12 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xl font-semibold rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 hover:scale-105"
             >
               Try the Better Way →
@@ -388,7 +430,7 @@ export function Landing() {
       </section>
 
       {/* Map & Timeline Section */}
-      <section ref={mapSectionRef} className="py-40 px-6 bg-slate-50 dark:bg-background text-slate-800 dark:text-foreground">
+      <section ref={mapSectionRef} className="py-24 px-6 bg-white dark:bg-card/30 text-slate-800 dark:text-foreground">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -413,12 +455,6 @@ export function Landing() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            {/* Interactive instruction */}
-            <div className="text-center mb-8">
-              <p className="text-blue-600 dark:text-primary text-sm font-medium mb-2">👇 Tap to see demos</p>
-              <div className="w-12 h-0.5 bg-blue-600/50 dark:bg-primary/50 mx-auto"></div>
-            </div>
-
             {/* Map Feature Card */}
             <div
               className={`cursor-pointer transition-all duration-500 rounded-2xl border-2 overflow-hidden ${
@@ -603,7 +639,7 @@ export function Landing() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-40 px-6 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white">
+      <section className="py-24 px-6 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <h2 className="text-5xl md:text-7xl font-bold mb-8">Ready to plot a course?</h2>
@@ -613,7 +649,7 @@ export function Landing() {
             <div className="flex justify-center">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
-                  to="/dashboard"
+                  to="/login"
                   className="inline-block px-16 py-6 bg-white text-blue-600 text-2xl font-bold rounded-full shadow-2xl hover:shadow-white/25 transition-all duration-300"
                 >
                   Start Your First Trip →
