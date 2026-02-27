@@ -1,5 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
-import { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Outlet, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { WifiOff, RefreshCw } from "lucide-react";
+import { useRegisterSW } from "virtual:pwa-register/react";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -14,6 +16,105 @@ import { Profile } from "@/pages/Profile";
 import { AuthProvider } from "./components/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import { useThemeStore } from "./stores/themeStore";
+import { useUserStore } from "./stores/userStore";
+import { Loader2 } from "lucide-react";
+
+// Guards protected routes — waits for Firebase auth to initialise before deciding
+function RequireAuth() {
+  const { user, initialized } = useUserStore();
+  const location = useLocation();
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+
+  return <Outlet />;
+}
+
+function useIsOnline() {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("online", cb);
+      window.addEventListener("offline", cb);
+      return () => {
+        window.removeEventListener("online", cb);
+        window.removeEventListener("offline", cb);
+      };
+    },
+    () => navigator.onLine,
+    () => true
+  );
+}
+
+function OfflineBanner() {
+  const isOnline = useIsOnline();
+  const [visible, setVisible] = useState(!isOnline);
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    if (!isOnline) {
+      setVisible(true);
+      setFading(false);
+    } else if (visible) {
+      // Keep "back online" visible briefly, then fade out
+      setFading(true);
+      const t = setTimeout(() => setVisible(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [isOnline]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={`fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-opacity duration-500 ${fading ? "opacity-0" : "opacity-100"} ${isOnline ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" : "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700"}`}
+    >
+      {isOnline ? (
+        <span>Back online</span>
+      ) : (
+        <>
+          <WifiOff className="w-4 h-4" />
+          <span>You&apos;re offline — viewing cached data</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function UpdatePrompt() {
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisteredSW(_url, r) {
+      // Poll for updates every 60 seconds so installed PWAs don't wait indefinitely
+      setInterval(() => r?.update(), 60 * 1000);
+    },
+  });
+
+  if (!needRefresh) return null;
+
+  return (
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border shadow-lg text-sm font-medium text-foreground">
+      <RefreshCw className="w-4 h-4 text-primary shrink-0" />
+      <span>New version available</span>
+      <button
+        onClick={() => updateServiceWorker(true)}
+        className="ml-1 px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+      >
+        Reload
+      </button>
+    </div>
+  );
+}
 
 function ThemeInitializer() {
   const { isDark, setDark } = useThemeStore();
@@ -33,6 +134,7 @@ function MainLayout() {
       </div>
       <Footer />
       <BottomNavigation />
+      <OfflineBanner />
     </div>
   );
 }
@@ -41,31 +143,24 @@ function App() {
   return (
     <AuthProvider>
       <ThemeInitializer />
+      <UpdatePrompt />
       <Router>
         <Routes>
           {/* Main layout wraps all routes that need the navbar */}
           <Route element={<MainLayout />}>
-            {/* Landing page route */}
+            {/* Public routes */}
             <Route path="/" element={<Landing />} />
-
-            {/* Dashboard route */}
-            <Route path="/dashboard" element={<Dashboard />} />
-
-            {/* New trip route */}
-            <Route path="/trip/new" element={<NewTrip />} />
-
-            {/* Individual trip route */}
-            <Route path="/trip/:id" element={<TripView />} />
-
-            {/* Demo route */}
             <Route path="/demo" element={<Demo />} />
-
-            {/* Privacy Policy route */}
             <Route path="/privacy" element={<PrivacyPolicy />} />
-
-            {/* Auth routes */}
             <Route path="/login" element={<Login />} />
-            <Route path="/profile" element={<Profile />} />
+
+            {/* Protected routes — redirect to /login if not authenticated */}
+            <Route element={<RequireAuth />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/trip/new" element={<NewTrip />} />
+              <Route path="/trip/:id" element={<TripView />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
 
             {/* Not found route */}
             <Route

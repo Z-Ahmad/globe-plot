@@ -608,7 +608,7 @@ export function Landing() {
           <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <h2 className="text-5xl md:text-7xl font-bold mb-8">Ready to plot a course?</h2>
             <p className="text-2xl font-light mb-4 opacity-90">Your next adventure starts with better organization.</p>
-            <p className="text-xl opacity-80 mb-16">Try it for free! No signup or credit card required.</p>
+            <p className="text-xl opacity-80 mb-16">Try it for free! No credit card required.</p>
 
             <div className="flex justify-center">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

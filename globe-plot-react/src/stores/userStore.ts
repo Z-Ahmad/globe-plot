@@ -6,6 +6,7 @@ import { signInWithGoogle, signOut, signInWithEmail, registerWithEmail } from '.
 interface UserState {
   user: User | null;
   loading: boolean;
+  initialized: boolean; // true after onAuthStateChanged fires at least once
   error: string | null;
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -13,6 +14,7 @@ interface UserState {
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
+  setInitialized: (initialized: boolean) => void;
   setError: (error: string | null) => void;
 }
 
@@ -21,6 +23,7 @@ export const useUserStore = create<UserState>()(
     (set) => ({
       user: null,
       loading: false,
+      initialized: false,
       error: null,
       
       signIn: async () => {
@@ -88,6 +91,7 @@ export const useUserStore = create<UserState>()(
       
       setUser: (user) => set({ user }),
       setLoading: (loading) => set({ loading }),
+      setInitialized: (initialized) => set({ initialized }),
       setError: (error) => set({ error }),
     }),
     {

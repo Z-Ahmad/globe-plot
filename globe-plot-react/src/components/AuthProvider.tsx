@@ -9,8 +9,8 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setLoading, setError, user } = useUserStore();
-  const { setTrips, fetchTrips, _isHydrated, lastSync } = useTripStore();
+  const { setUser, setLoading, setInitialized, setError } = useUserStore();
+  const { setTrips } = useTripStore();
   
   useEffect(() => {
     let isMounted = true;
@@ -22,22 +22,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(firebaseUser);
       
       if (firebaseUser) {
-        // User is signed in. The Dashboard will handle fetching.
-        // We don't need to do anything here regarding trips.
         console.log(`AuthProvider: User ${firebaseUser.uid} signed in.`);
       } else {
-        // User is signed out. Clear local data to prevent "ghost" trips.
         console.log("AuthProvider: User signed out. Clearing local trip data.");
-        setTrips([]); 
+        setTrips([]);
       }
+
       setLoading(false);
+      // Mark auth as initialized after the first Firebase response — this
+      // prevents RequireAuth from redirecting before we know the auth state.
+      setInitialized(true);
     });
 
     return () => {
       isMounted = false;
       unsubscribe();
     };
-  }, [setUser, setLoading, setError, setTrips]);
+  }, [setUser, setLoading, setInitialized, setError, setTrips]);
   
   return <>{children}</>;
 } 

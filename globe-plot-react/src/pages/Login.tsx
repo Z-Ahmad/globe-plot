@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useUserStore } from "../stores/userStore";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -32,6 +32,9 @@ function getFirebaseErrorMessage(code: string): string {
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
+
   const { user, signIn, signInWithEmail, registerWithEmail, loading } = useUserStore();
 
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -47,9 +50,9 @@ export function Login() {
 
   useEffect(() => {
     if (user) {
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, redirectTo]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +85,7 @@ export function Login() {
       } else {
         await registerWithEmail(email, password, displayName.trim());
       }
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       const code = err?.code ?? "";
       setError(getFirebaseErrorMessage(code));
@@ -96,7 +99,7 @@ export function Login() {
     setIsGoogleLoading(true);
     try {
       await signIn();
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       const code = err?.code ?? "";
       setError(getFirebaseErrorMessage(code));
