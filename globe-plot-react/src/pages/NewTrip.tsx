@@ -10,7 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { EventEditor } from "@/components/Event/EventEditor";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles, Check } from "lucide-react";
+import { Plus, Upload, FilePlus, FileText, FileX, Loader2, CheckCircle2, XCircle, ArrowRight, ArrowLeft, CalendarDays, CalendarSearch, MapPin, MapPinCheckInside, Sparkles, Check, Bot } from "lucide-react";
+import { ItineraryStreamEvent } from '@/types/trip';
 import { EventList } from "@/components/Event/EventList";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
@@ -42,9 +43,112 @@ export const NewTrip = () => {
   const [totalEventsFound, setTotalEventsFound] = useState(0);
   const [tempTripId] = useState<string>(uuidv4());
   const [direction, setDirection] = useState<1 | -1>(1);
+  const [tripDescription, setTripDescription] = useState('');
+  const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
 
   const goForward = (step: FormStep) => { setDirection(1); setCurrentStep(step); };
   const goBack = (step: FormStep) => { setDirection(-1); setCurrentStep(step); };
+
+  const handleGenerateItinerary = async () => {
+    if (!tripDescription.trim() || !name || !startDate || !endDate) return;
+    
+    setIsGeneratingItinerary(true);
+    setEditingEvents([]);
+    goForward('event-review');
+
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/';
+    const url = `${API_BASE}agent/generate-itinerary-stream`;
+
+    try {
+      // Get the auth token
+      const { auth } = await import('@/lib/firebase');
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tripName: name,
+          startDate,
+          endDate,
+          tripDescription: tripDescription.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || `Server error ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Streaming not supported');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages (split by double newline)
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || ''; // Keep incomplete message in buffer
+
+        for (const msg of messages) {
+          const dataLine = msg.trim();
+          if (!dataLine.startsWith('data: ')) continue;
+
+          try {
+            const data: ItineraryStreamEvent = JSON.parse(dataLine.slice(6));
+
+            if (data.error) {
+              toast.error(data.error);
+              continue;
+            }
+
+            if (data.event) {
+              const eventWithId = {
+                ...data.event,
+                id: data.event.id || uuidv4(),
+              };
+              setEditingEvents(prev => {
+                const updated = [...prev, eventWithId as Event];
+                return updated.sort((a, b) => {
+                  const aTime = a.start ? new Date(a.start).getTime() : 0;
+                  const bTime = b.start ? new Date(b.start).getTime() : 0;
+                  return aTime - bTime;
+                });
+              });
+            }
+
+            if (data.done) {
+              toast.success(`${data.eventCount || 0} events generated!`, { duration: 4000 });
+            }
+          } catch {
+            // Skip malformed SSE messages
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Itinerary generation error:', error);
+      toast.error(error.message || 'Failed to generate itinerary');
+      // If no events were generated, go back to trip details
+      setEditingEvents(prev => {
+        if (prev.length === 0) {
+          goBack('trip-details');
+        }
+        return prev;
+      });
+    } finally {
+      setIsGeneratingItinerary(false);
+    }
+  };
 
   const API_URL = import.meta.env.VITE_API_URL;
   
@@ -648,6 +752,30 @@ export const NewTrip = () => {
               </div>
             </div>
           </motion.div>
+
+          <motion.div variants={itemVariants} className="mb-6">
+            <label className="block text-sm font-medium mb-2" htmlFor="tripDescription">
+              <span className="flex items-center gap-1.5">
+                <Bot size={14} className="text-purple-500" />
+                Describe your trip
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </span>
+            </label>
+            <motion.textarea
+              whileFocus={{ scale: 1.01 }}
+              transition={{ duration: 0.2 }}
+              id="tripDescription"
+              value={tripDescription}
+              onChange={(e) => setTripDescription(e.target.value)}
+              className="w-full border border-input rounded-md px-3 py-2 bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20 resize-none text-sm"
+              placeholder="e.g. I want to visit Tokyo and Kyoto for a week with cultural activities and great food experiences..."
+              rows={3}
+              maxLength={2000}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              AI will generate placeholder events based on your description
+            </p>
+          </motion.div>
           
           <motion.div variants={itemVariants} className="flex justify-between">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -659,16 +787,47 @@ export const NewTrip = () => {
                 Cancel
               </Button>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button 
-                type="submit" 
-                disabled={!name || !startDate || !endDate}
-                className="gap-2"
-              >
-                Continue
-                <ArrowRight size={16} />
-              </Button>
-            </motion.div>
+
+            <div className="flex items-center gap-2">
+              {tripDescription.trim() && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!name || !startDate || !endDate || isGeneratingItinerary}
+                    className="gap-2"
+                    onClick={handleGenerateItinerary}
+                  >
+                    {isGeneratingItinerary ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} className="text-purple-500" />
+                        Generate with AI
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button 
+                  type="submit" 
+                  disabled={!name || !startDate || !endDate || isGeneratingItinerary}
+                  className="gap-2"
+                >
+                  Continue
+                  <ArrowRight size={16} />
+                </Button>
+              </motion.div>
+            </div>
           </motion.div>
         </form>
       </motion.div>
@@ -1033,6 +1192,16 @@ export const NewTrip = () => {
             </div>
             <h1 className='text-2xl font-bold'>Review Events for "{name}"</h1>
           </motion.div>
+          {isGeneratingItinerary && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg px-4 py-2.5 mb-4"
+            >
+              <Loader2 size={16} className="animate-spin" />
+              <span>Generating events with AI… they'll appear below as they're ready</span>
+            </motion.div>
+          )}
           <div className="flex justify-start">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button onClick={() => createNewEvent({
@@ -1074,6 +1243,7 @@ export const NewTrip = () => {
               }
             } as any)}
             emptyState={emptyState}
+            animate={isGeneratingItinerary}
           />
         </motion.div>
         

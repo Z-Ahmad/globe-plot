@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { useTripContext } from '@/context/TripContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface EventListProps {
   events: Event[];
@@ -14,6 +15,7 @@ interface EventListProps {
   emptyState?: React.ReactNode;
   onViewOnMap?: (eventId: string) => void;
   hideAddButton?: boolean;
+  animate?: boolean;
 }
 
 export const EventList: React.FC<EventListProps> = ({ 
@@ -23,7 +25,8 @@ export const EventList: React.FC<EventListProps> = ({
   onAddNew,
   emptyState,
   onViewOnMap,
-  hideAddButton = false
+  hideAddButton = false,
+  animate = false
 }) => {
   // Group events by date for display
   const eventsByDate = useMemo(() => {
@@ -69,28 +72,67 @@ export const EventList: React.FC<EventListProps> = ({
   
   // Convert grouped events to sorted array of [date, events] pairs
   const sortedDates = Object.keys(eventsByDate).sort();
+
+  // Animation variants for streamed events
+  const eventAnimVariants = {
+    initial: { opacity: 0, y: 20, scale: 0.97 },
+    animate: { 
+      opacity: 1, y: 0, scale: 1,
+      transition: { type: 'spring', stiffness: 400, damping: 25 }
+    },
+    exit: { opacity: 0, y: -10, scale: 0.97, transition: { duration: 0.2 } },
+  };
+
+  const dateHeaderVariants = {
+    initial: { opacity: 0, x: -20 },
+    animate: { 
+      opacity: 1, x: 0,
+      transition: { type: 'spring', stiffness: 300, damping: 20 }
+    },
+  };
   
   return (
     <div className="space-y-8">
-      {sortedDates.map(date => (
-        <div key={date} className="space-y-4">
-          <h3 className="text-lg font-semibold sticky top-0 bg-accent/80 backdrop-blur-sm p-2 z-40 rounded-lg">
-            {formatDateHeader(date)}
-          </h3>
-          
-          <div className="space-y-3">
-            {eventsByDate[date].map(event => (
-              <EventCard 
-                key={event.id}
-                event={event}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onViewOnMap={onViewOnMap}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      <AnimatePresence mode="popLayout">
+        {sortedDates.map(date => (
+          <motion.div
+            key={date}
+            className="space-y-4"
+            layout={animate}
+            {...(animate ? {
+              initial: dateHeaderVariants.initial,
+              animate: dateHeaderVariants.animate,
+            } : {})}
+          >
+            <h3 className="text-lg font-semibold sticky top-0 bg-accent/80 backdrop-blur-sm p-2 z-40 rounded-lg">
+              {formatDateHeader(date)}
+            </h3>
+            
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {eventsByDate[date].map(event => (
+                  <motion.div
+                    key={event.id}
+                    layout={animate}
+                    {...(animate ? {
+                      initial: eventAnimVariants.initial,
+                      animate: eventAnimVariants.animate,
+                      exit: eventAnimVariants.exit,
+                    } : {})}
+                  >
+                    <EventCard 
+                      event={event}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onViewOnMap={onViewOnMap}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
       
       {/* Add new button - only show if not hidden */}
       {!hideAddButton && (

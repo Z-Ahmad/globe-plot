@@ -1,128 +1,17 @@
 import { Request, Response } from 'express';
-import OpenAI from 'openai';
 import { documentService } from '../services/documentService';
 import dotenv from 'dotenv';
 import { Mistral } from '@mistralai/mistralai';
-import { v4 as uuidv4 } from 'uuid';
+import { normalizeEvent, validateEvent } from '../services/eventNormalizer';
 
 // Load environment variables
 dotenv.config();
 
-// console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '***' : 'undefined');
 console.log('Mistral API Key:', process.env.MISTRAL_API_KEY ? '***' : 'undefined');
-
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// });
 
 const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY || ''
 });
-
-// Normalize event to set top-level start/end fields based on type
-function normalizeEvent(event: any) {
-  let start = '';
-  let end = '';
-  // Always set placeName for accommodation events
-  if (event.category === 'accommodation') {
-    event.placeName = event.placeName || event.hotelName || event.hostelName || event.airbnbName || '';
-  }
-  
-  // Determine start/end times based on category
-  switch (event.category) {
-    case 'accommodation':
-      start = event.checkIn?.date || '';
-      end = event.checkOut?.date || '';
-      break;
-    case 'travel':
-      start = event.departure?.date || '';
-      end = event.arrival?.date || '';
-      break;
-    case 'experience':
-      start = event.startDate || '';
-      end = event.endDate || '';
-      break;
-    case 'meal':
-      start = event.date || '';
-      end = event.date || '';
-      break;
-    default:
-      start = event.start || '';
-      end = event.end || '';
-  }
-  
-  // Handle non-standard fields by moving them to notes
-  const knownFields: Record<string, boolean> = {
-    // Common fields
-    id: true, category: true, type: true, title: true, start: true, end: true, 
-    location: true, notes: true,
-    
-    // Travel event fields
-    departure: true, arrival: true, airline: true, flightNumber: true, 
-    trainNumber: true, seat: true, car: true, class: true, bookingReference: true,
-    
-    // Accommodation event fields
-    placeName: true, checkIn: true, checkOut: true, roomNumber: true, 
-    // Accommodation events can also have a bookingReference (already defined above)
-    
-    // Experience event fields
-    startDate: true, endDate: true, // bookingReference already defined above
-    
-    // Meal event fields
-    date: true, reservationReference: true
-  };
-  
-  // Collect unknown fields
-  const unknownFields: string[] = [];
-  for (const key in event) {
-    if (!knownFields[key] && event[key] !== undefined && event[key] !== null) {
-      unknownFields.push(`${key}: ${JSON.stringify(event[key])}`);
-    }
-  }
-  
-  // Add unknown fields to notes
-  let notes = event.notes || '';
-  if (unknownFields.length > 0) {
-    if (notes) notes += '\n\n';
-    notes += 'Additional information:\n' + unknownFields.join('\n');
-  }
-  
-  // Create normalized event
-  // Generate a UUID for the event if it doesn't already have one
-  // This ensures compatibility with Firestore by using the same UUID format
-  const normalizedEvent = {
-    ...event,
-    start,
-    end,
-    notes,
-    id: event.id || uuidv4(),
-  };
-  
-  // Remove unknown fields
-  for (const key in normalizedEvent) {
-    if (!knownFields[key]) {
-      delete normalizedEvent[key];
-    }
-  }
-  
-  return normalizedEvent;
-}
-
-// Validate that event has required fields for its category
-function validateEvent(event: any) {
-  switch (event.category) {
-    case 'accommodation':
-      return !!(event.checkIn?.date && event.checkOut?.date);
-    case 'travel':
-      return !!(event.departure?.date && event.arrival?.date);
-    case 'experience':
-      return !!(event.startDate && event.endDate);
-    case 'meal':
-      return !!event.date;
-    default:
-      return false;
-  }
-}
 
 export const documentController = {
   uploadDocument: async (req: Request, res: Response) => {

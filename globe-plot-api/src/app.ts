@@ -7,6 +7,7 @@ import { documentRoutes } from './routes/documentRoutes';
 import { geocodeRoutes } from './routes/geocodeRoutes';
 import { countryRoutes } from './routes/countryRoutes';
 import { tripQueryRoutes } from './routes/tripQueryRoutes';
+import { agentRoutes } from './routes/agentRoutes';
 import { swaggerSpec } from './config/swagger';
 import { authenticateUser } from './middleware/auth';
 import { aiQueryLimiter, aiQueryDailyLimiter, globalAiQueryLimiter } from './middleware/aiRateLimiter';
@@ -94,6 +95,15 @@ app.use('/api/trip-query',
   aiQueryDailyLimiter, 
   aiQueryLimiter, 
   tripQueryRoutes
+);
+
+// AI Agent route - agentic chat and itinerary generation
+app.use('/api/agent',
+  authenticateUser,
+  globalAiQueryLimiter,
+  aiQueryDailyLimiter,
+  aiQueryLimiter,
+  agentRoutes
 );
 
 // Error handling middleware

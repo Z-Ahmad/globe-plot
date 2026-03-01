@@ -134,6 +134,52 @@ export interface EventStyle {
   svgPath?: string; // Path to the custom styled SVG file
 }
 
+// AI Agent types
+export type AgentActionType = 'create_event' | 'edit_event' | 'delete_event';
+
+export interface AgentAction {
+  id: string;
+  type: AgentActionType;
+  event: Partial<Event> & { id: string; title: string };
+  reason?: string;
+  status: 'proposed' | 'confirmed' | 'rejected';
+}
+
+export interface AgentMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  actions?: AgentAction[];
+}
+
+export interface AgentChatResponse {
+  reply: string;
+  actions: AgentAction[];
+  tokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
+  estimatedCostUsd: number;
+  latencyMs: number;
+}
+
+export interface GenerateItineraryResponse {
+  events: Partial<Event>[];
+  reply: string;
+  tokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
+  estimatedCostUsd: number;
+  latencyMs: number;
+}
+
+export interface ItineraryStreamEvent {
+  event?: Partial<Event>;
+  done?: boolean;
+  reply?: string;
+  tokensUsed?: number;
+  eventCount?: number;
+  error?: string;
+}
+
 export interface ShareInvitation {
   id: string;
   tripId: string;
