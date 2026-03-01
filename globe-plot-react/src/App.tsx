@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Outlet, Navigate, useLocation }
 import { useEffect, useState } from "react";
 import { useIsOnline } from "@/hooks/useIsOnline";
 import { WifiOff, RefreshCw } from "lucide-react";
+import { InstallPromptBanner } from "./components/InstallPromptBanner";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
@@ -156,6 +157,7 @@ function MainLayout() {
       <Footer />
       <BottomNavigation />
       <OfflineBanner />
+      <InstallPromptBanner />
     </div>
   );
 }

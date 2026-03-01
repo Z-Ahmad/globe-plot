@@ -1,12 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Moon, Sun, LogIn, LogOut, User } from "lucide-react";
+import { Moon, Sun, LogIn, LogOut, User, Smartphone } from "lucide-react";
 import { Logo } from "./Logo";
 import { useThemeStore } from "../stores/themeStore";
 import { useUserStore } from "../stores/userStore";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
+import { AddToHomeScreenModal } from "./AddToHomeScreenModal";
 
 function ThemeToggle() {
   const { isDark, toggleTheme } = useThemeStore();
@@ -119,54 +121,84 @@ function ProfileButton() {
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
   const user = useUserStore((state) => state.user);
+  const { canShowInstallPrompt } = usePWAInstall();
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
+    const handleOpenInstall = () => setInstallModalOpen(true);
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("globeplot-open-install-tutorial", handleOpenInstall);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("globeplot-open-install-tutorial", handleOpenInstall);
+    };
   }, []);
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-background/90 shadow-lg backdrop-blur-sm border-b border-border"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="max-w-full mx-2 flex justify-between items-center px-6 py-3">
-        <Link to="/" className="flex items-center gap-3 group">
-          <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
-          <span className="text-2xl font-bold text-foreground">
-            Globeplot
-          </span>
-        </Link>
+    <>
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isScrolled
+            ? "bg-background/90 shadow-lg backdrop-blur-sm border-b border-border"
+            : "bg-transparent"
+        }`}
+      >
+        <div className="max-w-full mx-2 flex justify-between items-center px-6 py-3">
+          <Link to="/" className="flex items-center gap-3 group">
+            <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
+            <span className="text-2xl font-bold text-foreground">
+              Globeplot
+            </span>
+          </Link>
 
-        <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-6">
 
-          {user && (
-            <Link
-              to="/dashboard"
-              className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm"
-            >
-              My Trips
-            </Link>
-          )}
-          <div className="flex items-center gap-3">
+            {user && (
+              <Link
+                to="/dashboard"
+                className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm"
+              >
+                My Trips
+              </Link>
+            )}
+            <div className="flex items-center gap-3">
+              {canShowInstallPrompt && (
+                <button
+                  onClick={() => setInstallModalOpen(true)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  aria-label="Add to Home Screen"
+                  title="Add to Home Screen"
+                >
+                  <Smartphone className="h-5 w-5" />
+                </button>
+              )}
+              <ThemeToggle />
+              <ProfileButton />
+            </div>
+          </nav>
+
+          <div className="md:hidden flex items-center gap-2">
+            {canShowInstallPrompt && (
+              <button
+                onClick={() => setInstallModalOpen(true)}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                aria-label="Add to Home Screen"
+                title="Add to Home Screen"
+              >
+                <Smartphone className="h-5 w-5" />
+              </button>
+            )}
             <ThemeToggle />
             <ProfileButton />
           </div>
-        </nav>
-
-        <div className="md:hidden flex items-center gap-2">
-          <ThemeToggle />
-          <ProfileButton />
         </div>
-      </div>
-    </header>
+      </header>
+      <AddToHomeScreenModal open={installModalOpen} onOpenChange={setInstallModalOpen} />
+    </>
   );
 }
