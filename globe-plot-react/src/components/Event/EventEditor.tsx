@@ -1311,7 +1311,7 @@ export const EventEditor: React.FC<EventEditorProps> = ({
   else {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className={`${bgColor}`}>
+        <DrawerContent className={bgColor}>
           <DrawerHeader>
             <DrawerTitle>{isNewEvent ? 'Add New Event' : `Edit ${editingEvent.title}`}</DrawerTitle>
             <DrawerDescription>

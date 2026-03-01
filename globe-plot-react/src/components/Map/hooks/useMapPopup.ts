@@ -55,6 +55,8 @@ export const useMapPopup = ({
 
       const style = getEventStyle(event);
       const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+      // Use solid opaque colors for map popup (cssDarkBgColor strips /50 from card styles)
+      // so popups stay readable over the map and don't inherit card translucency/blur
       const cssColor = (isDark ? style.cssDarkColor : style.cssColor) || 'var(--color-gray-700)';
       const cssBgColor = (isDark ? style.cssDarkBgColor : style.cssBgColor) || 'var(--color-gray-50)';
 

@@ -96,7 +96,7 @@ export const categoryStyleMap: Record<string, EventStyle> = {
   'travel': {
     icon: BaggageClaim,
     color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-50 dark:bg-blue-950',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/50',
     borderColor: 'border-blue-200 dark:border-blue-800',
     hoverBgColor: 'hover:bg-blue-100 dark:hover:bg-blue-900',
     svgPath: '/svgs/styled-travel.svg'
@@ -104,7 +104,7 @@ export const categoryStyleMap: Record<string, EventStyle> = {
   'accommodation': {
     icon: Building,
     color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-purple-50 dark:bg-purple-950',
+    bgColor: 'bg-purple-50 dark:bg-purple-950/50',
     borderColor: 'border-purple-200 dark:border-purple-800',
     hoverBgColor: 'hover:bg-purple-100 dark:hover:bg-purple-900',
     svgPath: '/svgs/styled-accommodation.svg'
@@ -112,7 +112,7 @@ export const categoryStyleMap: Record<string, EventStyle> = {
   'meal': {
     icon: CookingPot,
     color: 'text-orange-700 dark:text-orange-300',
-    bgColor: 'bg-orange-50 dark:bg-orange-950',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/50',
     borderColor: 'border-orange-200 dark:border-orange-800',
     hoverBgColor: 'hover:bg-orange-100 dark:hover:bg-orange-900',
     svgPath: '/svgs/styled-meal.svg'
@@ -120,7 +120,7 @@ export const categoryStyleMap: Record<string, EventStyle> = {
   'experience': {
     icon: Ticket,
     color: 'text-emerald-700 dark:text-emerald-300',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
     borderColor: 'border-emerald-200 dark:border-emerald-800',
     hoverBgColor: 'hover:bg-emerald-100 dark:hover:bg-emerald-900',
     svgPath: '/svgs/styled-experience.svg'
@@ -133,7 +133,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/flight': {
     icon: Plane,
     color: 'text-sky-700 dark:text-sky-300',
-    bgColor: 'bg-sky-50 dark:bg-sky-950',
+    bgColor: 'bg-sky-50 dark:bg-sky-950/50',
     borderColor: 'border-sky-200 dark:border-sky-800',
     hoverBgColor: 'hover:bg-sky-100 dark:hover:bg-sky-900',
     svgPath: '/svgs/styled-travel-flight.svg'
@@ -141,7 +141,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/train': {
     icon: Train,
     color: 'text-indigo-700 dark:text-indigo-300',
-    bgColor: 'bg-indigo-50 dark:bg-indigo-950',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-950/50',
     borderColor: 'border-indigo-200 dark:border-indigo-800',
     hoverBgColor: 'hover:bg-indigo-100 dark:hover:bg-indigo-900',
     svgPath: '/svgs/styled-travel-train.svg'
@@ -149,7 +149,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/car': {
     icon: Car,
     color: 'text-amber-700 dark:text-amber-300',
-    bgColor: 'bg-amber-50 dark:bg-amber-950',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/50',
     borderColor: 'border-amber-200 dark:border-amber-800',
     hoverBgColor: 'hover:bg-amber-100 dark:hover:bg-amber-900',
     svgPath: '/svgs/styled-travel-car.svg'
@@ -157,7 +157,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/boat': {
     icon: Sailboat,
     color: 'text-cyan-700 dark:text-cyan-300',
-    bgColor: 'bg-cyan-50 dark:bg-cyan-950',
+    bgColor: 'bg-cyan-50 dark:bg-cyan-950/50',
     borderColor: 'border-cyan-200 dark:border-cyan-800',
     hoverBgColor: 'hover:bg-cyan-100 dark:hover:bg-cyan-900',
     svgPath: '/svgs/styled-travel-boat.svg'
@@ -165,7 +165,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/bus': {
     icon: Bus,
     color: 'text-green-700 dark:text-green-300',
-    bgColor: 'bg-green-50 dark:bg-green-950',
+    bgColor: 'bg-green-50 dark:bg-green-950/50',
     borderColor: 'border-green-200 dark:border-green-800',
     hoverBgColor: 'hover:bg-green-100 dark:hover:bg-green-900',
     svgPath: '/svgs/styled-travel-bus.svg'
@@ -173,7 +173,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'travel/other': {
     icon: Car,
     color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-50 dark:bg-blue-950',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/50',
     borderColor: 'border-blue-200 dark:border-blue-800',
     hoverBgColor: 'hover:bg-blue-100 dark:hover:bg-blue-900',
     svgPath: '/svgs/styled-travel-other.svg'
@@ -183,7 +183,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'accommodation/hotel': {
     icon: Hotel,
     color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-purple-50 dark:bg-purple-950',
+    bgColor: 'bg-purple-50 dark:bg-purple-950/50',
     borderColor: 'border-purple-200 dark:border-purple-800',
     hoverBgColor: 'hover:bg-purple-100 dark:hover:bg-purple-900',
     svgPath: '/svgs/styled-accommodation-hotel.svg'
@@ -191,7 +191,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'accommodation/hostel': {
     icon: BedSingle,
     color: 'text-fuchsia-700 dark:text-fuchsia-300',
-    bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950',
+    bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/50',
     borderColor: 'border-fuchsia-200 dark:border-fuchsia-800',
     hoverBgColor: 'hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900',
     svgPath: '/svgs/styled-accommodation-hostel.svg'
@@ -199,7 +199,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'accommodation/airbnb': {
     icon: HousePlus,
     color: 'text-rose-700 dark:text-rose-300',
-    bgColor: 'bg-rose-50 dark:bg-rose-950',
+    bgColor: 'bg-rose-50 dark:bg-rose-950/50',
     borderColor: 'border-rose-200 dark:border-rose-800',
     hoverBgColor: 'hover:bg-rose-100 dark:hover:bg-rose-900',
     svgPath: '/svgs/styled-accommodation-airbnb.svg'
@@ -207,7 +207,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'accommodation/other': {
     icon: House,
     color: 'text-pink-700 dark:text-pink-300',
-    bgColor: 'bg-pink-50 dark:bg-pink-950',
+    bgColor: 'bg-pink-50 dark:bg-pink-950/50',
     borderColor: 'border-pink-200 dark:border-pink-800',
     hoverBgColor: 'hover:bg-pink-100 dark:hover:bg-pink-900',
     svgPath: '/svgs/styled-accommodation-other.svg'
@@ -217,7 +217,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'experience/activity': {
     icon: LandPlot,
     color: 'text-emerald-700 dark:text-emerald-300',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
     borderColor: 'border-emerald-200 dark:border-emerald-800',
     hoverBgColor: 'hover:bg-emerald-100 dark:hover:bg-emerald-900',
     svgPath: '/svgs/styled-experience-activity.svg'
@@ -225,7 +225,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'experience/tour': {
     icon: Binoculars,
     color: 'text-teal-700 dark:text-teal-300',
-    bgColor: 'bg-teal-50 dark:bg-teal-950',
+    bgColor: 'bg-teal-50 dark:bg-teal-950/50',
     borderColor: 'border-teal-200 dark:border-teal-800',
     hoverBgColor: 'hover:bg-teal-100 dark:hover:bg-teal-900',
     svgPath: '/svgs/styled-experience-tour.svg'
@@ -233,7 +233,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'experience/museum': {
     icon: Palette,
     color: 'text-violet-700 dark:text-violet-300',
-    bgColor: 'bg-violet-50 dark:bg-violet-950',
+    bgColor: 'bg-violet-50 dark:bg-violet-950/50',
     borderColor: 'border-violet-200 dark:border-violet-800',
     hoverBgColor: 'hover:bg-violet-100 dark:hover:bg-violet-900',
     svgPath: '/svgs/styled-experience-museum.svg'
@@ -241,7 +241,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'experience/concert': {
     icon: Music,
     color: 'text-red-700 dark:text-red-300',
-    bgColor: 'bg-red-50 dark:bg-red-950',
+    bgColor: 'bg-red-50 dark:bg-red-950/50',
     borderColor: 'border-red-200 dark:border-red-800',
     hoverBgColor: 'hover:bg-red-100 dark:hover:bg-red-900',
     svgPath: '/svgs/styled-experience-concert.svg'
@@ -249,7 +249,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'experience/other': {
     icon: Drama,
     color: 'text-lime-700 dark:text-lime-300',
-    bgColor: 'bg-lime-50 dark:bg-lime-950',
+    bgColor: 'bg-lime-50 dark:bg-lime-950/50',
     borderColor: 'border-lime-200 dark:border-lime-800',
     hoverBgColor: 'hover:bg-lime-100 dark:hover:bg-lime-900',
     svgPath: '/svgs/styled-experience-other.svg'
@@ -259,7 +259,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'meal/restaurant': {
     icon: Utensils,
     color: 'text-orange-700 dark:text-orange-300',
-    bgColor: 'bg-orange-50 dark:bg-orange-950',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/50',
     borderColor: 'border-orange-200 dark:border-orange-800',
     hoverBgColor: 'hover:bg-orange-100 dark:hover:bg-orange-900',
     svgPath: '/svgs/styled-meal-restaurant.svg'
@@ -267,7 +267,7 @@ export const eventStyleMap: Record<string, EventStyle> = {
   'meal/other': {
     icon: UtensilsCrossed,
     color: 'text-yellow-700 dark:text-yellow-300',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-950',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-950/50',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
     hoverBgColor: 'hover:bg-yellow-100 dark:hover:bg-yellow-900',
     svgPath: '/svgs/styled-meal-other.svg'
@@ -292,12 +292,20 @@ function resolveStyle(style: EventStyle): EventStyle {
   const colorParts = splitDarkClass(style.color);
   const bgParts = splitDarkClass(style.bgColor);
 
+  // For map popup: always use solid (opaque) background — strip /50 if present
+  // so popups stay readable over the map and don't inherit card translucency
+  const popupBgLookup = bgParts.dark?.replace(/\/\d+$/, '') ?? 'bg-gray-900';
+
+  // Include backdrop-blur in bgColor so it applies wherever bgColor is used (cards, dialogs, dropdowns)
+  const bgColorWithBlur = `${style.bgColor} dark:backdrop-blur-md`;
+
   return {
     ...style,
+    bgColor: bgColorWithBlur,
     cssColor: lightCssVarMap[colorParts.base] ?? defaultEventStyle.cssColor,
     cssBgColor: lightCssVarMap[bgParts.base] ?? defaultEventStyle.cssBgColor,
     cssDarkColor: darkCssVarMap[colorParts.dark] ?? defaultEventStyle.cssDarkColor,
-    cssDarkBgColor: darkCssVarMap[bgParts.dark] ?? defaultEventStyle.cssDarkBgColor,
+    cssDarkBgColor: darkCssVarMap[popupBgLookup] ?? defaultEventStyle.cssDarkBgColor,
   };
 }
 
