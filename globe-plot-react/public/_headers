@@ -1,0 +1,8 @@
+# Prevent caching of service worker so browser can detect updates
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+
+/dev-sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
