@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useTripContext } from '@/context/TripContext';
 import { AgentMessage, AgentAction, AgentChatResponse, Event } from '@/types/trip';
 import { v4 as uuidv4 } from 'uuid';
+import { useUserStore } from '@/stores/userStore';
 
 interface TripQueryAssistantProps {
   isOpen: boolean;
@@ -160,6 +161,7 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { addEvent, updateEvent, removeEvent } = useTripContext();
   const isMobile = !useMediaQuery('(min-width: 768px)');
+  const user = useUserStore((state) => state.user);
 
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -286,37 +288,32 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={cn(
-            'flex gap-2',
-            msg.role === 'user' ? 'justify-end' : 'justify-start'
-          )}>
-            {msg.role === 'assistant' && (
+          <div key={i} className={cn("flex gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
+            {msg.role === "assistant" && (
               <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center shrink-0 mt-0.5">
                 <Bot className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
               </div>
             )}
 
-            <div className={cn(
-              'max-w-[85%] rounded-xl px-3 py-2 text-sm',
-              msg.role === 'user'
-                ? 'bg-primary text-primary-foreground rounded-br-sm'
-                : 'bg-muted rounded-bl-sm'
-            )}>
+            <div
+              className={cn(
+                "max-w-[85%] rounded-xl px-3 py-2 text-sm",
+                msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
+              )}
+            >
               <p className="whitespace-pre-wrap">{msg.content}</p>
 
-              {msg.actions?.map(action => (
-                <ActionCard
-                  key={action.id}
-                  action={action}
-                  onConfirm={handleConfirmAction}
-                  onReject={handleRejectAction}
-                />
+              {msg.actions?.map((action) => (
+                <ActionCard key={action.id} action={action} onConfirm={handleConfirmAction} onReject={handleRejectAction} />
               ))}
             </div>
 
-            {msg.role === 'user' && (
+            {msg.role === "user" && (
               <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <User className="h-3.5 w-3.5 text-primary" />
+                {user?.photoURL ? 
+                <img src={user.photoURL} alt={user.displayName ?? "User"} className="mt-2 h-6 w-6 object-cover rounded-full" /> 
+                : 
+                <User className="mt-2 h-3.5 w-3.5 text-primary" />}
               </div>
             )}
           </div>
@@ -329,9 +326,9 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
             </div>
             <div className="bg-muted rounded-xl rounded-bl-sm px-4 py-3">
               <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           </div>
@@ -352,18 +349,11 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
             maxLength={500}
             className="flex-1"
           />
-          <Button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            size="icon"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+          <Button type="submit" disabled={isLoading || !input.trim()} size="icon">
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground mt-2 text-center">AI can make mistakes, so double-check responses.</p>
       </form>
     </div>
   );
