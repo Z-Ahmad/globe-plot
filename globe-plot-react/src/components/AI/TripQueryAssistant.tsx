@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useMediaQuery } from 'usehooks-ts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Sparkles, Send, Loader2, User, Bot,
+  Send, Loader2, User, Bot,
   Plus, Pencil, Trash2, Check, X,
   Plane, Hotel, MapPin, UtensilsCrossed,
+  Sparkles,
 } from 'lucide-react';
 import { apiPost } from '@/lib/apiClient';
 import toast from 'react-hot-toast';
@@ -19,7 +21,6 @@ interface TripQueryAssistantProps {
   isOpen: boolean;
   onClose: () => void;
   tripId: string;
-  embedded?: boolean;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -151,18 +152,20 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   isOpen,
   onClose,
   tripId,
-  embedded = false,
 }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { addEvent, updateEvent, removeEvent } = useTripContext();
-  const isMobile = window.innerWidth < 768;
+  const isMobile = !useMediaQuery('(min-width: 768px)');
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
   }, []);
 
   useEffect(() => {
@@ -258,21 +261,12 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   };
 
   const content = (
-    <div className="flex flex-col h-full">
-      {!embedded && (
-        <>
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-5 h-5 text-purple-500" />
-            <h3 className="text-lg font-semibold">AI Trip Assistant</h3>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Ask questions, create events, or edit your itinerary with AI.
-          </p>
-        </>
-      )}
-
-      {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto mb-3 space-y-3 min-h-0">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      {/* Chat messages - only this area scrolls */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden mb-3 space-y-3 min-h-0 overscroll-contain -webkit-overflow-scrolling-touch"
+      >
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">Try asking:</p>
@@ -343,7 +337,7 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
           </div>
         )}
 
-        <div ref={messagesEndRef} />
+        <div aria-hidden="true" />
       </div>
 
       {/* Input */}
@@ -374,21 +368,17 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
     </div>
   );
 
-  if (embedded) {
-    return <div className="p-4 h-full overflow-hidden flex flex-col">{content}</div>;
-  }
-
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="px-4 pb-4 max-h-[85vh]">
-          <DrawerHeader>
-            <DrawerTitle>AI Trip Assistant</DrawerTitle>
+        <DrawerContent className="px-4 pb-4 max-h-[85vh] flex flex-col overflow-hidden">
+          <DrawerHeader className="shrink-0">
+            <DrawerTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500" /> AI Trip Assistant</DrawerTitle>
             <DrawerDescription>
               Ask questions or make changes to your trip
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-hidden">{content}</div>
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{content}</div>
         </DrawerContent>
       </Drawer>
     );
@@ -397,13 +387,13 @@ export const TripQueryAssistant: React.FC<TripQueryAssistantProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>AI Trip Assistant</DialogTitle>
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500" /> AI Trip Assistant</DialogTitle>
           <DialogDescription>
             Ask questions or make changes to your trip
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden">{content}</div>
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{content}</div>
       </DialogContent>
     </Dialog>
   );

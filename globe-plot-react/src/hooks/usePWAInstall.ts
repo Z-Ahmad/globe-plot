@@ -1,3 +1,4 @@
+import { useUserStore } from '@/stores/userStore';
 import { useSyncExternalStore } from 'react';
 
 export type InstallPlatform = 'ios' | 'android' | 'desktop' | null;
@@ -36,7 +37,8 @@ export function usePWAInstall() {
     () => false
   );
   const platform = getInstallPlatform();
-  const canShowInstallPrompt = !isStandalone && platform !== null;
+  const user = useUserStore((state) => state.user);
+  const canShowInstallPrompt = !isStandalone && platform !== null && user !== null;
   return {
     isStandalone,
     platform,

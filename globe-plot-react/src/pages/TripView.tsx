@@ -695,39 +695,13 @@ const TripContent = () => {
         />
       </SidebarPanel>
 
-      {/* AI Chat Sidebar */}
+      {/* AI Chat - Dialog on desktop, Drawer on mobile */}
       {tripId && (
-        <SidebarPanel
+        <TripQueryAssistant
           isOpen={showAISidebar}
           onClose={() => setShowAISidebar(false)}
-          side="right"
-          widthClassName="w-[85vw] md:w-[450px]"
-          header={
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
-                <h2 className="text-lg font-semibold">Travel Intelligence</h2>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setShowAISidebar(false)}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          }
-        >
-          <div className="h-full overflow-hidden">
-            <TripQueryAssistant 
-              isOpen={true}
-              onClose={() => setShowAISidebar(false)}
-              tripId={tripId}
-              embedded={true}
-            />
-          </div>
-        </SidebarPanel>
+          tripId={tripId}
+        />
       )}
 
       {/* Document Upload Modal */}

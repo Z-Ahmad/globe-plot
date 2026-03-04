@@ -88,7 +88,7 @@ function OfflineBanner() {
     } else if (visible) {
       // Keep "back online" visible briefly, then fade out
       setFading(true);
-      const t = setTimeout(() => setVisible(false), 2000);
+      const t = setTimeout(() => setVisible(false), 3000);
       return () => clearTimeout(t);
     }
   }, [isOnline]);
@@ -97,7 +97,7 @@ function OfflineBanner() {
 
   return (
     <div
-      className={`fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-opacity duration-500 ${fading ? "opacity-0" : "opacity-100"} ${isOnline ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" : "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700"}`}
+      className={`fixed top-12 md:top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-opacity duration-500 ${fading ? "opacity-0" : "opacity-100"} ${isOnline ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" : "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700"} backdrop-blur-md`}
     >
       {isOnline ? (
         <span>Back online</span>

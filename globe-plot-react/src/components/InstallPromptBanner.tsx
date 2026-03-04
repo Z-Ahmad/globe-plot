@@ -1,20 +1,21 @@
 import { useState, useEffect } from "react";
 import { Smartphone, X } from "lucide-react";
 import { usePWAInstall, getInstallTutorialDismissed, setInstallTutorialDismissed } from "@/hooks/usePWAInstall";
+import {useUserStore} from "@/stores/userStore";
 
 export const INSTALL_TUTORIAL_OPEN_EVENT = "globeplot-open-install-tutorial";
 
 export function InstallPromptBanner() {
   const { isStandalone, platform, canShowInstallPrompt } = usePWAInstall();
   const [visible, setVisible] = useState(false);
-
+  const user = useUserStore((state) => state.user);
   useEffect(() => {
     if (!canShowInstallPrompt || platform !== "ios") return;
-    if (getInstallTutorialDismissed()) return;
+    if (getInstallTutorialDismissed() || !user) return;
     // Small delay so we don't show immediately on load
     const t = setTimeout(() => setVisible(true), 3000);
     return () => clearTimeout(t);
-  }, [canShowInstallPrompt, platform]);
+  }, [canShowInstallPrompt, platform, user]);
 
   const handleAdd = () => {
     setVisible(false);
