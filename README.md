@@ -1,4 +1,4 @@
-# Globeplot - AI-Powered Travel Intelligence Platform
+# Plotrr - AI-Powered Travel Intelligence Platform
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -8,7 +8,7 @@
 [![Mapbox](https://img.shields.io/badge/Mapbox-000000?logo=mapbox&logoColor=white)](https://www.mapbox.com/)
 [![Mistral AI](https://img.shields.io/badge/MistralAI-000000?logo=mistralai&logoColor=white)](https://mistral.ai/)
 
-Globeplot is a next-generation travel orchestration platform that leverages AI to automatically extract structured data from travel documents and creates beautiful, interactive trip visualizations. Built with enterprise-grade architecture and modern web technologies.
+Plotrr is a next-generation travel orchestration platform that leverages AI to automatically extract structured data from travel documents and creates beautiful, interactive trip visualizations. Built with enterprise-grade architecture and modern web technologies.
 
 ## 🚀 Key Features
 
@@ -69,8 +69,8 @@ Globeplot is a next-generation travel orchestration platform that leverages AI t
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/globeplot.git
-   cd globeplot
+   git clone https://github.com/yourusername/plotrr.git
+   cd plotrr
    ```
 
 2. **Install dependencies**
@@ -107,7 +107,7 @@ Globeplot is a next-generation travel orchestration platform that leverages AI t
 ## 📂 Project Structure
 
 ```
-globeplot/
+plotrr/
 ├── globe-plot-react/          # React frontend application
 │   ├── src/
 │   │   ├── components/        # Reusable UI components

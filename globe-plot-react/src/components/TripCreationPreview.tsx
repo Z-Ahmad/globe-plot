@@ -134,7 +134,7 @@ export const TripCreationPreview: React.FC<TripCreationPreviewProps> = ({
 
   const isMobile = deviceType === 'mobile';
   const containerHeight = isMobile ? 'h-96' : 'h-80';
-  const frameUrl = 'globeplot.com/trip/new';
+  const frameUrl = 'plotrr.com/trip/new';
 
   // Shared stage content — rendered identically for both mobile and desktop
   const stageContent = (

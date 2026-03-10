@@ -2,7 +2,7 @@
 
 ## Overview
 
-Globeplot is now a fully functional Progressive Web App (PWA) that can be installed on desktop and mobile devices, works offline, and provides a native app-like experience.
+Plotrr is now a fully functional Progressive Web App (PWA) that can be installed on desktop and mobile devices, works offline, and provides a native app-like experience.
 
 ## Features Implemented
 
@@ -17,7 +17,7 @@ Globeplot is now a fully functional Progressive Web App (PWA) that can be instal
 - Smart runtime caching for external resources
 
 ### 3. **App Installation**
-- Users can install Globeplot on:
+- Users can install Plotrr on:
   - Desktop (Windows, macOS, Linux)
   - Mobile (iOS, Android)
 - Appears in app drawer/launcher like native apps
@@ -110,19 +110,19 @@ export default defineConfig({
 ### For End Users
 
 #### Desktop Installation
-1. Visit the Globeplot website
+1. Visit the Plotrr website
 2. Look for the install icon in the browser address bar (Chrome/Edge) or app menu (Firefox)
-3. Click "Install" to add Globeplot to your desktop
+3. Click "Install" to add Plotrr to your desktop
 4. Launch from your applications menu or taskbar
 
 #### Mobile Installation (iOS)
-1. Open Globeplot in Safari
+1. Open Plotrr in Safari
 2. Tap the Share button (square with arrow)
 3. Scroll down and tap "Add to Home Screen"
 4. Tap "Add" to confirm
 
 #### Mobile Installation (Android)
-1. Open Globeplot in Chrome or Samsung Internet
+1. Open Plotrr in Chrome or Samsung Internet
 2. Tap the three-dot menu
 3. Tap "Install App" or "Add to Home screen"
 4. Follow the prompts to install
@@ -299,4 +299,4 @@ For issues or questions about the PWA implementation:
 
 ---
 
-**Note**: The PWA implementation follows best practices from Google's Workbox and the Vite PWA plugin. The configuration is optimized for Globeplot's specific use case with travel documents, maps, and real-time data.
+**Note**: The PWA implementation follows best practices from Google's Workbox and the Vite PWA plugin. The configuration is optimized for Plotrr's specific use case with travel documents, maps, and real-time data.

@@ -14,12 +14,12 @@ export default defineConfig({
       includeAssets: [
         "favicon/favicon.ico",
         "favicon/apple-touch-icon.png",
-        "logo.svg",
-        "logo2.svg",
+        "favicon/web-app-manifest-192x192.png",
+        "favicon/web-app-manifest-512x512.png",
       ],
       manifest: {
-        name: "Globeplot - Travel Itinerary Organizer",
-        short_name: "Globeplot",
+        name: "Plotrr - Travel With Confidence",
+        short_name: "Plotrr",
         description:
           "Organize multi-stop travel itineraries with ease. Upload travel documents, plan your trips, and visualize your journey on interactive maps.",
         theme_color: "#1e293b",
@@ -31,13 +31,13 @@ export default defineConfig({
         categories: ["travel", "productivity", "lifestyle"],
         icons: [
           {
-            src: "/favicon/android-chrome-192x192.png",
+            src: "/favicon/web-app-manifest-192x192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/favicon/android-chrome-512x512.png",
+            src: "/favicon/web-app-manifest-512x512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",

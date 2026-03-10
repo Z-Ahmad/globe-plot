@@ -121,8 +121,8 @@ export function Login() {
         {/* Logo & heading */}
         <div className="flex flex-col items-center mb-8">
           <Link to="/" className="flex items-center gap-2 mb-6 group">
-            <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
-            <span className="text-2xl font-bold text-foreground">Globeplot</span>
+            <Logo className="w-10 h-10" />
+            <span className="text-2xl font-bold text-foreground">Plotrr</span>
           </Link>
           <h1 className="text-2xl font-bold text-foreground">
             {mode === "signin" ? "Welcome back" : "Create your account"}

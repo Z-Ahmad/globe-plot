@@ -132,10 +132,10 @@ export function Navbar() {
     const handleOpenInstall = () => setInstallModalOpen(true);
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("globeplot-open-install-tutorial", handleOpenInstall);
+    window.addEventListener("plotrr-open-install-tutorial", handleOpenInstall);
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("globeplot-open-install-tutorial", handleOpenInstall);
+      window.removeEventListener("plotrr-open-install-tutorial", handleOpenInstall);
     };
   }, []);
 
@@ -150,9 +150,9 @@ export function Navbar() {
       >
         <div className="max-w-full mx-2 flex justify-between items-center px-6 py-3">
           <Link to="/" className="flex items-center gap-3 group">
-            <Logo className="w-10 h-10 transition-transform duration-500 group-hover:[transform:rotateY(180deg)]" />
+            <Logo className="w-10 h-10" />
             <span className="text-2xl font-bold text-foreground">
-              Globeplot
+              Plotrr
             </span>
           </Link>
 

@@ -3,7 +3,7 @@ import { Smartphone, X } from "lucide-react";
 import { usePWAInstall, getInstallTutorialDismissed, setInstallTutorialDismissed } from "@/hooks/usePWAInstall";
 import {useUserStore} from "@/stores/userStore";
 
-export const INSTALL_TUTORIAL_OPEN_EVENT = "globeplot-open-install-tutorial";
+export const INSTALL_TUTORIAL_OPEN_EVENT = "plotrr-open-install-tutorial";
 
 export function InstallPromptBanner() {
   const { isStandalone, platform, canShowInstallPrompt } = usePWAInstall();
@@ -38,7 +38,7 @@ export function InstallPromptBanner() {
     >
       <Smartphone className="h-8 w-8 shrink-0 text-primary" />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground">Add Globeplot to your home screen</p>
+        <p className="font-medium text-foreground">Add Plotrr to your home screen</p>
         <p className="text-xs text-muted-foreground mt-0.5">Quick access and offline use</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">

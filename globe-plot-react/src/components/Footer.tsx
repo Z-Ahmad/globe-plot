@@ -9,7 +9,7 @@ export function Footer() {
           <div className="flex items-center mb-4 md:mb-0">
             <Link to="/" className="flex items-center gap-2">
               <Logo className="w-6 h-6" />
-              <span className="text-sm font-bold">Globeplot</span>
+              <span className="text-sm font-bold">Plotrr</span>
             </Link>
             <span className="text-xs text-muted-foreground ml-4">© {new Date().getFullYear()}</span>
           </div>
@@ -21,7 +21,7 @@ export function Footer() {
             {/* <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               GitHub
             </a>
-            <a href="mailto:contact@globeplot.com" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="mailto:contact@plotrr.com" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Contact
             </a> */}
           </div>

@@ -6,11 +6,12 @@ export const PrivacyPolicy = () => {
     <main className="max-w-4xl mx-auto p-6">
       <div className="bg-card border border-border rounded-lg p-8">
         <h1 className="text-3xl font-bold mb-6">Privacy Policy</h1>
+        <p className="text-muted-foreground text-sm mb-8">Last updated: March 9, 2025</p>
 
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Overview</h2>
           <p className="mb-4">
-            At GlobePlot, we value your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, process, and
+            At Plotrr, we value your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, process, and
             safeguard information when you use our travel itinerary organization application.
           </p>
         </section>
@@ -18,7 +19,7 @@ export const PrivacyPolicy = () => {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Data Processing</h2>
           <p className="mb-4">
-            When you upload travel documents to GlobePlot, our system processes these documents to extract relevant travel information such as flight details,
+            When you upload travel documents to Plotrr, our system processes these documents to extract relevant travel information such as flight details,
             hotel bookings, and activity reservations.
           </p>
 
@@ -42,7 +43,12 @@ export const PrivacyPolicy = () => {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">AI Processing</h2>
           <p className="mb-4">
-            GlobePlot uses Mistral AI's services to process and extract information from your travel documents. According to{" "}
+            Plotrr uses third-party AI services to power certain features. Your data is processed according to each provider's privacy commitments:
+          </p>
+
+          <h3 className="text-xl font-medium mt-6 mb-3">Document Processing (Mistral AI)</h3>
+          <p className="mb-4">
+            When you upload travel documents (PDFs, emails, images), we use Mistral AI to extract travel information. According to{" "}
             <a
               href="https://help.mistral.ai/en/articles/156194-does-mistral-ai-exploit-users-data-to-train-its-models"
               target="_blank"
@@ -51,10 +57,7 @@ export const PrivacyPolicy = () => {
             >
               Mistral AI's official policy
             </a>
-            , they do not use data from their API (neither inputs nor outputs) to train their models.
-          </p>
-          <p className="mb-4">
-            As stated in their{" "}
+            , they do not use data from their API (neither inputs nor outputs) to train their models. As stated in their{" "}
             <a
               href="https://mistral.ai/terms#additional-terms-for-la-plateforme"
               target="_blank"
@@ -63,8 +66,36 @@ export const PrivacyPolicy = () => {
             >
               Terms of Use
             </a>
-            : "We do not use Your Data to improve, enhance, or train our models or the Services or for any other purpose than to provide the Services and to
-            monitor abuse."
+            : "We do not use Your Data to improve, enhance, or train our models or the Services or for any other purpose than to provide the Services and to monitor abuse."
+          </p>
+
+          <h3 className="text-xl font-medium mt-6 mb-3">Travel Intelligence (OpenAI)</h3>
+          <p className="mb-4">
+            Our Travel Intelligence chat assistant and AI trip generation features use OpenAI's GPT-4o-mini model. Your trip descriptions and chat messages are sent to OpenAI solely to provide these features. According to{" "}
+            <a
+              href="https://openai.com/policies/enterprise-privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              OpenAI's API data usage policy
+            </a>
+            , API data is not used to train or improve their models.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Geocoding (Mapbox)</h2>
+          <p className="mb-4">
+            When you add or view event locations, we use Mapbox's geocoding services to convert addresses into map coordinates. Location text (e.g., city names, venue addresses) is sent to Mapbox to provide map visualization and routing. Mapbox processes this data according to their{" "}
+            <a
+              href="https://www.mapbox.com/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Privacy Policy
+            </a>.
           </p>
         </section>
 
@@ -90,10 +121,15 @@ export const PrivacyPolicy = () => {
           <h3 className="text-xl font-medium mt-6 mb-3">Document Storage</h3>
           <ul className="list-disc pl-6 mb-4 space-y-2">
             <li>Uploaded documents (PDFs, emails, images) are stored in Firebase Storage</li>
-            <li>Documents are associated with your account and accessible only to you and your collaborators</li>
+            <li>Documents are associated with your account and accessible only to you and people you share trips with</li>
             <li>You can delete uploaded documents at any time</li>
             <li>Documents are automatically deleted when you delete the associated trip or your account</li>
           </ul>
+
+          <h3 className="text-xl font-medium mt-6 mb-3">Trip Sharing</h3>
+          <p className="mb-4">
+            When you share a trip with others (via email invitation or shareable link), the people you invite can view and edit all trip details, events, and documents. You can revoke access at any time.
+          </p>
 
           <p className="mb-4">
             <strong>Data Location:</strong> Your data is stored in Google's secure data centers. Firebase complies with major privacy regulations including GDPR and CCPA.
@@ -121,7 +157,10 @@ export const PrivacyPolicy = () => {
           </ul>
           <p className="mb-4">
             To exercise any of these rights or if you have questions about your data, you can manage everything through your account dashboard 
-            or contact us directly.
+            or contact us at{" "}
+            <a href="mailto:contact@plotrr.com" className="text-primary hover:underline">
+              contact@plotrr.com
+            </a>.
           </p>
         </section>
 

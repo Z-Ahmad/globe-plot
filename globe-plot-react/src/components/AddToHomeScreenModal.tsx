@@ -24,7 +24,7 @@ interface AddToHomeScreenModalProps {
 function IOSInstructions() {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Add Globeplot to your home screen for quick access and offline use. Follow these steps:</p>
+      <p className="text-sm text-muted-foreground">Add Plotrr to your home screen for quick access and offline use. Follow these steps:</p>
       <ol className="space-y-4 text-sm">
         <li className="flex gap-3">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">1</span>
@@ -64,7 +64,7 @@ function AndroidInstructions() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Add Globeplot to your home screen for quick access and offline use:
+        Add Plotrr to your home screen for quick access and offline use:
       </p>
       <ol className="space-y-4 text-sm">
         <li className="flex gap-3">
@@ -87,7 +87,7 @@ function AndroidInstructions() {
           <div>
             <p className="font-medium text-foreground">Tap &quot;Add to Home screen&quot; or &quot;Install app&quot;</p>
             <p className="text-muted-foreground mt-0.5">
-              Select the option to install Globeplot on your device.
+              Select the option to install Plotrr on your device.
             </p>
           </div>
         </li>
@@ -100,7 +100,7 @@ function DesktopInstructions() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Install Globeplot as an app for quick access and offline use:
+        Install Plotrr as an app for quick access and offline use:
       </p>
       <ol className="space-y-4 text-sm">
         <li className="flex gap-3">
@@ -125,7 +125,7 @@ function DesktopInstructions() {
             <p className="text-muted-foreground mt-0.5">
               Click the three dots
               <MoreVertical className="inline-block mx-1.5 h-4 w-4 align-middle" />
-              → &quot;Install Globeplot&quot; or &quot;Apps&quot; → &quot;Install this site as an app&quot;.
+              → &quot;Install Plotrr&quot; or &quot;Apps&quot; → &quot;Install this site as an app&quot;.
             </p>
           </div>
         </li>
@@ -154,7 +154,7 @@ export function AddToHomeScreenModal({ open, onOpenChange }: AddToHomeScreenModa
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>Add Globeplot to Home Screen</DialogTitle>
+            <DialogTitle>Add Plotrr to Home Screen</DialogTitle>
             <DialogDescription>
               Get a native app experience with offline access
             </DialogDescription>
@@ -169,7 +169,7 @@ export function AddToHomeScreenModal({ open, onOpenChange }: AddToHomeScreenModa
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="px-4 pb-6 max-h-[85vh]">
         <DrawerHeader>
-          <DrawerTitle>Add Globeplot to Home Screen</DrawerTitle>
+          <DrawerTitle>Add Plotrr to Home Screen</DrawerTitle>
           <DrawerDescription>
             Get a native app experience with offline access
           </DrawerDescription>

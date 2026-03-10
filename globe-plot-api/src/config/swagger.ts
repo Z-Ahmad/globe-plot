@@ -4,9 +4,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'GlobePlot API',
+      title: 'Plotrr API',
       version: '1.0.0',
-      description: 'API for GlobePlot travel planning application',
+      description: 'API for Plotrr travel planning application',
     },
     servers: [
       {

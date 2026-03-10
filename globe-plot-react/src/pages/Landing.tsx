@@ -382,7 +382,7 @@ export function Landing() {
                 >
                   <Sparkles className="w-8 h-8 text-green-400" />
                 </motion.div>
-                <h3 className="text-2xl font-bold text-white mb-2">The Globeplot Way</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">The Plotrr Way</h3>
                 <p className="text-slate-400">Drop files. Get organized. Travel.</p>
               </div>
 

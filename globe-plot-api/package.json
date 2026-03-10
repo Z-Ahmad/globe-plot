@@ -1,7 +1,7 @@
 {
   "name": "globe-plot-api",
   "version": "1.0.0",
-  "description": "Backend API for GlobePlot travel planning application",
+  "description": "Backend API for Plotrr travel planning application",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
